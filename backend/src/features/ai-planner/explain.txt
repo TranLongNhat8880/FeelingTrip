@@ -1,0 +1,24 @@
+﻿================================================================================
+PHÂN HỆ: AI TRAVEL PLANNER (GỢI Ý LỊCH TRÌNH THÔNG MINH) - src/features/ai-planner/
+================================================================================
+
+1. TÁC DỤNG CỦA PHÂN HỆ:
+   Sử dụng AI (Google Gemini API) để tự động sinh ra một lịch trình du lịch chi tiết
+   dựa trên các thông tin cơ bản: Điểm đến, số ngày, ngân sách, phong cách du lịch.
+   Dữ liệu trả về dạng JSON chuẩn để người dùng có thể chỉnh sửa và lưu vào chuyến đi.
+
+2. CẤU TRÚC 4 TẦNG (Controller - Service - Repository):
+   - aiPlanner.routes.js: Định nghĩa endpoint tạo lịch trình AI.
+   - aiPlanner.controller.js: Nhận prompt và tham số từ client.
+   - aiPlanner.service.js: Gọi Gemini API với Structured JSON Output và định dạng dữ liệu.
+   - aiPlanner.repository.js: Thao tác lưu lịch trình do AI tạo vào DB nếu người dùng bấm "Lưu".
+
+3. CÁC FILE DÙNG CHUNG CẦN GỌI (SHARED):
+   - ../../shared/services/gemini.service.js     -> generateItineraryWithGemini
+   - ../../shared/middlewares/auth.middleware.js -> authenticate
+   - ../../shared/utils/response.util.js         -> sendSuccess, sendError
+
+4. CÁC API CẦN TRIỂN KHAI TRONG PHÂN HỆ NÀY:
+   - POST /api/v1/ai-planner/generate : Sinh lịch trình du lịch tự động bằng Gemini AI
+   - POST /api/v1/ai-planner/save     : Lưu lịch trình vừa sinh bởi AI thành chuyến đi thật
+================================================================================

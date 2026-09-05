@@ -1,0 +1,29 @@
+﻿================================================================================
+PHÂN HỆ: TRIPS (QUẢN LÝ CHUYẾN ĐI & NHÓM) - src/features/trips/
+================================================================================
+
+1. TÁC DỤNG CỦA PHÂN HỆ:
+   Quản lý vòng đời chuyến đi (Tạo mới, sửa, hủy, hoàn thành), quản lý các thành viên trong nhóm,
+   sinh mã mời nhóm (Invite code), và phân quyền Trưởng nhóm / Thành viên.
+
+2. CẤU TRÚC 4 TẦNG (Controller - Service - Repository):
+   - trips.routes.js: Định nghĩa các endpoints chuyến đi và thành viên.
+   - trips.controller.js: Nhận request và kiểm tra quyền trước khi thao tác.
+   - trips.service.js: Xử lý logic tạo chuyến đi, sinh mã mời, kiểm tra nợ trước khi rời nhóm.
+   - trips.repository.js: Thao tác trực tiếp với Database (viết SQL bảng 'trips', 'trip_members').
+
+3. CÁC FILE DÙNG CHUNG CẦN GỌI (SHARED):
+   - ../../shared/middlewares/auth.middleware.js -> authenticate (bắt buộc đăng nhập)
+   - ../../shared/constants/roles.js             -> TRIP_ROLES (LEADER, MEMBER)
+   - ../../shared/utils/response.util.js         -> sendSuccess, sendError
+
+4. CÁC API CẦN TRIỂN KHAI TRONG PHÂN HỆ NÀY:
+   - POST   /api/v1/trips              : Tạo chuyến đi nhanh (điểm đến, ngày đi, ngày về, ngân sách)
+   - GET    /api/v1/trips/my-trips     : Lấy danh sách chuyến đi của tôi (sắp tới, đang đi, đã xong)
+   - GET    /api/v1/trips/:id          : Xem chi tiết 1 chuyến đi và danh sách thành viên
+   - PUT    /api/v1/trips/:id          : Sửa thông tin chuyến đi (chỉ Leader)
+   - DELETE /api/v1/trips/:id          : Hủy chuyến đi (chỉ Leader)
+   - POST   /api/v1/trips/:id/join     : Tham gia chuyến đi bằng mã mời (Invite code)
+   - POST   /api/v1/trips/:id/leave    : Rời nhóm (kiểm tra không còn nợ tiền mới được rời)
+   - DELETE /api/v1/trips/:id/members/:userId : Kick thành viên ra khỏi nhóm (chỉ Leader)
+================================================================================

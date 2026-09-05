@@ -1,0 +1,55 @@
+================================================================================
+HƯỚNG DẪN CƠ SỞ DỮ LIỆU POSTGRESQL (SUPABASE) - FEELINGTRIP
+File mã nguồn SQL: backend/database/schema.sql
+================================================================================
+
+1. CÁCH ĐƯA LÊN SUPABASE (CHỈ MẤT 30 GIÂY):
+   Bước 1: Đăng nhập vào dashboard dự án trên Supabase (https://supabase.com).
+   Bước 2: Ở menu bên trái, chọn biểu tượng "SQL Editor".
+   Bước 3: Mở file 'backend/database/schema.sql', copy toàn bộ nội dung.
+   Bước 4: Paste vào màn hình SQL Editor của Supabase và nhấn nút "RUN".
+   Bước 5: Toàn bộ bảng, khóa chính, khóa ngoại, trigger và index sẽ được khởi tạo hoàn tất!
+
+--------------------------------------------------------------------------------
+2. DANH SÁCH CÁC BẢNG VÀ MỐI QUAN HỆ (ERD TỔNG QUAN):
+--------------------------------------------------------------------------------
+
+[1] BẢNG users
+    - Chứa tài khoản người dùng, mật khẩu băm, Google ID.
+    - Cột 'is_verified' (BOOLEAN): Tích xanh xác minh CCCD/eKYC.
+    - Cột 'bank_bin', 'bank_account_number', 'bank_account_name': Thông tin tài khoản ngân hàng để nhận tiền qua VietQR.
+    - Cột 'role': USER hoặc ADMIN.
+
+[2] BẢNG trips
+    - Chứa thông tin chuyến đi: Điểm đến (destination), ngày đi, ngày về, ngân sách dự kiến.
+    - 'invite_code': Mã phòng ngắn (VD: TRIP-8X2A) để bạn bè tham gia nhóm.
+    - 'is_clone', 'original_trip_id', 'clone_count': Phục vụ tính năng Fork/Clone Plan của người khác.
+
+[3] BẢNG trip_members
+    - Quản lý thành viên trong từng chuyến đi.
+    - 'role': LEADER (Trưởng nhóm) hoặc MEMBER (Thành viên).
+
+[4] BẢNG places
+    - Kho dữ liệu địa điểm chuẩn (địa chỉ, tọa độ lat/lng, category: CAFE, RESTAURANT, ATTRACTION...).
+    - Dùng cho tính năng SMART SWAP: Khi user muốn đổi điểm B sang B+ cùng category lân cận.
+
+[5] BẢNG itineraries & itinerary_items
+    - 'itineraries': Các ngày trong chuyến đi (Day 1, Day 2, Day 3...).
+    - 'itinerary_items': Các hoạt động/địa điểm cụ thể trong ngày (giờ bắt đầu, kết thúc, thứ tự order_index, chi phí dự kiến).
+
+[6] BẢNG expenses, expense_splits & settlements (BỘ 3 CHIA TIỀN SPLIT BILL)
+    - 'expenses': Khoản chi tiêu chung (Ai đứng ra trả tiền trước, tổng tiền, loại chi phí).
+    - 'expense_splits': Phân bổ số tiền mỗi thành viên phải chịu trong khoản chi đó.
+    - 'settlements': Kết quả tính toán của thuật toán rút gọn nợ Min Cash Flow.
+      + Ghi rõ: from_user_id (ai nợ) -> to_user_id (trả cho ai) -> amount (số tiền).
+      + 'vietqr_url': Link ảnh mã QR ngân hàng tạo tự động để quét thanh toán.
+      + 'status': PENDING (Chưa trả) hoặc PAID (Đã thanh toán).
+
+[7] BẢNG companion_posts & companion_requests (BẢNG TIN TÌM BẠN)
+    - 'companion_posts': Bài đăng tìm bạn đồng hành trên Newsfeed (số slot tuyển, yêu cầu độ tuổi, tags).
+    - 'companion_requests': Lời xin gia nhập của người lạ gửi tới Trưởng nhóm.
+
+[8] BẢNG trip_reviews & user_reports (ĐÁNH GIÁ & BÁO CÁO)
+    - 'trip_reviews': Đánh giá sao (1-5 sao) và nhận xét bạn đồng hành.
+    - 'user_reports': Báo cáo tài khoản xấu hoặc hành vi quỵt tiền gửi lên Admin.
+================================================================================

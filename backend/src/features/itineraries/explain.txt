@@ -1,0 +1,32 @@
+﻿================================================================================
+PHÂN HỆ: ITINERARIES (LỊCH TRÌNH THEO NGÀY, SMART SWAP & CLONE PLAN)
+src/features/itineraries/
+================================================================================
+
+1. TÁC DỤNG CỦA PHÂN HỆ:
+   - Quản lý lịch trình chi tiết theo từng ngày (Day 1, Day 2...).
+   - Thêm, sửa, xóa, sắp xếp thứ tự các địa điểm/hoạt động.
+   - Tính năng độc quyền SMART SWAP: Đổi địa điểm B sang địa điểm B+ lân cận cùng category.
+   - Tính năng CLONE PLAN: Nhân bản 1-click lịch trình mẫu hoặc plan top-rated của người khác.
+
+2. CẤU TRÚC 4 TẦNG (Controller - Service - Repository):
+   - itineraries.routes.js: Định nghĩa các endpoints lịch trình và smart swap.
+   - itineraries.controller.js: Nhận request và chuyển về service.
+   - itineraries.service.js: Xử lý logic thêm bớt hoạt động, thuật toán smart swap, clone plan.
+   - itineraries.repository.js: Thao tác trực tiếp với Database (viết SQL bảng 'itineraries', 'itinerary_items', 'places').
+
+3. CÁC FILE DÙNG CHUNG CẦN GỌI (SHARED):
+   - ../../shared/middlewares/auth.middleware.js -> authenticate
+   - ../../shared/constants/categories.js        -> PLACE_CATEGORIES
+   - ../../shared/utils/response.util.js         -> sendSuccess, sendError
+
+4. CÁC API CẦN TRIỂN KHAI TRONG PHÂN HỆ NÀY:
+   - GET  /api/v1/itineraries/trip/:tripId          : Lấy toàn bộ lịch trình theo ngày của chuyến đi
+   - POST /api/v1/itineraries/:dayId/items          : Thêm địa điểm/hoạt động vào 1 ngày
+   - PUT  /api/v1/itineraries/items/:itemId         : Cập nhật hoạt động (thời gian, ghi chú)
+   - DELETE /api/v1/itineraries/items/:itemId       : Xóa hoạt động khỏi lịch trình
+   - PUT  /api/v1/itineraries/reorder               : Cập nhật thứ tự sắp xếp các hoạt động
+   - GET  /api/v1/itineraries/smart-swap/:placeId   : Gợi ý các điểm B+ tương đương lân cận để đổi
+   - POST /api/v1/itineraries/smart-swap/apply      : Áp dụng thay thế điểm B bằng B+
+   - POST /api/v1/itineraries/clone/:sourceTripId   : Sao chép toàn bộ lịch trình của người khác (Fork Plan)
+================================================================================

@@ -1,0 +1,32 @@
+﻿================================================================================
+PHÂN HỆ: ADMIN (CỔNG QUẢN TRỊ VIÊN HỆ THỐNG) - src/features/admin/
+================================================================================
+
+1. TÁC DỤNG CỦA PHÂN HỆ:
+   Dành riêng cho Quản trị viên (Admin) để:
+   - Quản lý danh sách tài khoản người dùng, khóa/mở khóa tài khoản.
+   - Phê duyệt hoặc từ chối các yêu cầu xác minh danh tính eKYC CCCD.
+   - Xử lý các báo cáo vi phạm, lừa đảo từ người dùng.
+   - Quản lý các chuyến đi công khai vi phạm và quản lý kho lịch trình mẫu.
+
+2. CẤU TRÚC 4 TẦNG (Controller - Service - Repository):
+   - admin.routes.js: Định nghĩa các endpoints quản trị (được bảo vệ bằng role ADMIN).
+   - admin.controller.js: Nhận thao tác duyệt/khóa từ web admin.
+   - admin.service.js: Xử lý nghiệp vụ kiểm duyệt, cảnh báo tài khoản.
+   - admin.repository.js: Thao tác trực tiếp với Database (cập nhật trạng thái user, report).
+
+3. CÁC FILE DÙNG CHUNG CẦN GỌI (SHARED):
+   - ../../shared/middlewares/auth.middleware.js -> authenticate
+   - ../../shared/middlewares/role.middleware.js -> authorize(ROLES.ADMIN)
+   - ../../shared/constants/roles.js             -> ROLES.ADMIN
+   - ../../shared/utils/response.util.js         -> sendSuccess, sendError
+
+4. CÁC API CẦN TRIỂN KHAI TRONG PHÂN HỆ NÀY:
+   - GET  /api/v1/admin/users                 : Lấy danh sách tất cả tài khoản
+   - PUT  /api/v1/admin/users/:id/status      : Khóa / Mở khóa tài khoản người dùng
+   - GET  /api/v1/admin/ekyc/pending          : Lấy danh sách hồ sơ CCCD đang chờ duyệt
+   - PUT  /api/v1/admin/ekyc/:id/approve      : Duyệt cấp Tích xanh "Đã xác minh"
+   - PUT  /api/v1/admin/ekyc/:id/reject       : Từ chối hồ sơ xác minh CCCD
+   - GET  /api/v1/admin/reports               : Xem danh sách các báo cáo vi phạm
+   - PUT  /api/v1/admin/reports/:id/resolve   : Xử lý xong báo cáo vi phạm
+================================================================================

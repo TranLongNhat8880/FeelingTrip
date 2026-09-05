@@ -1,0 +1,27 @@
+﻿================================================================================
+PHÂN HỆ: AUTHENTICATION (XÁC THỰC & TÀI KHOẢN) - src/features/auth/
+================================================================================
+
+1. TÁC DỤNG CỦA PHÂN HỆ:
+   Quản lý toàn bộ quy trình đăng ký, đăng nhập, quên mật khẩu và xác thực email OTP.
+
+2. CẤU TRÚC 4 TẦNG (Controller - Service - Repository):
+   - auth.routes.js: Định nghĩa các URL endpoints (POST /register, POST /login, POST /send-otp...).
+   - auth.controller.js: Nhận request từ client, validate dữ liệu đầu vào và gọi service.
+   - auth.service.js: Xử lý logic nghiệp vụ (mã hóa pass, tạo JWT, tính toán logic) -> gọi repository.
+   - auth.repository.js: Thao tác trực tiếp với Database (viết SQL SELECT, INSERT người dùng).
+
+3. CÁC FILE DÙNG CHUNG CẦN GỌI (SHARED):
+   - ../../shared/utils/response.util.js  -> sendSuccess, sendError
+   - ../../shared/utils/hash.util.js      -> hashPassword, comparePassword
+   - ../../shared/utils/token.util.js     -> generateToken
+   - ../../shared/constants/httpStatus.js -> HTTP_STATUS (200, 201, 400, 401...)
+
+4. CÁC API CẦN TRIỂN KHAI TRONG PHÂN HỆ NÀY:
+   - POST /api/v1/auth/register    : Đăng ký tài khoản mới (email, password, fullName, phone)
+   - POST /api/v1/auth/login       : Đăng nhập (email + password) -> trả về JWT token
+   - POST /api/v1/auth/google      : Đăng nhập bằng Google OAuth
+   - POST /api/v1/auth/send-otp    : Gửi mã OTP xác thực email
+   - POST /api/v1/auth/verify-otp  : Xác thực mã OTP và kích hoạt tài khoản
+   - POST /api/v1/auth/forgot-pass : Quên mật khẩu / Đặt lại mật khẩu
+================================================================================

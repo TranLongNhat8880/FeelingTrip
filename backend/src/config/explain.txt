@@ -1,0 +1,20 @@
+================================================================================
+THƯ MỤC CẤU HÌNH HỆ THỐNG: src/config/
+================================================================================
+
+1. TÁC DỤNG CỦA THƯ MỤC NÀY:
+   Chứa toàn bộ các thiết lập cấu hình môi trường (.env) và kết nối cơ sở dữ liệu.
+   Tất cả các thành viên KHÔNG CẦN chỉnh sửa thư mục này trừ khi thêm biến môi trường mới.
+
+2. CÁC FILE TRONG THƯ MỤC:
+   - env.js:
+     + Đọc các biến từ file .env (PORT, JWT_SECRET, DATABASE_URL, GEMINI_API_KEY...).
+     + Cung cấp object cấu hình tập trung để các file khác import vào dùng.
+   - database.js:
+     + Khởi tạo PostgreSQL Connection Pool (dùng thư viện 'pg').
+     + Xuất ra hàm `db.query(text, params)` để toàn bộ các Service trong dự án gọi truy vấn SQL.
+
+3. CÁCH DÙNG TRONG CODE (VÍ DỤ):
+   const db = require('../../config/database');
+   const result = await db.query('SELECT * FROM users WHERE id = $1', [userId]);
+================================================================================

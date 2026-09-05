@@ -1,0 +1,26 @@
+﻿================================================================================
+PHÂN HỆ: USERS (HỒ SƠ CÁ NHÂN & eKYC CCCD) - src/features/users/
+================================================================================
+
+1. TÁC DỤNG CỦA PHÂN HỆ:
+   Quản lý thông tin cá nhân của người dùng, tài khoản ngân hàng thụ hưởng (để nhận tiền
+   khi Split Bill), và quy trình nộp hồ sơ xác minh danh tính eKYC bằng CCCD.
+
+2. CẤU TRÚC 4 TẦNG (Controller - Service - Repository):
+   - users.routes.js: Định nghĩa các endpoints quản lý profile và eKYC.
+   - users.controller.js: Tiếp nhận request từ user đã đăng nhập.
+   - users.service.js: Xử lý nghiệp vụ profile, chuẩn bị dữ liệu eKYC.
+   - users.repository.js: Thao tác trực tiếp với Database (viết SQL truy vấn bảng 'users').
+
+3. CÁC FILE DÙNG CHUNG CẦN GỌI (SHARED):
+   - ../../shared/middlewares/auth.middleware.js -> authenticate (bắt buộc đăng nhập)
+   - ../../shared/utils/response.util.js         -> sendSuccess, sendError
+   - ../../shared/constants/httpStatus.js        -> HTTP_STATUS
+
+4. CÁC API CẦN TRIỂN KHAI TRONG PHÂN HỆ NÀY:
+   - GET  /api/v1/users/profile         : Lấy thông tin cá nhân của user đang đăng nhập
+   - PUT  /api/v1/users/profile         : Cập nhật thông tin (avatar, nickname, sđt, bio)
+   - POST /api/v1/users/bank-account    : Lưu thông tin ngân hàng (ngân hàng, STK, tên chủ TK)
+   - POST /api/v1/users/ekyc-verify     : Gửi yêu cầu xác minh CCCD (dữ liệu quét QR hoặc ảnh thẻ)
+   - GET  /api/v1/users/trust-score/:id : Xem điểm tín nhiệm & đánh giá của 1 user công khai
+================================================================================

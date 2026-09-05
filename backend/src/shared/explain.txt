@@ -1,0 +1,56 @@
+================================================================================
+THƯ MỤC DÙNG CHUNG CỦA TOÀN DỰ ÁN: src/shared/
+================================================================================
+
+1. TÁC DỤNG CỦA THƯ MỤC NÀY:
+   Đây là nơi chứa TẤT CẢ các tài nguyên, hàm tiện ích, middleware và dịch vụ dùng chung.
+   Mọi thành viên khi viết code trong thư mục "features/" ĐỀU ĐƯỢC PHÉP và NÊN GỌI các
+   hàm trong thư mục này để tránh viết lại code trùng lặp.
+
+2. CẤU TRÚC VÀ CHI TIẾT CÁC FILE DÙNG CHUNG:
+
+   A. THƯ MỤC middlewares/
+      - auth.middleware.js:
+        + Middleware xác thực token JWT người dùng gửi lên qua Header: `Authorization: Bearer <token>`
+        + Nếu hợp lệ, tự động gán thông tin user vào `req.user` (req.user.id, req.user.role...).
+        + Cách dùng: router.get('/profile', authenticate, controller.getProfile);
+      - role.middleware.js:
+        + Phân quyền tài khoản (ADMIN hoặc USER).
+        + Cách dùng: router.get('/users', authenticate, authorize(ROLES.ADMIN), controller.list);
+      - upload.middleware.js:
+        + Upload ảnh trực tiếp lên CLOUDINARY qua Multer (hỗ trợ JPG, PNG, WEBP tối đa 5MB).
+        + Cách dùng 1 ảnh: router.post('/avatar', authenticate, upload.single('avatar'), controller.uploadAvatar);
+        + Trong controller: Lấy URL ảnh đã upload tại `req.file.path`.
+        + Cách dùng nhiều ảnh: router.post('/photos', authenticate, upload.array('photos', 5), controller.uploadPhotos);
+      - error.middleware.js:
+        + Bắt lỗi toàn cục của server, tự động trả JSON lỗi gọn gàng, tránh crash app.
+
+   B. THƯ MỤC utils/
+      - response.util.js:
+        + Chuẩn hóa JSON trả về cho mobile app.
+        + `sendSuccess(res, data, message, statusCode)`
+        + `sendError(res, message, statusCode, errors)`
+      - minCashFlow.util.js:
+        + Thuật toán rút gọn nợ cho chức năng Split Bill (từ N giao dịch giảm xuống tối đa N-1).
+        + `simplifyDebts(netBalances)`
+      - token.util.js:
+        + `generateToken(payload)`: Tạo chuỗi JWT token.
+        + `verifyToken(token)`: Kiểm tra tính hợp lệ của token.
+      - hash.util.js:
+        + `hashPassword(password)`: Băm mật khẩu an toàn với bcrypt.
+        + `comparePassword(plain, hashed)`: Đối chiếu mật khẩu khi đăng nhập.
+
+   C. THƯ MỤC services/
+      - vietqr.service.js:
+        + `generateVietQRUrl({ bankBin, accountNumber, amount, description })`
+        + Tạo link ảnh QR thanh toán trực tiếp theo chuẩn ngân hàng NAPAS 247.
+      - gemini.service.js:
+        + Gọi API Google Gemini để sinh lịch trình du lịch thông minh dạng JSON.
+      - map.service.js:
+        + Gọi API bản đồ (Goong Map / Mapbox) để tính khoảng cách và đường đi.
+
+   D. THƯ MỤC constants/
+      - httpStatus.js: Mã trạng thái chuẩn (HTTP_STATUS.OK = 200, CREATED = 201, BAD_REQUEST = 400...).
+      - roles.js: Định nghĩa ROLES (USER, ADMIN) và TRIP_ROLES (LEADER, MEMBER).
+      - categories.js: Danh mục địa điểm (PLACE_CATEGORIES) và chi tiêu (EXPENSE_CATEGORIES).
+================================================================================

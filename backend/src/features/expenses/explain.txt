@@ -1,0 +1,31 @@
+﻿================================================================================
+PHÂN HỆ: EXPENSES (QUẢN LÝ CHI PHÍ, SPLIT BILL & VIETQR) - src/features/expenses/
+================================================================================
+
+1. TÁC DỤNG CỦA PHÂN HỆ (TÍNH NĂNG ĐẮC GIÁ NHẤT):
+   - Theo dõi tổng chi tiêu và ngân sách của chuyến đi.
+   - Ghi nhận các khoản chi (ai trả tiền, số tiền, ai được hưởng lợi).
+   - SPLIT BILL: Tính toán ai nợ ai, gọi thuật toán Min Cash Flow để rút gọn số giao dịch.
+   - Tự động tạo link mã VIETQR chuẩn NAPAS 247 có sẵn số tiền và nội dung chuyển khoản.
+
+2. CẤU TRÚC 4 TẦNG (Controller - Service - Repository):
+   - expenses.routes.js: Định nghĩa các endpoints chi tiêu, chia tiền và VietQR.
+   - expenses.controller.js: Nhận dữ liệu thu chi từ người dùng.
+   - expenses.service.js: Tính toán cân đối công nợ và gọi thuật toán rút gọn nợ minCashFlow.
+   - expenses.repository.js: Thao tác trực tiếp với Database (viết SQL bảng 'expenses', 'expense_splits', 'settlements').
+
+3. CÁC FILE DÙNG CHUNG CẦN GỌI (SHARED):
+   - ../../shared/utils/minCashFlow.util.js      -> simplifyDebts (rút gọn nợ)
+   - ../../shared/services/vietqr.service.js     -> generateVietQRUrl (sinh ảnh QR ngân hàng)
+   - ../../shared/constants/categories.js        -> EXPENSE_CATEGORIES (FOOD, HOTEL, TICKETS...)
+   - ../../shared/middlewares/auth.middleware.js -> authenticate
+   - ../../shared/utils/response.util.js         -> sendSuccess, sendError
+
+4. CÁC API CẦN TRIỂN KHAI TRONG PHÂN HỆ NÀY:
+   - POST /api/v1/expenses                  : Ghi nhận 1 khoản chi mới (số tiền, người trả, danh sách chia)
+   - GET  /api/v1/expenses/trip/:tripId     : Lấy danh sách chi tiêu và tổng tiền đã tiêu
+   - GET  /api/v1/expenses/trip/:tripId/split: TÍNH TOÁN SPLIT BILL (trả về danh sách ai nợ ai tối ưu nhất)
+   - GET  /api/v1/expenses/vietqr/:settleId : Lấy link ảnh VietQR để quét thanh toán cho khoản nợ
+   - PUT  /api/v1/expenses/settle/:settleId/paid: Đánh dấu đã chuyển khoản thành công
+   - PUT  /api/v1/expenses/settle/:settleId/confirm: Người nhận bấm xác nhận đã nhận được tiền
+================================================================================

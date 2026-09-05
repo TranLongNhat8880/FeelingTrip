@@ -1,0 +1,58 @@
+name: Safe Auto Merge to Main
+
+# Tự động kích hoạt khi 4 thành viên (Nhật, Phú, Thành, Tùng) push lên branch của mình
+on:
+  push:
+    branches:
+      - 'dev-nhat'
+      - 'dev-phu'
+      - 'dev-thanh'
+      - 'dev-tung'
+      - 'dev-*'
+
+# Cấp quyền cho bot ghi và đẩy code vào nhánh main
+permissions:
+  contents: write
+
+jobs:
+  validate-and-merge:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Kéo toàn bộ lịch sử Git về máy ảo
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # 2. Cài đặt môi trường Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # 3. Kiểm tra cú pháp toàn bộ file JavaScript trong backend (Chống push code lỗi làm sập server)
+      - name: Validate Backend JavaScript Syntax
+        run: |
+          cd backend
+          npm install
+          # Quét kiểm tra cú pháp tất cả file .js trong thư mục src
+          find src -name "*.js" -exec node --check {} +
+          echo "All JavaScript files passed syntax check!"
+
+      # 4. Tự động merge code từ branch thành viên vào nhánh main
+      - name: Merge branch into main
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Chuyển sang main và kéo code mới nhất
+          git checkout main
+          git pull origin main
+          
+          # Merge branch của thành viên vào main
+          git merge --no-ff origin/${{ github.ref_name }} -m "ci: auto-merge ${{ github.ref_name }} into main [skip ci]"
+          
+          # Đẩy code lên GitHub main
+          git push origin main
+          echo "Successfully merged ${{ github.ref_name }} into main!"

@@ -1,0 +1,27 @@
+﻿================================================================================
+PHÂN HỆ: COMPANIONS (BẢNG TIN TÌM BẠN ĐỒNG HÀNH) - src/features/companions/
+================================================================================
+
+1. TÁC DỤNG CỦA PHÂN HỆ:
+   - Hiển thị bảng tin Newsfeed các bài đăng tìm bạn đồng hành của cộng đồng.
+   - Bộ lọc tìm kiếm chuyến đi theo điểm đến, số ngày, ngân sách, số slot còn trống.
+   - Gửi yêu cầu tham gia (kèm tin nhắn giới thiệu) và Trưởng nhóm duyệt/từ chối.
+
+2. CẤU TRÚC 4 TẦNG (Controller - Service - Repository):
+   - companions.routes.js: Định nghĩa các endpoints bài đăng newsfeed và join request.
+   - companions.controller.js: Tiếp nhận request.
+   - companions.service.js: Quản lý bài đăng, xử lý phân trang Infinite Scroll, duyệt slot.
+   - companions.repository.js: Thao tác trực tiếp với Database (viết SQL bảng 'companion_posts', 'join_requests').
+
+3. CÁC FILE DÙNG CHUNG CẦN GỌI (SHARED):
+   - ../../shared/middlewares/auth.middleware.js -> authenticate
+   - ../../shared/utils/response.util.js         -> sendSuccess, sendError
+
+4. CÁC API CẦN TRIỂN KHAI TRONG PHÂN HỆ NÀY:
+   - GET  /api/v1/companions/feed         : Lấy danh sách bài đăng Newsfeed (Cursor-based Pagination)
+   - POST /api/v1/companions/posts        : Đăng bài tìm bạn đồng hành (yêu cầu tài khoản đã eKYC)
+   - GET  /api/v1/companions/posts/:id    : Xem chi tiết bài đăng và hồ sơ uy tín của Trưởng nhóm
+   - POST /api/v1/companions/join-request : Gửi yêu cầu xin tham gia vào chuyến đi của người khác
+   - GET  /api/v1/companions/my-requests  : Xem các yêu cầu tham gia gửi tới chuyến đi của mình
+   - PUT  /api/v1/companions/requests/:id : Trưởng nhóm chấp thuận (Accept) hoặc từ chối (Reject)
+================================================================================
