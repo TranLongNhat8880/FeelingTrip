@@ -1,0 +1,166 @@
+================================================================================
+           BẢNG PHÂN CHIA NHIỆM VỤ DỰ ÁN FEELINGTRIP (BACKEND TEAM)
+================================================================================
+
+1. NGUYÊN TẮC BẤT DI BẤT DỊCH ĐỂ TRÁNH XUNG ĐỘT (GIT ZERO-CONFLICT):
+--------------------------------------------------------------------------------
+- Bảng điện tổng 'src/app.js' ĐÃ ĐƯỢC KHAI BÁO SẴN 100% TẤT CẢ CÁC ĐƯỜNG DÂY ROUTER.
+  => TUYỆT ĐỐI KHÔNG AI ĐƯỢC CHỈNH SỬA FILE 'src/app.js'!
+- Mỗi thành viên chỉ làm việc TRONG ĐÚNG CÁC THƯ MỤC TÍNH NĂNG được phân công.
+- Không ai đụng vào file của người khác.
+- Trước khi code: Checkout đúng nhánh của mình rồi 'git pull origin main'.
+- Khi code xong: 'git add .', 'git commit -m "..."', 'git push origin <tên_nhánh>'.
+- Hệ thống GitHub Actions CI/CD sẽ tự động kiểm tra cú pháp và auto-merge vào 'main'.
+
+================================================================================
+2. TỔNG HỢP PHÂN CÔNG 4 THÀNH VIÊN
+================================================================================
+
++----------+------------+---------------------------------------+
+| THÀNH VIÊN| NHÁNH GIT  | CÁC THƯ MỤC TÍNH NĂNG PHỤ TRÁCH       |
++----------+------------+---------------------------------------+
+| 1. NHẬT  | nhat       | src/features/auth/                    |
+| (Leader) |            | src/features/expenses/                |
+|          |            | src/features/ai-planner/              |
++----------+------------+---------------------------------------+
+| 2. PHÚ   | phu        | src/features/trips/                   |
+|          |            | src/features/itineraries/             |
++----------+------------+---------------------------------------+
+| 3. THÀNH | thanh      | src/features/users/                   |
+|          |            | src/features/places/                  |
++----------+------------+---------------------------------------+
+| 4. TÙNG  | tung       | src/features/companions/              |
+|          |            | src/features/reviews/                 |
+|          |            | src/features/admin/                   |
+|          |            | src/features/notifications/           |
++----------+------------+---------------------------------------+
+
+================================================================================
+3. CHI TIẾT CÔNG VIỆC TỪNG THÀNH VIÊN
+================================================================================
+
+--------------------------------------------------------------------------------
+1. NHẬT (LEADER) - NHÁNH: nhat
+--------------------------------------------------------------------------------
+A. Phân hệ AUTH (src/features/auth/):
+   - Đăng ký tài khoản mới: Mã hóa mật khẩu (bcryptjs), sinh mã OTP 6 số ngẫu nhiên.
+   - Tích hợp gửi mail OTP qua Gmail SMTP (đã có sẵn tại 'src/shared/services/email.service.js').
+   - Xác thực OTP và kích hoạt tài khoản (is_email_verified = true).
+   - Đăng nhập: Kiểm tra mật khẩu, sinh JWT Token (dùng 'src/shared/utils/token.util.js').
+   - Quên mật khẩu / Đặt lại mật khẩu bằng mã OTP.
+   - Bảng DB liên quan: 'users'.
+   - File hướng dẫn: src/features/auth/explain.txt.
+
+B. Phân hệ EXPENSES (src/features/expenses/):
+   - Thiết lập & theo dõi ngân sách chuyến đi, tổng chi, số tiền còn lại.
+   - Ghi nhận khoản chi tiêu nhóm, phân loại danh mục (ăn uống, di chuyển, khách sạn...).
+   - Chia tiền (Split Bill): Chia đều, chia theo %, chia theo số tiền cụ thể.
+   - Thuật toán Dòng tiền cực tiểu (Min Cash Flow) tối ưu nợ chéo (dùng 'src/shared/utils/minCashFlow.util.js').
+   - Sinh mã VietQR chuyển khoản nhanh theo chuẩn NAPAS (dùng 'src/shared/services/vietqr.service.js').
+   - Bảng DB liên quan: 'expenses', 'expense_splits', 'settlements'.
+   - File hướng dẫn: src/features/expenses/explain.txt.
+
+C. Phân hệ AI-PLANNER (src/features/ai-planner/):
+   - Tích hợp Google Gemini AI sinh lịch trình tự động theo yêu cầu (ngân sách, ngày đi, sở thích).
+   - Chuẩn hóa đầu ra JSON để người dùng có thể import trực tiếp vào chuyến đi thật.
+   - Bảng DB liên quan: 'trips', 'itineraries', 'itinerary_items'.
+   - File hướng dẫn: src/features/ai-planner/explain.txt.
+
+--------------------------------------------------------------------------------
+2. PHÚ - NHÁNH: phu
+--------------------------------------------------------------------------------
+A. Phân hệ TRIPS (src/features/trips/):
+   - CRUD chuyến đi: Tạo, cập nhật, xóa chuyến đi (điểm đến, ngày bắt đầu, ngày kết thúc).
+   - Tạo mã Invite Code (6 ký tự) để các thành viên khác nhập mã tham gia nhóm.
+   - Quản lý danh sách thành viên nhóm, phân quyền Trưởng nhóm (HOST) và Thành viên (MEMBER).
+   - Tính năng Fork / Clone Plan từ lịch trình mẫu hoặc lịch trình cộng đồng.
+   - Bảng DB liên quan: 'trips', 'trip_members'.
+   - File hướng dẫn: src/features/trips/explain.txt.
+
+B. Phân hệ ITINERARIES (src/features/itineraries/):
+   - Lập và quản lý lịch trình chi tiết theo từng ngày (Day 1, Day 2...).
+   - Thêm, sửa, xóa hoạt động trong ngày, thay đổi thứ tự, đánh dấu hoàn thành.
+   - Thuật toán SMART SWAP (B -> B+): Gợi ý địa điểm thay thế tương đương cùng danh mục
+     trong bán kính gần mà không làm lệch cung đường di chuyển.
+   - Bảng DB liên quan: 'itineraries', 'itinerary_items', 'places'.
+   - File hướng dẫn: src/features/itineraries/explain.txt.
+
+--------------------------------------------------------------------------------
+3. THÀNH - NHÁNH: thanh
+--------------------------------------------------------------------------------
+A. Phân hệ USERS (src/features/users/):
+   - Lấy thông tin hồ sơ cá nhân (Profile) của người dùng đang đăng nhập (/me).
+   - Cập nhật thông tin cá nhân: Họ tên, số điện thoại, ngày sinh, giới tính, bio.
+   - Upload ảnh đại diện (Avatar) lên Cloudinary (dùng 'src/shared/middlewares/upload.middleware.js').
+   - Cập nhật thông tin ngân hàng thụ hưởng (Tên ngân hàng, STK, Tên chủ TK) để nhận tiền chia bill.
+   - Nộp ảnh/dữ liệu CCCD để gửi yêu cầu xác minh tích xanh eKYC.
+   - Bảng DB liên quan: 'users'.
+   - File hướng dẫn: src/features/users/explain.txt.
+
+B. Phân hệ PLACES (src/features/places/):
+   - Quản lý kho dữ liệu địa điểm du lịch, quán ăn, quán cà phê, điểm check-in ('places').
+   - API tìm kiếm và lọc địa điểm theo từ khóa, thành phố, danh mục.
+   - Tính khoảng cách địa lý giữa 2 tọa độ (công thức Haversine).
+   - Thuật toán sắp xếp lộ trình tối ưu (Greedy / Nearest Neighbor) để các điểm trong ngày
+     không bị đi vòng vèo, tiết kiệm thời gian di chuyển.
+   - Bảng DB liên quan: 'places'.
+   - File hướng dẫn: src/features/places/explain.txt.
+
+--------------------------------------------------------------------------------
+4. TÙNG - NHÁNH: tung
+--------------------------------------------------------------------------------
+A. Phân hệ COMPANIONS (src/features/companions/):
+   - Bảng tin Newsfeed tìm bạn đồng hành ghép tour: Đăng bài tìm xế/ôm, lọc tìm kiếm.
+   - Gửi yêu cầu xin tham gia ghép đoàn kèm lời nhắn giới thiệu.
+   - Chủ bài post duyệt hoặc từ chối yêu cầu (tự động chuyển status = 'FULL' khi đủ số người).
+   - Bảng DB liên quan: 'companion_posts', 'companion_requests'.
+   - File hướng dẫn: src/features/companions/explain.txt.
+
+B. Phân hệ REVIEWS & AN TOÀN SOS (src/features/reviews/):
+   - Đánh giá thành viên sau chuyến đi, chấm điểm sao và nhận xét chất lượng chuyến đi.
+   - Báo cáo tài khoản xấu hoặc hành vi lừa đảo (gửi lên Admin).
+   - Chặn người dùng khác.
+   - Lưu thông tin liên hệ khẩn cấp và kích hoạt tín hiệu SOS (lưu tọa độ GPS).
+   - Bảng DB liên quan: 'trip_reviews', 'user_reports'.
+   - File hướng dẫn: src/features/reviews/explain.txt.
+
+C. Phân hệ ADMIN (src/features/admin/):
+   - Dashboard quản trị viên: Xem danh sách người dùng, khóa/mở khóa tài khoản.
+   - Phê duyệt / từ chối hồ sơ eKYC CCCD để cấp huy hiệu Tích xanh.
+   - Tiếp nhận và xử lý danh sách các báo cáo vi phạm ('user_reports').
+   - Quản lý các chuyến đi công khai vi phạm và kho lịch trình mẫu.
+   - Bảng DB liên quan: 'users', 'user_reports', 'trips'.
+   - File hướng dẫn: src/features/admin/explain.txt.
+
+D. Phân hệ NOTIFICATIONS (src/features/notifications/):
+   - Xem danh sách thông báo in-app của người dùng (khi được mời vào nhóm, khi có bill mới...).
+   - Đếm số lượng thông báo chưa đọc (Unread badge).
+   - Đánh dấu thông báo đã đọc / Đánh dấu tất cả đã đọc.
+   - Bảng DB liên quan: 'notifications'.
+   - File hướng dẫn: src/features/notifications/explain.txt.
+
+================================================================================
+4. HƯỚNG DẪN DÀNH CHO CÁC THÀNH VIÊN BẮT ĐẦU CODE
+================================================================================
+Bước 1: Chuyển sang nhánh của mình:
+   git checkout <nhánh_của_bạn>
+   (Ví dụ: git checkout phu)
+
+Bước 2: Cập nhật code khung sườn mới nhất từ nhánh main:
+   git pull origin main
+
+Bước 3: Mở thư mục tính năng của mình trong 'src/features/<tên_tính_năng>/':
+   - Đọc kỹ file 'explain.txt' trong thư mục để nắm rõ các API cần viết.
+   - Viết code theo đúng 4 tầng:
+     1. repository: Viết các câu lệnh SQL truy vấn Database.
+     2. service: Xử lý logic nghiệp vụ và tính toán.
+     3. controller: Nhận request và trả về response qua sendSuccess / sendError.
+     4. routes: Định nghĩa endpoint API (router.get, router.post...).
+
+Bước 4: Push code lên GitHub:
+   git add src/features/<tên_tính_năng>/
+   git commit -m "feat(<tên_tính_năng>): hoàn thành các api cơ bản"
+   git push origin <nhánh_của_bạn>
+
+Bước 5: Chờ GitHub Actions CI/CD tự động kiểm tra lỗi cú pháp và tự động merge vào main!
+================================================================================

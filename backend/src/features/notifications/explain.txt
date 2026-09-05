@@ -1,0 +1,32 @@
+================================================================================
+PHÂN HỆ: NOTIFICATIONS (HỆ THỐNG THÔNG BÁO) - src/features/notifications/
+================================================================================
+
+1. TÁC DỤNG CỦA PHÂN HỆ:
+   - Quản lý danh sách thông báo in-app gửi tới người dùng khi có sự kiện:
+     + Được mời tham gia chuyến đi.
+     + Có người gửi yêu cầu xin ghép đoàn vào bài post.
+     + Yêu cầu ghép đoàn được chấp nhận hoặc bị từ chối.
+     + Có thành viên vừa tạo hóa đơn chia tiền (Split Bill) cần thanh toán.
+     + Lịch trình chuyến đi có cập nhật mới.
+   - Đánh dấu thông báo đã đọc / chưa đọc.
+   - Đếm số lượng thông báo chưa đọc (Badge counter trên App).
+
+2. CẤU TRÚC 4 TẦNG (Controller - Service - Repository):
+   - notifications.routes.js: Định nghĩa các endpoints API xem và quản lý thông báo.
+   - notifications.controller.js: Tiếp nhận request từ user.
+   - notifications.service.js: Nghiệp vụ lấy thông báo, tạo thông báo hệ thống, đánh dấu đã đọc.
+   - notifications.repository.js: Thao tác trực tiếp với Database (bảng 'notifications').
+
+3. CÁC FILE DÙNG CHUNG CẦN GỌI (SHARED):
+   - ../../shared/middlewares/auth.middleware.js -> authenticate (bắt buộc đăng nhập)
+   - ../../shared/utils/response.util.js         -> sendSuccess, sendError
+   - ../../shared/constants/httpStatus.js        -> HTTP_STATUS
+
+4. CÁC API CẦN TRIỂN KHAI TRONG PHÂN HỆ NÀY:
+   - GET  /api/v1/notifications              : Lấy danh sách thông báo của tôi (phân trang)
+   - GET  /api/v1/notifications/unread-count : Lấy số lượng thông báo chưa đọc
+   - PUT  /api/v1/notifications/:id/read     : Đánh dấu 1 thông báo là đã đọc
+   - PUT  /api/v1/notifications/read-all     : Đánh dấu tất cả thông báo là đã đọc
+   - DELETE /api/v1/notifications/:id        : Xóa 1 thông báo
+================================================================================

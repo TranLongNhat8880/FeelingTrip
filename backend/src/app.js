@@ -36,14 +36,18 @@ const expensesRoutes = require('./features/expenses/expenses.routes');
 const reviewsRoutes = require('./features/reviews/reviews.routes');
 const aiPlannerRoutes = require('./features/ai-planner/aiPlanner.routes');
 const adminRoutes = require('./features/admin/admin.routes');
+const placesRoutes = require('./features/places/places.routes');
+const notificationsRoutes = require('./features/notifications/notifications.routes');
 
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/users', usersRoutes);
 app.use('/api/v1/trips', tripsRoutes);
 app.use('/api/v1/itineraries', itinerariesRoutes);
+app.use('/api/v1/places', placesRoutes);
 app.use('/api/v1/companions', companionsRoutes);
 app.use('/api/v1/expenses', expensesRoutes);
 app.use('/api/v1/reviews', reviewsRoutes);
+app.use('/api/v1/notifications', notificationsRoutes);
 app.use('/api/v1/ai-planner', aiPlannerRoutes);
 app.use('/api/v1/admin', adminRoutes);
 
