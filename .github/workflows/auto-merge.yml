@@ -34,7 +34,7 @@ jobs:
       - name: Validate Backend JavaScript Syntax
         run: |
           cd backend
-          npm install
+          npm install --legacy-peer-deps
           # Quét kiểm tra cú pháp tất cả file .js trong thư mục src
           find src -name "*.js" -exec node --check {} +
           echo "All JavaScript files passed syntax check!"
@@ -45,9 +45,9 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # Chuyển sang main và kéo code mới nhất
+          # Fetch nhánh main và switch sang main
+          git fetch origin main:main
           git checkout main
-          git pull origin main
           
           # Merge branch của thành viên vào main
           git merge --no-ff origin/${{ github.ref_name }} -m "ci: auto-merge ${{ github.ref_name }} into main [skip ci]"
