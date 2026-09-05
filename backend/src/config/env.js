@@ -25,5 +25,9 @@ module.exports = {
     apiKey: process.env.CLOUDINARY_API_KEY,
     apiSecret: process.env.CLOUDINARY_API_SECRET,
   },
+  email: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_APP_PASSWORD,
+  },
   geminiApiKey: process.env.GEMINI_API_KEY,
 };
