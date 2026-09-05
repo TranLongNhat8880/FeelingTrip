@@ -4,11 +4,10 @@ name: Safe Auto Merge to Main
 on:
   push:
     branches:
-      - 'dev-nhat'
-      - 'dev-phu'
-      - 'dev-thanh'
-      - 'dev-tung'
-      - 'dev-*'
+      - 'nhat'
+      - 'phu'
+      - 'thanh'
+      - 'tung'
 
 # Cấp quyền cho bot ghi và đẩy code vào nhánh main
 permissions:
