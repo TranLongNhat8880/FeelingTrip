@@ -1,0 +1,28 @@
+================================================================================
+PHÂN HỆ: PLACES (ĐỊA ĐIỂM & BẢN ĐỒ) - src/features/places/
+================================================================================
+
+1. TÁC DỤNG CỦA PHÂN HỆ:
+   - Quản lý kho dữ liệu địa điểm du lịch, quán ăn, quán cafe, check-in.
+   - Tìm kiếm, lọc địa điểm theo từ khóa, thành phố, danh mục.
+   - Xem khoảng cách giữa các địa điểm.
+   - Tối ưu lộ trình di chuyển (thứ tự các điểm hợp lý để không bị đi vòng).
+
+2. CẤU TRÚC 4 TẦNG (Controller - Service - Repository):
+   - places.routes.js: Định nghĩa các endpoints API tìm kiếm địa điểm, tính khoảng cách.
+   - places.controller.js: Nhận request từ client, validate dữ liệu đầu vào.
+   - places.service.js: Xử lý nghiệp vụ logic (tìm kiếm, thuật toán khoảng cách, lộ trình).
+   - places.repository.js: Thao tác trực tiếp với Database (viết SQL bảng 'places').
+
+3. CÁC FILE DÙNG CHUNG CẦN GỌI (SHARED):
+   - ../../shared/middlewares/auth.middleware.js -> authenticate (khi thêm địa điểm)
+   - ../../shared/utils/response.util.js         -> sendSuccess, sendError
+   - ../../shared/constants/httpStatus.js        -> HTTP_STATUS
+
+4. CÁC API CẦN TRIỂN KHAI TRONG PHÂN HỆ NÀY:
+   - GET  /api/v1/places                 : Tìm kiếm địa điểm (?keyword=...&category=...)
+   - GET  /api/v1/places/:id             : Xem chi tiết 1 địa điểm
+   - POST /api/v1/places                 : Thêm địa điểm mới
+   - GET  /api/v1/places/distance        : Tính khoảng cách giữa 2 tọa độ
+   - POST /api/v1/places/optimize-route  : Gợi ý thứ tự di chuyển tối ưu
+================================================================================

@@ -1,4 +1,4 @@
-﻿const usersRepository = require('./users.repository');
+const usersRepository = require('./users.repository');
 
 // ==========================================
 // SERVICE: User Profile & eKYC
@@ -6,4 +6,6 @@
 // ==========================================
 
 module.exports = {
+  // Test function by Nhat to verify GitHub Action Auto-merge
+  ping: () => 'pong from Nhat',
 };
