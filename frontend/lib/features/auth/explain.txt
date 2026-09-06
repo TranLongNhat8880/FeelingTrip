@@ -1,0 +1,43 @@
+================================================================================
+FEATURE MẪU: AUTHENTICATION (XÁC THỰC) - lib/features/auth/
+================================================================================
+
+1. TÁC DỤNG CỦA FEATURE NÀY:
+   Quản lý đăng nhập, đăng ký, quên mật khẩu, đăng nhập Google.
+   Đây là FEATURE MẪU để các thành viên tham khảo khi code feature khác.
+
+2. CẤU TRÚC MVVM + REPOSITORY PATTERN:
+   - models/user_model.dart           → Data class đại diện cho User
+   - repositories/auth_repository.dart     → Abstract class (hợp đồng)
+   - repositories/mock_auth_repository.dart → Data giả (dùng khi chưa có API)
+   - repositories/api_auth_repository.dart  → Gọi API thật (dùng khi API sẵn sàng)
+   - viewmodels/auth_viewmodel.dart    → Quản lý state, gọi repository
+   - views/login_screen.dart           → Giao diện đăng nhập
+
+3. LUỒNG DỮ LIỆU KHI USER NHẤN "ĐĂNG NHẬP":
+
+   [LoginScreen]
+       ↓ gọi _viewModel.login(email, password)
+   [AuthViewModel]
+       ↓ isLoading = true → notifyListeners() → UI hiện loading
+       ↓ gọi _repo.login(email, password)
+   [MockAuthRepository hoặc ApiAuthRepository]
+       ↓ trả về (user, token)
+   [AuthViewModel]
+       ↓ _user = result.user → isLoading = false → notifyListeners()
+   [LoginScreen]
+       ↓ UI tự rebuild → hiện "Đăng nhập thành công!"
+
+4. CÁCH CHUYỂN TỪ MOCK SANG API THẬT:
+
+   Mở file: viewmodels/auth_viewmodel.dart
+   Tìm dòng:  final AuthRepository _repo = MockAuthRepository();
+   Đổi thành: final AuthRepository _repo = ApiAuthRepository();
+   → XONG! Không cần sửa gì ở View.
+
+5. CÁC MÀN HÌNH CẦN TRIỂN KHAI:
+   - login_screen.dart        ✅ Đã có mẫu
+   - register_screen.dart     ❌ Cần code
+   - forgot_password_screen.dart ❌ Cần code
+   - otp_verification_screen.dart ❌ Cần code
+================================================================================

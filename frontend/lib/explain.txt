@@ -1,0 +1,129 @@
+================================================================================
+HƯỚNG DẪN CẤU TRÚC FRONTEND – FEELING TRIP (Flutter + MVVM)
+================================================================================
+
+1. TỔNG QUAN KIẾN TRÚC:
+
+   App sử dụng mô hình MVVM (Model - View - ViewModel) + Repository Pattern.
+   Code được tổ chức theo FEATURE (mỗi chức năng 1 thư mục riêng).
+
+   Luồng dữ liệu:
+   View (Screen) → ViewModel → Repository → API/Mock
+        ↑              ↓
+        └── notifyListeners() (UI tự cập nhật)
+
+2. CẤU TRÚC THƯ MỤC:
+
+   lib/
+   ├── main.dart                 ← Điểm chạy đầu tiên, chỉ gọi runApp()
+   ├── app.dart                  ← Cấu hình MaterialApp (theme, routes)
+   ├── routes/app_routes.dart    ← Tên route + mapping tập trung
+   │
+   ├── core/                     ← CODE DÙNG CHUNG (không thuộc feature nào)
+   │   ├── constants/            ← Màu, kích thước, assets, API endpoints
+   │   ├── theme/                ← Light/Dark theme
+   │   ├── network/              ← API client, storage helper
+   │   └── utils/                ← Hàm tiện ích (format ngày, tiền, validate)
+   │
+   ├── features/                 ← CÁC TÍNH NĂNG (mỗi người 1 feature)
+   │   ├── auth/                 ← ⭐ FEATURE MẪU (đã code đầy đủ)
+   │   │   ├── models/           ← Data class (UserModel)
+   │   │   ├── repositories/     ← Abstract + Mock + API repository
+   │   │   ├── viewmodels/       ← Quản lý state, gọi repository
+   │   │   └── views/            ← Giao diện (LoginScreen)
+   │   │
+   │   ├── trip/                 ← Chuyến đi (có model + mock mẫu)
+   │   ├── itinerary/            ← Lịch trình (khung trống)
+   │   ├── group/                ← Nhóm du lịch (khung trống)
+   │   ├── companion/            ← Tìm người đồng hành (khung trống)
+   │   ├── expense/              ← Chi phí & Split Bill (khung trống)
+   │   ├── map/                  ← Bản đồ & Địa điểm (khung trống)
+   │   ├── profile/              ← Hồ sơ cá nhân (khung trống)
+   │   ├── review/               ← Đánh giá (khung trống)
+   │   └── notification/         ← Thông báo (khung trống)
+   │
+   └── shared/                   ← WIDGET TÁI SỬ DỤNG
+       ├── buttons/              ← CustomButton
+       ├── inputs/               ← CustomTextField
+       └── loading/              ← LoadingIndicator
+
+3. CÁCH LÀM VIỆC VỚI 1 FEATURE (ĐỌC KỸ!):
+
+   ⭐ Tham khảo features/auth/ như là bản mẫu chuẩn.
+
+   Bước 1: Tạo Model (models/)
+      - Tạo class chứa data (fromJson, toJson)
+      - Tên field trong fromJson PHẢI khớp với tên cột database
+        Ví dụ: DB có cột "full_name" → json['full_name']
+
+   Bước 2: Tạo Abstract Repository (repositories/)
+      - Định nghĩa các hàm cần có (abstract class)
+      - ViewModel chỉ biết abstract này
+
+   Bước 3: Tạo Mock Repository (repositories/)
+      - Implement abstract class với data giả
+      - Có Future.delayed() giả lập thời gian chờ API
+      - Dùng khi Backend chưa sẵn sàng
+
+   Bước 4: Tạo ViewModel (viewmodels/)
+      - extends ChangeNotifier
+      - Chứa state (isLoading, errorMessage, data)
+      - Gọi repository → cập nhật state → notifyListeners()
+      - KHÔNG import Widget, KHÔNG biết UI trông như nào
+
+   Bước 5: Tạo View/Screen (views/)
+      - Tạo ViewModel instance
+      - addListener để lắng nghe thay đổi
+      - Gọi viewModel.doSomething() khi user tương tác
+      - Đọc viewModel.isLoading, viewModel.data để hiển thị UI
+
+   Bước 6: Đăng ký route (routes/app_routes.dart)
+      - Thêm tên route + mapping screen
+
+4. CHUYỂN ĐỔI MOCK ↔ API (QUAN TRỌNG!):
+
+   Khi Backend code xong API, chỉ cần:
+   a. Tạo file api_xxx_repository.dart (implement abstract class, gọi ApiClient)
+   b. Trong ViewModel, đổi 1 dòng:
+      TRƯỚC:  final XxxRepository _repo = MockXxxRepository();
+      SAU:    final XxxRepository _repo = ApiXxxRepository();
+   c. KHÔNG cần sửa bất kỳ View nào!
+
+5. CÁC FILE DÙNG CHUNG CẦN BIẾT:
+
+   - core/constants/app_colors.dart   → Tất cả màu sắc
+   - core/constants/app_sizes.dart    → Padding, margin, border radius
+   - core/constants/api_endpoints.dart → URL các API backend
+   - core/network/api_client.dart     → Gửi HTTP request (tự gắn JWT token)
+   - core/network/storage_helper.dart → Lưu/đọc token + user info
+   - core/utils/app_utils.dart        → Format ngày, tiền, validate email
+   - shared/buttons/custom_button.dart → Nút bấm chuẩn
+   - shared/inputs/custom_text_field.dart → Ô nhập chuẩn
+   - shared/loading/loading_indicator.dart → Loading spinner
+
+6. QUY TẮC KHI CODE:
+
+   ✅ NÊN LÀM:
+   - Dùng màu từ AppColors, kích thước từ AppSizes
+   - Dùng CustomButton, CustomTextField thay vì tạo mới
+   - Tách widget con vào file riêng nếu > 50 dòng
+   - Viết comment giải thích logic phức tạp
+   - Test với MockRepository trước
+
+   ❌ KHÔNG LÀM:
+   - KHÔNG viết Color(0xFF...) trực tiếp trong widget
+   - KHÔNG gọi API trong View (phải qua ViewModel → Repository)
+   - KHÔNG để logic nghiệp vụ trong View
+   - KHÔNG import trực tiếp MockRepository trong View
+     (View chỉ biết ViewModel, ViewModel chỉ biết Abstract Repository)
+================================================================================
+
+7. QUY TẮC UX: THIẾT KẾ TINH GỌN (CLEAN UI)
+
+   - Không nhồi nhét: Mỗi màn hình chỉ giải quyết 1 mục tiêu chính.
+   - Empty State: Luôn dùng EmptyStateWidget nếu màn hình chưa có dữ liệu (tránh màn hình trắng bóc).
+   - Avatar: Luôn dùng AvatarPlaceholder để tránh lỗi vỡ ảnh.
+   - Điều hướng: Tối đa 3 lần bấm để tới tính năng chính. Các cài đặt phụ giấu vào màn hình Hồ sơ.
+   - Icon: Ưu tiên dùng Icons.xyz_outlined hoặc icon bo góc trên của MaterialIcons để tạo sự thanh thoát.
+================================================================================
+

@@ -1,6 +1,6 @@
 {
-    "name": "frontend",
-    "short_name": "frontend",
+    "name": "feeling_trip",
+    "short_name": "feeling_trip",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
