@@ -30,4 +30,5 @@ module.exports = {
     pass: process.env.EMAIL_APP_PASSWORD,
   },
   geminiApiKey: process.env.GEMINI_API_KEY,
+  sepayApiKey: process.env.SEPAY_API_KEY || 'feelingtrip_sepay_secret_key_2026',
 };
