@@ -1,57 +1,54 @@
 name: Safe Auto Merge to Main
-
-# Tự động kích hoạt khi 4 thành viên (Nhật, Phú, Thành, Tùng) push lên branch của mình
 on:
   push:
-    branches:
-      - 'nhat'
-      - 'phu'
-      - 'thanh'
-      - 'tung'
-
-# Cấp quyền cho bot ghi và đẩy code vào nhánh main
+    branches: [nhat, phu, thanh, tung]
 permissions:
   contents: write
-
+concurrency:
+  group: backend-auto-merge
+  cancel-in-progress: false
 jobs:
   validate-and-merge:
     runs-on: ubuntu-latest
-
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: feelingtrip_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql://postgres:test@localhost:5432/feelingtrip_test
     steps:
-      # 1. Kéo toàn bộ lịch sử Git về máy ảo
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      # 2. Cài đặt môi trường Node.js
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
-
-      # 3. Kiểm tra cú pháp toàn bộ file JavaScript trong backend (Chống push code lỗi làm sập server)
-      - name: Validate Backend JavaScript Syntax
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: Test pushed commit
+        working-directory: backend
         run: |
-          cd backend
-          npm install --legacy-peer-deps
-          # Quét kiểm tra cú pháp tất cả file .js trong thư mục src
-          find src -name "*.js" -exec node --check {} +
-          echo "All JavaScript files passed syntax check!"
-
-      # 4. Tự động merge code từ branch thành viên vào nhánh main
-      - name: Merge branch into main
+          npm ci --legacy-peer-deps
+          npm run check
+          npm test
+      - name: Merge the tested commit into current main
         run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          
-          # Fetch nhánh main và switch sang main
-          git fetch origin main:main
-          git checkout main
-          
-          # Merge branch của thành viên vào main
-          git merge --no-ff origin/${{ github.ref_name }} -m "ci: auto-merge ${{ github.ref_name }} into main [skip ci]"
-          
-          # Đẩy code lên GitHub main
-          git push origin main
-          echo "Successfully merged ${{ github.ref_name }} into main!"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          git checkout -B main origin/main
+          git merge --no-ff "${{ github.sha }}" -m "ci: auto-merge ${{ github.ref_name }} into main [skip ci]"
+      - name: Test merged result
+        working-directory: backend
+        run: |
+          npm ci --legacy-peer-deps
+          npm run check
+          npm test
+      - name: Push validated main
+        run: git push origin main

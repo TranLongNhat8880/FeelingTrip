@@ -1,31 +1,76 @@
-﻿================================================================================
-PHÂN HỆ: EXPENSES (QUẢN LÝ CHI PHÍ, SPLIT BILL & VIETQR) - src/features/expenses/
+================================================================================
+PHÂN HỆ: EXPENSES & SPLIT BILL (QUẢN LÝ CHI TIÊU & CHIA TIỀN) - src/features/expenses/
+Phụ trách chính: NHẬT
 ================================================================================
 
-1. TÁC DỤNG CỦA PHÂN HỆ (TÍNH NĂNG ĐẮC GIÁ NHẤT):
-   - Theo dõi tổng chi tiêu và ngân sách của chuyến đi.
-   - Ghi nhận các khoản chi (ai trả tiền, số tiền, ai được hưởng lợi).
-   - SPLIT BILL: Tính toán ai nợ ai, gọi thuật toán Min Cash Flow để rút gọn số giao dịch.
-   - Tự động tạo link mã VIETQR chuẩn NAPAS 247 có sẵn số tiền và nội dung chuyển khoản.
+1. TÁC DỤNG CỦA PHÂN HỆ:
+   - Theo dõi toàn bộ thu chi, phân loại danh mục, quản lý ngân sách chuyến đi.
+   - Chia tiền (Split Bill) linh hoạt theo 3 cơ chế:
+     + EQUAL: Chia đều cho các thành viên.
+     + EXACT: Chia theo số tiền cụ thể của từng người.
+     + PERCENTAGE: Chia theo phần trăm (tự động phân bổ số dư lẻ đến từng đồng).
+   - Tối ưu hóa dòng tiền (Min Cash Flow): Sử dụng thuật toán Quy hoạch động Bitmask
+     (Subset-Sum Partition DP) giúp triệt tiêu nợ chéo, đạt số lượng giao dịch chuyển khoản tối thiểu tuyệt đối.
+   - Tích hợp VietQR động sinh link chuyển khoản NAPAS tự động điền STK, tên ngân hàng và số tiền.
+   - Cổng thanh toán Webhook SePay: Tự động gạch nợ real-time qua biến động số dư ngân hàng.
 
-2. CẤU TRÚC 4 TẦNG (Controller - Service - Repository):
-   - expenses.routes.js: Định nghĩa các endpoints chi tiêu, chia tiền và VietQR.
-   - expenses.controller.js: Nhận dữ liệu thu chi từ người dùng.
-   - expenses.service.js: Tính toán cân đối công nợ và gọi thuật toán rút gọn nợ minCashFlow.
-   - expenses.repository.js: Thao tác trực tiếp với Database (viết SQL bảng 'expenses', 'expense_splits', 'settlements').
+2. CẤU TRÚC 4 TẦNG (Controller - Service - Repository - Validation):
+   - expenses.routes.js: Định nghĩa các endpoint RESTful và gắn middleware phân quyền/validate.
+   - expenses.controller.js: Tiếp nhận request, bóc tách params, gọi service và trả response chuẩn qua sendSuccess/sendError.
+   - expenses.service.js: Chứa logic nghiệp vụ cốt lõi, thuật toán chia tiền, máy trạng thái thanh toán (State Machine), và xác thực Webhook SePay.
+   - expenses.repository.js: Thao tác trực tiếp với Database (trips, expenses, expense_splits, settlements, sepay_events) qua transaction & row-level locking (FOR UPDATE).
+   - expenses.validation.js: Định nghĩa Joi schema kiểm tra nghiêm ngặt kiểu dữ liệu, ràng buộc số tiền VND nguyên và danh mục hợp lệ.
 
-3. CÁC FILE DÙNG CHUNG CẦN GỌI (SHARED):
-   - ../../shared/utils/minCashFlow.util.js      -> simplifyDebts (rút gọn nợ)
-   - ../../shared/services/vietqr.service.js     -> generateVietQRUrl (sinh ảnh QR ngân hàng)
-   - ../../shared/constants/categories.js        -> EXPENSE_CATEGORIES (FOOD, HOTEL, TICKETS...)
-   - ../../shared/middlewares/auth.middleware.js -> authenticate
-   - ../../shared/utils/response.util.js         -> sendSuccess, sendError
+3. QUY TRÌNH THANH TOÁN CÔNG NỢ (SETTLEMENT STATE MACHINE):
+   Mỗi khoản nợ trong bảng settlements tuân thủ vòng đời trạng thái nghiêm ngặt:
+   - PENDING: Khoản nợ vừa được tính toán, có mã QR và thông tin chuyển khoản.
+   - REPORTED: Người nợ (from_user) bấm "Báo đã chuyển tiền" sau khi hoàn tất chuyển khoản.
+   - PAID: Người nhận (to_user) bấm "Xác nhận nhận tiền" HOẶC Webhook SePay tự động gạch nợ thành công.
+   - CANCELLED: Khoản nợ cũ bị hủy bỏ khi nhóm có thêm hóa đơn mới và chạy lại tính toán nợ.
 
-4. CÁC API CẦN TRIỂN KHAI TRONG PHÂN HỆ NÀY:
-   - POST /api/v1/expenses                  : Ghi nhận 1 khoản chi mới (số tiền, người trả, danh sách chia)
-   - GET  /api/v1/expenses/trip/:tripId     : Lấy danh sách chi tiêu và tổng tiền đã tiêu
-   - GET  /api/v1/expenses/trip/:tripId/split: TÍNH TOÁN SPLIT BILL (trả về danh sách ai nợ ai tối ưu nhất)
-   - GET  /api/v1/expenses/vietqr/:settleId : Lấy link ảnh VietQR để quét thanh toán cho khoản nợ
-   - PUT  /api/v1/expenses/settle/:settleId/paid: Đánh dấu đã chuyển khoản thành công
-   - PUT  /api/v1/expenses/settle/:settleId/confirm: Người nhận bấm xác nhận đã nhận được tiền
+4. CƠ CHẾ BẢO MẬT & ĐỐI SOÁT WEBHOOK SEPAY:
+   - Xác thực bắt buộc bằng header `Authorization: Apikey <SEPAY_API_KEY>` (Timing-safe comparison chống tấn công Timing Attack).
+   - Chỉ xử lý giao dịch tiền vào (`transferType = 'in'`).
+   - Kiểm tra số tiền nhận được phải khớp chính xác 100% với số tiền nợ.
+   - Kiểm tra đúng ngân hàng và số tài khoản người thụ hưởng (qua bảng mã BIN ngân hàng).
+   - Chống replay attack và race condition: Lưu transaction_id vào bảng `sepay_events` với khóa chính duy nhất.
+
+5. DANH SÁCH API CỦA PHÂN HỆ:
+   - POST /api/v1/expenses
+     + Quyền: Thành viên chuyến đi (MEMBER hoặc LEADER).
+     + Body: { tripId, title, amount, category, splitType, splits, receiptImageUrl, expenseDate, payerId? }
+     + Mô tả: Tạo hóa đơn mới, phân bổ nợ và bắn thông báo (notifications) tự động.
+
+   - GET /api/v1/expenses/trip/:tripId
+     + Quyền: Thành viên chuyến đi.
+     + Mô tả: Lấy danh sách hóa đơn kèm báo cáo ngân sách (tổng chi, còn lại, theo danh mục).
+
+   - GET /api/v1/expenses/trip/:tripId/balances
+     + Quyền: Thành viên chuyến đi.
+     + Mô tả: Bảng cân đối tài chính cá nhân (Số dư ròng = Đã trả - Phải chịu).
+
+   - POST /api/v1/expenses/trip/:tripId/settle
+     + Quyền: Thành viên chuyến đi.
+     + Mô tả: Rút gọn nợ bằng thuật toán Min Cash Flow và sinh danh sách thanh toán kèm VietQR.
+
+   - GET /api/v1/expenses/settlement/:id/qr
+     + Quyền: Thành viên chuyến đi.
+     + Mô tả: Lấy link VietQR thanh toán cho một khoản nợ cụ thể.
+
+   - POST /api/v1/expenses/settlement/:id/pay
+     + Quyền: Người nợ (from_user).
+     + Mô tả: Báo đã chuyển tiền (chuyển trạng thái từ PENDING -> REPORTED).
+
+   - POST /api/v1/expenses/settlement/:id/confirm
+     + Quyền: Người nhận tiền (to_user).
+     + Mô tả: Xác nhận đã nhận tiền (chuyển trạng thái từ REPORTED -> PAID).
+
+   - PUT /api/v1/expenses/trip/:tripId/budget
+     + Quyền: Chỉ dành cho Trưởng nhóm (LEADER).
+     + Body: { estimatedBudget: number }
+     + Mô tả: Thiết lập hoặc cập nhật ngân sách dự kiến của chuyến đi.
+
+   - POST /api/v1/expenses/webhook/sepay
+     + Quyền: Public (yêu cầu khóa bí mật SePay qua Authorization Header).
+     + Mô tả: Webhook tự động gạch nợ khi tiền về tài khoản ngân hàng.
 ================================================================================

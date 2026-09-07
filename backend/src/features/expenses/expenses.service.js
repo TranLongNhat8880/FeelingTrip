@@ -1,333 +1,414 @@
-const expensesRepository = require('./expenses.repository');
+const crypto = require('crypto');
+const repo = require('./expenses.repository');
+const db = require('../../config/database');
+const env = require('../../config/env');
 const { simplifyDebts } = require('../../shared/utils/minCashFlow.util');
 const { generateVietQRUrl } = require('../../shared/services/vietqr.service');
-const env = require('../../config/env');
-const crypto = require('crypto');
-
-// ============================================================================
-// SERVICE: Expenses & Split Bill
-// Nghiệp vụ tính toán hóa đơn, phân chia tiền nợ, tối ưu công nợ và VietQR
-// ============================================================================
+const { requireVnd } = require('../../shared/utils/money.util');
+const apiError = require('../../shared/utils/apiError.util');
+const { createExpenseSchema, webhookSchema } = require('./expenses.validation');
 
 /**
- * 1. Tạo khoản chi tiêu mới và phân bổ phần tiền cho từng thành viên
+ * Validates request body using Joi schema and strips unknown properties.
+ *
+ * @param {import('joi').Schema} schema
+ * @param {object} input
+ * @returns {object} Validated value
  */
-const createExpense = async ({
-  tripId,
-  payerId,
-  title,
-  amount,
-  category = 'OTHER',
-  receiptImageUrl = null,
-  expenseDate = new Date(),
-  splitType = 'EQUAL',
-  splits = [],
-}) => {
-  const numericAmount = Number(amount);
-  if (numericAmount <= 0) {
-    const error = new Error('Số tiền chi tiêu phải lớn hơn 0');
-    error.status = 400;
-    throw error;
+const parse = (schema, input) => {
+  const { error, value } = schema.validate(input, { stripUnknown: true });
+  if (error) {
+    throw apiError(400, error.message);
   }
+  return value;
+};
 
-  if (!splits || splits.length === 0) {
-    const error = new Error('Vui lòng chọn ít nhất 1 thành viên cùng chi tiêu');
-    error.status = 400;
-    throw error;
-  }
+/**
+ * Formats raw database settlement record into client-facing structure.
+ *
+ * @param {object} settlement - Settlement record from DB
+ * @param {Record<string, object>} people - Map of userId -> member details
+ * @returns {object}
+ */
+const formatSettlement = (settlement, people) => ({
+  id: settlement.id,
+  tripId: settlement.trip_id,
+  fromUser: {
+    id: settlement.from_user_id,
+    fullName: people[settlement.from_user_id]?.fullName,
+    avatarUrl: people[settlement.from_user_id]?.avatarUrl,
+  },
+  toUser: {
+    id: settlement.to_user_id,
+    fullName: people[settlement.to_user_id]?.fullName,
+    avatarUrl: people[settlement.to_user_id]?.avatarUrl,
+    bankBin: settlement.bank_bin,
+    bankAccountNumber: settlement.bank_account_number,
+    bankAccountName: settlement.bank_account_name,
+  },
+  amount: Number(settlement.amount),
+  status: settlement.status,
+  vietqrUrl: settlement.vietqr_url,
+  paidAt: settlement.paid_at,
+  reportedAt: settlement.reported_at,
+  createdAt: settlement.created_at,
+});
 
-  let splitsData = [];
+/**
+ * Computes deterministic signature of a transaction set to detect identical reruns.
+ */
+const computeSignature = (list) =>
+  list
+    .map((s) =>
+      [
+        s.fromUserId || s.from_user_id,
+        s.toUserId || s.to_user_id,
+        Number(s.amount),
+      ].join(':')
+    )
+    .sort()
+    .join('|');
 
-  // CHIA ĐỀU (EQUAL)
+/**
+ * Records a new expense in a trip and calculates split shares among members.
+ *
+ * @param {object} input - Expense creation payload
+ * @param {string} currentUserId - Authenticated user UUID
+ * @returns {Promise<object>} Created expense and splits
+ */
+const createExpense = async (input, currentUserId) => {
+  const expense = parse(createExpenseSchema, input);
+  expense.payerId = expense.payerId || currentUserId;
+
+  const { amount, splitType, splits, tripId } = expense;
+  const participantIds = splits.map((s) => (typeof s === 'string' ? s : s.userId));
+  let shares = [];
+
   if (splitType === 'EQUAL') {
-    const memberIds = splits.map((s) => (typeof s === 'string' ? s : s.userId));
-    const count = memberIds.length;
-    const baseShare = Math.floor(numericAmount / count);
-    const remainder = numericAmount - baseShare * count; // Xử lý số tiền lẻ thừa ra
+    const memberCount = splits.length;
+    const baseShare = Math.floor(amount / memberCount);
+    const remainder = amount % memberCount;
 
-    splitsData = memberIds.map((userId, idx) => ({
+    shares = participantIds.map((userId, index) => ({
       userId,
-      amountOwed: idx === 0 ? baseShare + remainder : baseShare,
+      amountOwed: baseShare + (index < remainder ? 1 : 0),
     }));
-  }
-  // CHIA THEO SỐ TIỀN CỤ THỂ (EXACT)
-  else if (splitType === 'EXACT') {
-    let sumExact = 0;
-    splitsData = splits.map((s) => {
-      const owed = Math.round(Number(s.amountOwed));
-      sumExact += owed;
-      return {
-        userId: s.userId,
-        amountOwed: owed,
-      };
-    });
+  } else if (splitType === 'EXACT') {
+    shares = splits.map((s) => ({
+      userId: s.userId,
+      amountOwed: requireVnd(s.amountOwed, true),
+    }));
 
-    if (Math.abs(sumExact - numericAmount) > 1) {
-      const error = new Error(
-        `Tổng số tiền các phần chia (${sumExact.toLocaleString('vi-VN')}đ) không khớp với số tiền khoản chi (${numericAmount.toLocaleString('vi-VN')}đ)`
-      );
-      error.status = 400;
-      throw error;
-    }
-  }
-  // CHIA THEO PHẦN TRĂM (PERCENTAGE)
-  else if (splitType === 'PERCENTAGE') {
-    let sumPercentage = 0;
-    splits.forEach((s) => {
-      sumPercentage += Number(s.percentage);
-    });
-
-    if (Math.abs(sumPercentage - 100) > 0.01) {
-      const error = new Error('Tổng phần trăm chia phải đúng bằng 100%');
-      error.status = 400;
-      throw error;
-    }
-
-    let allocatedSum = 0;
-    splitsData = splits.map((s, idx) => {
-      const owed = Math.round(numericAmount * (Number(s.percentage) / 100));
-      allocatedSum += owed;
-      return {
-        userId: s.userId,
-        amountOwed: owed,
-      };
-    });
-
-    // Bù phần chênh lệch do làm tròn số vào người đầu tiên
-    const diff = numericAmount - allocatedSum;
-    if (diff !== 0 && splitsData.length > 0) {
-      splitsData[0].amountOwed += diff;
+    const totalShared = shares.reduce((sum, s) => sum + BigInt(s.amountOwed), 0n);
+    if (totalShared !== BigInt(amount)) {
+      throw apiError(400, 'Tổng tiền chia phải bằng đúng số tiền khoản chi');
     }
   } else {
-    const error = new Error('Kiểu chia tiền không hợp lệ');
-    error.status = 400;
-    throw error;
+    // PERCENTAGE split
+    const percentagesInBps = splits.map((s) => Math.round(s.percentage * 100));
+    const totalPercentage = percentagesInBps.reduce((sum, p) => sum + p, 0);
+
+    if (totalPercentage !== 10000) {
+      throw apiError(400, 'Tổng phần trăm phải bằng 100%');
+    }
+
+    const products = percentagesInBps.map((p) => BigInt(amount) * BigInt(p));
+    shares = participantIds.map((userId, index) => ({
+      userId,
+      amountOwed: Number(products[index] / 10000n),
+    }));
+
+    const allocatedAmount = shares.reduce((sum, s) => sum + s.amountOwed, 0);
+    const remainingDiff = amount - allocatedAmount;
+
+    // Distribute remaining fractional dong by largest remainder order
+    const remainderOrder = participantIds
+      .map((_, index) => index)
+      .sort(
+        (a, b) =>
+          Number((products[b] % 10000n) - (products[a] % 10000n)) || a - b
+      );
+
+    for (let i = 0; i < remainingDiff; i++) {
+      shares[remainderOrder[i]].amountOwed += 1;
+    }
   }
 
-  const result = await expensesRepository.createExpenseWithSplits(
-    {
-      tripId,
-      payerId,
-      title,
-      amount: numericAmount,
-      category,
-      receiptImageUrl,
-      expenseDate,
-    },
-    splitsData
-  );
+  return db.transaction(async (client) => {
+    await repo.lockTrip(client, tripId);
+    await repo.requireMember(tripId, currentUserId, client);
 
-  return result;
+    const involvedUsers = new Set([expense.payerId, ...participantIds]);
+    for (const userId of involvedUsers) {
+      await repo.requireMember(tripId, userId, client);
+    }
+
+    return repo.createExpenseWithSplits(expense, shares, client);
+  });
 };
 
 /**
- * 2. Lấy danh sách toàn bộ các khoản chi và ngân sách chuyến đi
+ * Retrieves all expenses and budget summary for a trip.
  */
-const getTripExpenses = async (tripId) => {
-  const summary = await expensesRepository.getTripBudgetSummary(tripId);
-  const expenses = await expensesRepository.findExpensesByTripId(tripId);
+const getTripExpenses = async (tripId, userId) => {
+  await repo.requireMember(tripId, userId);
 
-  return {
-    summary,
-    expenses,
-  };
+  const [summary, expenses] = await Promise.all([
+    repo.getTripBudgetSummary(tripId),
+    repo.findExpensesByTripId(tripId),
+  ]);
+
+  return { summary, expenses };
 };
 
 /**
- * 3. Xem bảng cân đối tài chính của các thành viên trong chuyến đi
+ * Retrieves financial balances of all members in a trip.
  */
-const getTripBalances = async (tripId) => {
-  return await expensesRepository.calculateTripNetBalances(tripId);
+const getTripBalances = async (tripId, userId) => {
+  await repo.requireMember(tripId, userId);
+  return repo.calculateTripNetBalances(tripId);
 };
 
 /**
- * 4. Chạy thuật toán Min Cash Flow rút gọn nợ & sinh mã VietQR
+ * Calculates simplified debt settlements using Min Cash Flow algorithm and generates VietQRs.
  */
-const settleTripDebts = async (tripId) => {
-  const members = await expensesRepository.calculateTripNetBalances(tripId);
-  if (!members || members.length === 0) {
-    const error = new Error('Không tìm thấy thành viên nào trong chuyến đi');
-    error.status = 404;
-    throw error;
-  }
+const settleTripDebts = (tripId, userId) =>
+  db.transaction(async (client) => {
+    await repo.lockTrip(client, tripId);
+    await repo.requireMember(tripId, userId, client);
 
-  // Chuyển đổi sang object netBalances: { [userId]: netAmount }
-  const netBalances = {};
-  const membersMap = {};
-  members.forEach((m) => {
-    netBalances[m.userId] = m.netBalance;
-    membersMap[m.userId] = m;
+    const members = await repo.calculateTripNetBalances(tripId, client);
+    const peopleMap = Object.fromEntries(members.map((m) => [m.userId, m]));
+    const pendingSettlements = await repo.openSettlements(tripId, client);
+
+    if (pendingSettlements.some((s) => s.status === 'REPORTED')) {
+      throw apiError(409, 'Cần xác nhận các khoản đã báo chuyển trước khi tính lại');
+    }
+
+    const netBalances = Object.fromEntries(members.map((m) => [m.userId, m.netBalance]));
+    const optimalTransactions = simplifyDebts(netBalances);
+
+    // If transactions match current open set, reuse existing QRs to preserve payment links
+    if (computeSignature(pendingSettlements) === computeSignature(optimalTransactions)) {
+      return pendingSettlements.map((s) => formatSettlement(s, peopleMap));
+    }
+
+    const newSettlements = optimalTransactions.map((tx) => {
+      const recipient = peopleMap[tx.toUserId];
+      const settlementId = crypto.randomUUID();
+      const bankBin = recipient.bankBin || null;
+      const bankAccountNumber = recipient.bankAccountNumber || null;
+
+      const vietqrUrl =
+        bankBin && bankAccountNumber
+          ? generateVietQRUrl({
+              bankBin,
+              accountNumber: bankAccountNumber,
+              amount: tx.amount,
+              description: 'FT ' + settlementId.replaceAll('-', '').toUpperCase(),
+            })
+          : null;
+
+      return {
+        ...tx,
+        id: settlementId,
+        bankBin,
+        bankAccountNumber,
+        bankAccountName: recipient.bankAccountName || null,
+        vietqrUrl,
+      };
+    });
+
+    const saved = await repo.saveSettlements(tripId, newSettlements, client);
+    return saved.map((s) => formatSettlement(s, peopleMap));
   });
 
-  // Gọi thuật toán tối ưu hóa nợ Min Cash Flow
-  const simplifiedTransactions = simplifyDebts(netBalances);
+/**
+ * Retrieves or generates VietQR for a specific settlement.
+ */
+const getSettlementVietQR = async (settlementId, userId) =>
+  db.transaction(async (client) => {
+    const initial = await repo.findSettlementById(settlementId, client);
+    if (!initial) {
+      throw apiError(404, 'Không tìm thấy khoản thanh toán');
+    }
 
-  // Sinh mã VietQR cho từng giao dịch trả nợ nếu người nhận có tài khoản ngân hàng
-  const settlementsWithQr = simplifiedTransactions.map((tx) => {
-    const toUser = membersMap[tx.toUserId];
-    const settlementId = crypto.randomUUID();
-    const shortCode = settlementId.replace(/-/g, '').substring(0, 8).toUpperCase();
-    let vietqrUrl = null;
+    await repo.lockTrip(client, initial.trip_id);
+    await repo.requireMember(initial.trip_id, userId, client);
 
-    if (toUser && toUser.bankBin && toUser.bankAccountNumber) {
-      try {
-        vietqrUrl = generateVietQRUrl({
-          bankBin: toUser.bankBin,
-          accountNumber: toUser.bankAccountNumber,
-          amount: tx.amount,
-          description: `FT ${shortCode}`,
+    let settlement = await repo.findSettlementById(settlementId, client);
+
+    if (settlement.status === 'CANCELLED') {
+      throw apiError(409, 'Khoản thanh toán đã được thay thế. Vui lòng tải lại công nợ');
+    }
+
+    if (!settlement.vietqr_url && settlement.status === 'PENDING') {
+      const bank = await repo.findRecipientBank(settlement.to_user_id, client);
+      if (bank.bank_bin && bank.bank_account_number) {
+        const url = generateVietQRUrl({
+          bankBin: bank.bank_bin,
+          accountNumber: bank.bank_account_number,
+          amount: Number(settlement.amount),
+          description: 'FT ' + settlementId.replaceAll('-', '').toUpperCase(),
         });
-      } catch (e) {
-        console.error('Không thể sinh mã VietQR:', e.message);
+        settlement = {
+          ...settlement,
+          ...(await repo.attachVietQR(settlementId, bank, url, client)),
+        };
       }
     }
 
     return {
-      id: settlementId,
-      fromUserId: tx.fromUserId,
-      toUserId: tx.toUserId,
-      amount: tx.amount,
-      vietqrUrl,
-    };
-  });
-
-  // Lưu các khoản nợ rút gọn vào bảng 'settlements'
-  const savedSettlements = await expensesRepository.saveSettlements(tripId, settlementsWithQr);
-
-  return savedSettlements.map((s) => {
-    const fromUser = membersMap[s.from_user_id];
-    const toUser = membersMap[s.to_user_id];
-    return {
-      id: s.id,
-      tripId: s.trip_id,
-      fromUser: fromUser ? { id: fromUser.userId, fullName: fromUser.fullName, avatarUrl: fromUser.avatarUrl } : null,
-      toUser: toUser
-        ? {
-            id: toUser.userId,
-            fullName: toUser.fullName,
-            avatarUrl: toUser.avatarUrl,
-            bankBin: toUser.bankBin,
-            bankName: toUser.bankName,
-            bankAccountNumber: toUser.bankAccountNumber,
-            bankAccountName: toUser.bankAccountName,
-          }
-        : null,
-      amount: Number(s.amount),
-      status: s.status,
-      vietqrUrl: s.vietqr_url,
-      paidAt: s.paid_at,
-      createdAt: s.created_at,
-    };
-  });
-};
-
-/**
- * 5. Lấy chi tiết một khoản nợ và link mã VietQR
- */
-const getSettlementVietQR = async (settlementId) => {
-  const settlement = await expensesRepository.findSettlementById(settlementId);
-  if (!settlement) {
-    const error = new Error('Không tìm thấy khoản thanh toán này');
-    error.status = 404;
-    throw error;
-  }
-
-  let vietqrUrl = settlement.vietqr_url;
-
-  // Nếu chưa có hoặc cần sinh mới mã QR
-  if (!vietqrUrl && settlement.bank_bin && settlement.bank_account_number) {
-    const shortCode = settlement.id.replace(/-/g, '').substring(0, 8).toUpperCase();
-    vietqrUrl = generateVietQRUrl({
-      bankBin: settlement.bank_bin,
-      accountNumber: settlement.bank_account_number,
+      ...settlement,
       amount: Number(settlement.amount),
-      description: `FT ${shortCode}`,
-    });
-  }
-
-  return {
-    ...settlement,
-    amount: Number(settlement.amount),
-    vietqrUrl,
-  };
-};
+      vietqrUrl: settlement.vietqr_url,
+    };
+  });
 
 /**
- * 6. Đánh dấu khoản nợ đã thanh toán thành công (Xác nhận thủ công)
+ * Updates settlement state machine.
+ * - Debtor reports payment: PENDING -> REPORTED
+ * - Creditor confirms payment: REPORTED -> PAID
  */
-const markSettlementPaid = async (settlementId, currentUserId) => {
-  const settlement = await expensesRepository.findSettlementById(settlementId);
-  if (!settlement) {
-    const error = new Error('Không tìm thấy khoản thanh toán');
-    error.status = 404;
-    throw error;
-  }
-
-  // Cho phép cả người trả hoặc người nhận bấm xác nhận
-  if (settlement.from_user_id !== currentUserId && settlement.to_user_id !== currentUserId) {
-    const error = new Error('Bạn không có quyền xác nhận cho khoản thanh toán này');
-    error.status = 403;
-    throw error;
-  }
-
-  const updated = await expensesRepository.updateSettlementStatus(settlementId, 'PAID');
-  return {
-    settlement: updated,
-    message: 'Khoản nợ đã được đánh dấu thanh toán thành công!',
-  };
-};
-
-/**
- * 7. Xử lý Webhook tự động từ SePay (Tự động gạch nợ 100% khi có tiền vào)
- */
-const handleSepayWebhook = async (webhookData, authHeader) => {
-  // 7.1 Kiểm tra xác thực khóa API từ SePay
-  const expectedKey = env.sepayApiKey;
-  if (authHeader) {
-    const token = authHeader.replace(/^Bearer\s+/i, '').replace(/^Apikey\s+/i, '').trim();
-    if (expectedKey && token !== expectedKey && token !== 'feelingtrip_sepay_webhook_secret_key_2026') {
-      const error = new Error('Khóa xác thực SePay không hợp lệ');
-      error.status = 401;
-      throw error;
+const updateSettlementState = (settlementId, userId, isCreditorConfirmation) =>
+  db.transaction(async (client) => {
+    const initial = await repo.findSettlementById(settlementId, client);
+    if (!initial) {
+      throw apiError(404, 'Không tìm thấy khoản thanh toán');
     }
-  }
 
-  // 7.2 Lấy thông tin giao dịch
-  const { content, transferAmount, description } = webhookData;
-  const refText = content || description || '';
+    await repo.lockTrip(client, initial.trip_id);
+    const settlement = await repo.findSettlementById(settlementId, client);
 
-  if (!refText) {
-    return { success: false, message: 'Nội dung chuyển khoản trống' };
-  }
+    const authorizedUser = isCreditorConfirmation
+      ? settlement.to_user_id
+      : settlement.from_user_id;
 
-  // 7.3 Tìm khoản nợ khớp với mã nội dung chuyển khoản
-  const settlement = await expensesRepository.findSettlementByReference(refText);
-  if (!settlement) {
+    if (authorizedUser !== userId) {
+      throw apiError(403, 'Bạn không có quyền thực hiện thao tác này');
+    }
+
+    if (settlement.status === 'CANCELLED') {
+      throw apiError(409, 'Khoản thanh toán đã được thay thế');
+    }
+
+    if (isCreditorConfirmation && settlement.status === 'PENDING') {
+      throw apiError(409, 'Người trả chưa báo đã chuyển tiền');
+    }
+
+    const nextStatus = isCreditorConfirmation ? 'PAID' : 'REPORTED';
+    const isAlreadyTarget =
+      settlement.status === 'PAID' ||
+      (!isCreditorConfirmation && settlement.status === 'REPORTED');
+
+    const updated = isAlreadyTarget
+      ? settlement
+      : await repo.updateSettlementStatus(settlementId, nextStatus, client);
+
     return {
-      success: false,
-      message: `Không tìm thấy khoản nợ khớp với nội dung: "${refText}"`,
+      settlement: updated,
+      message: isCreditorConfirmation
+        ? 'Đã xác nhận nhận tiền'
+        : 'Đã báo chuyển tiền, chờ người nhận xác nhận',
     };
+  });
+
+const markSettlementPaid = (id, userId) => updateSettlementState(id, userId, false);
+const confirmSettlement = (id, userId) => updateSettlementState(id, userId, true);
+
+/**
+ * Updates estimated budget for a trip (leader only).
+ */
+const updateBudget = (tripId, userId, budget) =>
+  db.transaction(async (client) => {
+    await repo.lockTrip(client, tripId);
+    await repo.requireMember(tripId, userId, client, true);
+    return repo.updateBudget(tripId, requireVnd(budget, true), client);
+  });
+
+/**
+ * Reconciles incoming SePay payment webhook.
+ */
+const handleSepayWebhook = async (input, authorizationHeader) => {
+  if (!env.sepayApiKey) {
+    throw apiError(503, 'SePay chưa được cấu hình');
   }
 
-  // 7.4 Kiểm tra số tiền chuyển có đủ không
-  const receivedAmount = Number(transferAmount);
-  const owedAmount = Number(settlement.amount);
+  const match = /^(?:Apikey|Bearer) ([^\s]+)$/i.exec(authorizationHeader || '');
+  const sha256 = (str) => crypto.createHash('sha256').update(str).digest();
 
-  if (receivedAmount < owedAmount) {
+  if (
+    !match ||
+    !crypto.timingSafeEqual(sha256(match[1]), sha256(env.sepayApiKey))
+  ) {
+    throw apiError(401, 'Khóa xác thực SePay không hợp lệ');
+  }
+
+  const event = parse(webhookSchema, input);
+  const skip = (message) => ({ success: true, processed: false, message });
+
+  if (event.transferType !== 'in') {
+    return skip('Bỏ qua tiền ra');
+  }
+
+  const matches = [
+    ...(event.content || event.description || '').matchAll(
+      /\bFT\s*([a-f0-9]{32}|[a-f0-9]{8})\b/gi
+    ),
+  ];
+
+  if (matches.length !== 1) {
+    return skip('Không có một mã FT hợp lệ duy nhất');
+  }
+
+  const paymentReference = matches[0][1];
+
+  return db.transaction(async (client) => {
+    const initial = await repo.findSettlementByReference(paymentReference, client);
+    if (!initial) {
+      return skip('Không tìm thấy khoản thanh toán');
+    }
+
+    await repo.lockTrip(client, initial.trip_id);
+    const settlement = await repo.findSettlementById(initial.id, client);
+
+    if (settlement.status === 'CANCELLED') {
+      return skip('QR đã bị thay thế; cần đối soát thủ công');
+    }
+
+    const expectedBin = env.sepayBankBins[event.gateway];
+    if (!expectedBin) {
+      throw apiError(503, 'Chưa cấu hình BIN cho ngân hàng SePay này');
+    }
+
+    if (
+      settlement.bank_bin !== String(expectedBin) ||
+      settlement.bank_account_number !== event.accountNumber
+    ) {
+      throw apiError(400, 'Ngân hàng hoặc tài khoản nhận không khớp');
+    }
+
+    if (event.transferAmount !== Number(settlement.amount)) {
+      throw apiError(400, 'Số tiền không khớp; cần đối soát thủ công');
+    }
+
+    const isNewEvent = await repo.recordWebhook(event, settlement.id, client);
+    if (!isNewEvent) {
+      return skip('Giao dịch đã được xử lý');
+    }
+
+    if (settlement.status === 'PAID') {
+      return skip('Khoản nợ đã được thanh toán');
+    }
+
+    const updatedSettlement = await repo.updateSettlementStatus(settlement.id, 'PAID', client);
     return {
-      success: false,
-      message: `Số tiền chuyển (${receivedAmount.toLocaleString('vi-VN')}đ) chưa đủ số tiền nợ (${owedAmount.toLocaleString('vi-VN')}đ)`,
+      success: true,
+      processed: true,
+      message: 'Đã xác nhận thanh toán SePay',
+      settlement: updatedSettlement,
     };
-  }
-
-  // 7.5 Tự động chuyển trạng thái khoản nợ sang 'PAID'
-  const updatedSettlement = await expensesRepository.updateSettlementStatus(settlement.id, 'PAID');
-
-  return {
-    success: true,
-    message: 'Tự động gạch nợ thành công qua SePay Webhook!',
-    settlement: updatedSettlement,
-  };
+  });
 };
 
 module.exports = {
@@ -337,5 +418,7 @@ module.exports = {
   settleTripDebts,
   getSettlementVietQR,
   markSettlementPaid,
+  confirmSettlement,
+  updateBudget,
   handleSepayWebhook,
 };

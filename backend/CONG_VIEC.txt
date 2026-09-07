@@ -11,7 +11,7 @@
 - CẤM TUYỆT ĐỐI push trực tiếp lên nhánh 'main'. Mọi người chỉ push lên nhánh của mình.
 - Trước khi code: Checkout đúng nhánh của mình rồi 'git pull origin main'.
 - Khi code xong: 'git add .', 'git commit -m "..."', 'git push origin <tên_nhánh>'.
-- Hệ thống GitHub Actions CI/CD sẽ tự động kiểm tra cú pháp và auto-merge vào 'main'.
+- Hệ thống GitHub Actions CI/CD sẽ tự động kiểm tra cú pháp, test PostgreSQL và kiểm tra kết quả merge và auto-merge vào 'main'.
 
 ================================================================================
 2. TỔNG HỢP PHÂN CÔNG 4 THÀNH VIÊN
@@ -74,7 +74,7 @@ Khung sườn Chuyến đi & Lịch trình:
 A. Phân hệ TRIPS (src/features/trips/):
    - CRUD chuyến đi: Tạo, cập nhật, xóa chuyến đi (điểm đến, ngày bắt đầu, ngày kết thúc).
    - Tạo mã Invite Code (6 ký tự) để các thành viên khác nhập mã tham gia nhóm.
-   - Quản lý danh sách thành viên nhóm, phân quyền Trưởng nhóm (HOST) và Thành viên (MEMBER).
+   - Quản lý danh sách thành viên nhóm, phân quyền Trưởng nhóm (LEADER) và Thành viên (MEMBER).
    - Tính năng Fork / Clone Plan từ lịch trình mẫu hoặc lịch trình cộng đồng.
    - Bảng DB liên quan: 'trips', 'trip_members'.
    - File hướng dẫn: src/features/trips/explain.txt.
@@ -169,3 +169,5 @@ Bước 4: Push code lên GitHub:
 
 Bước 5: Chờ GitHub Actions CI/CD tự động kiểm tra lỗi cú pháp và tự động merge vào main!
 ================================================================================
+
+CẬP NHẬT NHÁNH NHAT: đọc REVIEW_FIXES.md về migration và hợp đồng API hiện tại.

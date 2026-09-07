@@ -69,14 +69,6 @@ backend/
    - Cần trả về response chuẩn? Gọi `sendSuccess(res, data)` hoặc `sendError(res, message)` từ `shared/utils/response.util.js`.
    - Cần bắt đăng nhập? Dùng middleware `authenticate` từ `shared/middlewares/auth.middleware.js`.
    - Cần check quyền Admin? Dùng `authorize(ROLES.ADMIN)` từ `shared/middlewares/role.middleware.js`.
-3. **Quy trình Git:**
-   - **Không bao giờ push trực tiếp lên branch `main`**.
-   - Tạo branch riêng theo cú pháp: `git checkout -b feat/<tên-tính-năng>`.
-   - Trước khi tạo Pull Request:
-     ```bash
-     git checkout main
-     git pull origin main
-     git checkout feat/<tên-tính-năng>
-     git merge main
-     ```
-   - Sau khi test không có lỗi trên máy, mở Pull Request (PR) để Leader review và merge.
+3. **Quy trình Git:** Làm trên nhánh nhat/phu/thanh/tung như CONG_VIEC.txt. Push nhánh của mình; CI test commit và kết quả merge rồi mới đẩy main. Không push trực tiếp main.
+
+Xem [REVIEW_FIXES.md](REVIEW_FIXES.md) để chạy migration, cấu hình dịch vụ và kiểm thử.

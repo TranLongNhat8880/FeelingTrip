@@ -1,4 +1,5 @@
 const aiPlannerRepository = require('./aiPlanner.repository');
+const { normalizePlan } = require('../../shared/utils/itinerary.util');
 const { generateItineraryWithGemini } = require('../../shared/services/gemini.service');
 
 // ============================================================================
@@ -36,25 +37,14 @@ const saveAiItinerary = async ({
   estimatedBudget,
   itineraryData,
 }) => {
-  // Chuẩn hóa dữ liệu ngày và hoạt động
-  let days = [];
-  if (Array.isArray(itineraryData)) {
-    days = itineraryData;
-  } else if (itineraryData && Array.isArray(itineraryData.days)) {
-    days = itineraryData.days;
-  }
-
-  if (days.length === 0) {
-    const error = new Error('Dữ liệu lịch trình (itineraryData) không chứa thông tin ngày nào');
-    error.status = 400;
-    throw error;
-  }
+  const plan = normalizePlan(itineraryData);
+  const days = plan.days;
 
   // Tính toán ngày kết thúc (endDate)
   const durationDays = days.length;
   const start = new Date(startDate);
   const end = new Date(start);
-  end.setDate(start.getDate() + durationDays - 1);
+  end.setUTCDate(start.getUTCDate() + durationDays - 1);
   const endDate = end.toISOString().split('T')[0];
 
   const result = await aiPlannerRepository.saveAiItineraryToDb({
@@ -63,7 +53,7 @@ const saveAiItinerary = async ({
     destination,
     startDate: start.toISOString().split('T')[0],
     endDate,
-    estimatedBudget: estimatedBudget || (itineraryData.estimatedBudget || 0),
+    estimatedBudget: estimatedBudget ?? plan.estimatedBudget ?? 0,
     days,
   });
 

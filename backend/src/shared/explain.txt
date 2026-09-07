@@ -3,54 +3,72 @@ THƯ MỤC DÙNG CHUNG CỦA TOÀN DỰ ÁN: src/shared/
 ================================================================================
 
 1. TÁC DỤNG CỦA THƯ MỤC NÀY:
-   Đây là nơi chứa TẤT CẢ các tài nguyên, hàm tiện ích, middleware và dịch vụ dùng chung.
+   Đây là nơi chứa TẤT CẢ các tài nguyên, hàm tiện ích, middleware, hằng số và dịch vụ dùng chung.
    Mọi thành viên khi viết code trong thư mục "features/" ĐỀU ĐƯỢC PHÉP và NÊN GỌI các
-   hàm trong thư mục này để tránh viết lại code trùng lặp.
+   hàm trong thư mục này để đảm bảo chuẩn mực chung và tránh viết lại code trùng lặp.
 
 2. CẤU TRÚC VÀ CHI TIẾT CÁC FILE DÙNG CHUNG:
 
    A. THƯ MỤC middlewares/
       - auth.middleware.js:
         + Middleware xác thực token JWT người dùng gửi lên qua Header: `Authorization: Bearer <token>`
-        + Nếu hợp lệ, tự động gán thông tin user vào `req.user` (req.user.id, req.user.role...).
+        + Kiểm tra `token_version` trong Database để kịp thời chặn token bị thu hồi khi đổi mật khẩu/bị ban.
+        + Tự động gán thông tin user vào `req.user` (req.user.id, req.user.role...).
         + Cách dùng: router.get('/profile', authenticate, controller.getProfile);
       - role.middleware.js:
-        + Phân quyền tài khoản (ADMIN hoặc USER).
+        + Phân quyền tài khoản theo vai trò hệ thống (ADMIN hoặc USER).
         + Cách dùng: router.get('/users', authenticate, authorize(ROLES.ADMIN), controller.list);
+      - rateLimit.middleware.js:
+        + Giới hạn tần suất request theo IP và theo từng scope cụ thể (lưu trong DB `request_limits`).
+        + Tránh spam và tấn công brute-force vào các endpoint nhạy cảm (đăng nhập, gửi OTP...).
+        + Cách dùng: router.post('/login', rateLimit('auth_login', 40, 900), controller.login);
+      - validate.middleware.js:
+        + Middleware kiểm tra dữ liệu đầu vào bằng Joi schema trước khi vào controller.
+        + Cách dùng: router.post('/register', validate(registerSchema), controller.register);
       - upload.middleware.js:
         + Upload ảnh trực tiếp lên CLOUDINARY qua Multer (hỗ trợ JPG, PNG, WEBP tối đa 5MB).
-        + Cách dùng 1 ảnh: router.post('/avatar', authenticate, upload.single('avatar'), controller.uploadAvatar);
-        + Trong controller: Lấy URL ảnh đã upload tại `req.file.path`.
-        + Cách dùng nhiều ảnh: router.post('/photos', authenticate, upload.array('photos', 5), controller.uploadPhotos);
+        + Cách dùng: router.post('/avatar', authenticate, upload.single('avatar'), controller.uploadAvatar);
       - error.middleware.js:
-        + Bắt lỗi toàn cục của server, tự động trả JSON lỗi gọn gàng, tránh crash app.
+        + Xử lý ngoại lệ toàn cục của server, tự động trả JSON lỗi gọn gàng, hỗ trợ ApiError và mã lỗi PostgreSQL.
 
    B. THƯ MỤC utils/
       - response.util.js:
-        + Chuẩn hóa JSON trả về cho mobile app.
+        + Chuẩn hóa JSON phản hồi cho Client:
         + `sendSuccess(res, data, message, statusCode)`
         + `sendError(res, message, statusCode, errors)`
+      - apiError.util.js:
+        + Lớp lỗi tùy biến `ApiError` kế thừa `Error`, tự động gắn status code và stack trace sạch.
+        + Cách dùng: `throw apiError(404, 'Không tìm thấy dữ liệu')`
       - minCashFlow.util.js:
-        + Thuật toán rút gọn nợ cho chức năng Split Bill (từ N giao dịch giảm xuống tối đa N-1).
-        + `simplifyDebts(netBalances)`
+        + Thuật toán rút gọn nợ tối ưu dòng tiền (Min Cash Flow).
+        + Sử dụng Bitmask Subset-Sum Dynamic Programming cho nhóm <= 15 thành viên (đạt số giao dịch tối thiểu tuyệt đối)
+          và thuật toán tham lam (Greedy) tất định cho nhóm > 15 thành viên.
+        + `simplifyDebts(netBalances)` -> trả về danh sách giao dịch chuyển khoản.
+      - money.util.js:
+        + Kiểm tra và ép kiểu số tiền VND nguyên (không có số thập phân, không âm, không vượt quá giới hạn an toàn JS).
+        + `requireVnd(value, allowZero)`
+      - itinerary.util.js:
+        + Schema và hàm chuẩn hóa lịch trình AI (`normalizePlan`).
+        + Kiểm tra ngày giờ, thứ tự thời gian tăng dần, danh mục hợp lệ và ngân sách.
       - token.util.js:
-        + `generateToken(payload)`: Tạo chuỗi JWT token.
-        + `verifyToken(token)`: Kiểm tra tính hợp lệ của token.
+        + `generateToken(payload)`: Tạo chuỗi JWT token chứa `{ id, tokenVersion }`.
+        + `verifyToken(token)`: Kiểm tra tính hợp lệ và giải mã token.
       - hash.util.js:
-        + `hashPassword(password)`: Băm mật khẩu an toàn với bcrypt.
-        + `comparePassword(plain, hashed)`: Đối chiếu mật khẩu khi đăng nhập.
+        + `hashPassword(password)`: Băm mật khẩu bằng bcryptjs (có kiểm tra giới hạn 72 bytes UTF-8).
+        + `comparePassword(plain, hashed)`: Đối chiếu mật khẩu khi đăng nhập / xác thực OTP.
 
    C. THƯ MỤC services/
       - vietqr.service.js:
         + `generateVietQRUrl({ bankBin, accountNumber, amount, description })`
-        + Tạo link ảnh QR thanh toán trực tiếp theo chuẩn ngân hàng NAPAS 247.
+        + Tạo link ảnh QR thanh toán trực tiếp theo chuẩn NAPAS 247 (kiểm tra an toàn path và số tiền).
       - gemini.service.js:
-        + Gọi API Google Gemini để sinh lịch trình du lịch thông minh dạng JSON.
-      - map.service.js:
-        + Gọi API bản đồ (Goong Map / Mapbox) để tính khoảng cách và đường đi.
+        + Gọi API Google Gemini REST để sinh lịch trình du lịch thông minh dạng JSON có cấu trúc.
+      - email.service.js:
+        + `sendOtpEmail(toEmail, otp)`
+        + Gửi email chứa mã OTP xác thực qua giao thức SMTP (Nodemailer).
 
    D. THƯ MỤC constants/
-      - httpStatus.js: Mã trạng thái chuẩn (HTTP_STATUS.OK = 200, CREATED = 201, BAD_REQUEST = 400...).
+      - httpStatus.js: Mã trạng thái HTTP chuẩn (HTTP_STATUS.OK = 200, CREATED = 201, BAD_REQUEST = 400...).
       - roles.js: Định nghĩa ROLES (USER, ADMIN) và TRIP_ROLES (LEADER, MEMBER).
-      - categories.js: Danh mục địa điểm (PLACE_CATEGORIES) và chi tiêu (EXPENSE_CATEGORIES).
+      - categories.js: Danh mục địa điểm (PLACE_CATEGORIES) và danh mục chi tiêu (EXPENSE_CATEGORIES).
 ================================================================================

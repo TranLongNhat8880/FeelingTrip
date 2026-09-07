@@ -1,0 +1,36 @@
+================================================================================
+THƯ MỤC: DATABASE & MIGRATIONS - backend/database/
+================================================================================
+
+1. TÁC DỤNG CỦA THƯ MỤC NÀY:
+   Quản lý toàn bộ cấu trúc cơ sở dữ liệu PostgreSQL của dự án FeelingTrip, bao gồm:
+   - File khởi tạo toàn bộ bảng từ đầu (`schema.sql`).
+   - Các tệp migration có phiên bản (`migrations/001_backend_integrity.sql`...) dùng để nâng cấp DB hiện có mà không làm mất dữ liệu.
+
+2. CÁC FILE TRONG THƯ MỤC:
+
+   - schema.sql:
+     + Chứa toàn bộ câu lệnh DDL khởi tạo toàn bộ schema của hệ thống từ đầu (bảng users, trips, trip_members, itineraries, itinerary_items, places, expenses, expense_splits, settlements, companion_posts, companion_requests, notifications, user_reports, user_blocks, emergency_contacts, sos_alerts, auth_otps, request_limits, sepay_events).
+     + Được cập nhật đồng bộ với migration mới nhất, cho phép tạo database mới hoàn chỉnh chỉ với 1 lần chạy.
+
+   - migrations/001_backend_integrity.sql:
+     + Migration nâng cấp cơ sở dữ liệu cho các tính năng bảo mật và toàn vẹn dữ liệu:
+       * Thêm cột `token_version` vào bảng `users` để hỗ trợ thu hồi JWT token tức thì khi đổi mật khẩu/bị ban.
+       * Tạo bảng `auth_otps` lưu trữ mã băm OTP an toàn trong DB thay vì RAM.
+       * Tạo bảng `request_limits` phục vụ rate limiting theo IP chống brute force.
+       * Trigger `trg_users_revoke_tokens` tự động tăng `token_version` khi trạng thái user thay đổi.
+       * Thêm trạng thái `REPORTED` vào bảng `settlements`, hỗ trợ lưu thông tin ngân hàng snapshot khi tạo QR.
+       * Tạo bảng `sepay_events` lưu lịch sử giao dịch webhook SePay, chống double-spending và replay attack.
+       * Mở rộng danh mục chuẩn cho `places` và `itinerary_items`.
+       * Bổ sung các bảng `user_blocks`, `emergency_contacts`, `sos_alerts` và index tăng tốc độ truy vấn.
+
+3. HƯỚNG DẪN CHẠY MIGRATION:
+   - Chạy lệnh sau tại thư mục `backend/`:
+     ```bash
+     npm run db:migrate
+     ```
+   - Cơ chế hoạt động:
+     + Tự động xin khóa phân tán PostgreSQL (`pg_advisory_xact_lock(741825)`), chống chạy đè khi có nhiều tiến trình chạy song song.
+     + Lưu lịch sử các migration đã chạy vào bảng `schema_migrations`.
+     + Đảm bảo tính lũy thừa (Idempotent): Nếu migration đã áp dụng rồi thì sẽ tự động bỏ qua, không gây lỗi.
+================================================================================

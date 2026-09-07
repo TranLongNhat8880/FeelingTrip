@@ -1,4 +1,5 @@
 const db = require('../../config/database');
+const crypto = require('crypto');
 
 // ============================================================================
 // REPOSITORY: AI Travel Planner
@@ -23,8 +24,9 @@ const saveAiItineraryToDb = async ({
 
     // 1. Tạo bản ghi chuyến đi chính trong bảng 'trips'
     const tripQuery = `
-      INSERT INTO trips (creator_id, name, destination, start_date, end_date, estimated_budget, privacy_type, status)
-      VALUES ($1, $2, $3, $4, $5, $6, 'PRIVATE', 'UPCOMING')
+      INSERT INTO trips (creator_id, name, destination, start_date, end_date, estimated_budget, privacy_type, status, invite_code)
+      VALUES ($1, $2, $3, $4, $5, $6, 'PRIVATE', 'UPCOMING', $7)
+      ON CONFLICT (invite_code) DO NOTHING
       RETURNING *;
     `;
     const tripValues = [
@@ -33,10 +35,16 @@ const saveAiItineraryToDb = async ({
       destination,
       startDate,
       endDate,
-      estimatedBudget || 0,
+      estimatedBudget ?? 0,
+      crypto.randomBytes(3).toString('hex').toUpperCase(),
     ];
-    const { rows: tripRows } = await client.query(tripQuery, tripValues);
-    const createdTrip = tripRows[0];
+    let createdTrip;
+    for (let attempt = 0; attempt < 5 && !createdTrip; attempt++) {
+      tripValues[6] = crypto.randomBytes(3).toString('hex').toUpperCase();
+      const { rows } = await client.query(tripQuery, tripValues);
+      createdTrip = rows[0];
+    }
+    if (!createdTrip) throw new Error('Không tạo được mã mời duy nhất, vui lòng thử lại');
 
     // 2. Thêm người tạo làm LEADER trong bảng 'trip_members'
     const memberQuery = `
@@ -53,7 +61,7 @@ const saveAiItineraryToDb = async ({
     for (const day of days) {
       // Tính ngày cụ thể: baseDate + (dayNumber - 1)
       const currentDayDate = new Date(baseDate);
-      currentDayDate.setDate(baseDate.getDate() + (day.dayNumber - 1));
+      currentDayDate.setUTCDate(baseDate.getUTCDate() + (day.dayNumber - 1));
 
       const itineraryQuery = `
         INSERT INTO itineraries (trip_id, day_number, title, trip_date)
@@ -74,8 +82,8 @@ const saveAiItineraryToDb = async ({
       for (let idx = 0; idx < items.length; idx++) {
         const item = items[idx];
         const itemQuery = `
-          INSERT INTO itinerary_items (itinerary_id, custom_name, start_time, order_index, note, estimated_cost)
-          VALUES ($1, $2, $3, $4, $5, $6)
+          INSERT INTO itinerary_items (itinerary_id, custom_name, start_time, order_index, note, estimated_cost, category)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
           RETURNING *;
         `;
         const { rows: itemRows } = await client.query(itemQuery, [
@@ -84,7 +92,8 @@ const saveAiItineraryToDb = async ({
           item.time ? `${item.time}:00`.substring(0, 8) : null,
           idx + 1,
           item.note || null,
-          item.estimatedCost || 0,
+          item.estimatedCost ?? 0,
+          item.category || 'OTHER',
         ]);
         savedItems.push(itemRows[0]);
       }

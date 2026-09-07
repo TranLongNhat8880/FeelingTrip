@@ -1,4 +1,6 @@
 const Joi = require('joi');
+const { daysSchema, planSchema } = require('../../shared/utils/itinerary.util');
+const { MAX_VND } = require('../../shared/utils/money.util');
 
 // ============================================================================
 // VALIDATION SCHEMAS: AI Travel Planner (src/features/ai-planner/)
@@ -20,7 +22,7 @@ const generateItinerarySchema = Joi.object({
     'number.max': 'Số ngày du lịch tối đa cho AI tạo là 14 ngày',
     'any.required': 'Số ngày du lịch (durationDays) là bắt buộc',
   }),
-  estimatedBudget: Joi.number().min(0).allow(null).messages({
+  estimatedBudget: Joi.number().integer().min(0).max(MAX_VND).allow(null).messages({
     'number.min': 'Ngân sách dự kiến không được âm',
   }),
   travelStyle: Joi.string()
@@ -44,12 +46,15 @@ const saveAiItinerarySchema = Joi.object({
     'string.empty': 'Điểm đến không được để trống',
     'any.required': 'Điểm đến là bắt buộc',
   }),
-  startDate: Joi.date().iso().required().messages({
+  startDate: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).custom((date, helpers) => {
+    const parsed = new Date(date);
+    return Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0,10) !== date ? helpers.error('any.invalid') : date;
+  }).required().messages({
     'date.format': 'Ngày khởi hành phải đúng chuẩn ISO (YYYY-MM-DD)',
     'any.required': 'Ngày khởi hành là bắt buộc',
   }),
-  estimatedBudget: Joi.number().min(0).allow(null),
-  itineraryData: Joi.alternatives().try(Joi.object(), Joi.array()).required().messages({
+  estimatedBudget: Joi.number().integer().min(0).max(MAX_VND).allow(null),
+  itineraryData: Joi.alternatives().try(planSchema, daysSchema).required().messages({
     'any.required': 'Dữ liệu lịch trình (itineraryData) là bắt buộc',
   }),
 });

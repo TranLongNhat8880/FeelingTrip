@@ -15,7 +15,7 @@ const createExpense = async (req, res, next) => {
   try {
     const payerId = req.body.payerId || req.user.id;
     const expenseData = { ...req.body, payerId };
-    const result = await expensesService.createExpense(expenseData);
+    const result = await expensesService.createExpense(expenseData, req.user.id);
     return sendSuccess(res, result, 'Tạo khoản chi tiêu thành công', HTTP_STATUS.CREATED);
   } catch (error) {
     if (error.status) {
@@ -32,7 +32,7 @@ const createExpense = async (req, res, next) => {
 const getTripExpenses = async (req, res, next) => {
   try {
     const { tripId } = req.params;
-    const result = await expensesService.getTripExpenses(tripId);
+    const result = await expensesService.getTripExpenses(tripId, req.user.id);
     return sendSuccess(res, result, 'Lấy danh sách chi tiêu thành công', HTTP_STATUS.OK);
   } catch (error) {
     if (error.status) {
@@ -49,7 +49,7 @@ const getTripExpenses = async (req, res, next) => {
 const getTripBalances = async (req, res, next) => {
   try {
     const { tripId } = req.params;
-    const result = await expensesService.getTripBalances(tripId);
+    const result = await expensesService.getTripBalances(tripId, req.user.id);
     return sendSuccess(res, result, 'Lấy bảng cân đối tài chính thành công', HTTP_STATUS.OK);
   } catch (error) {
     if (error.status) {
@@ -66,7 +66,7 @@ const getTripBalances = async (req, res, next) => {
 const settleTripDebts = async (req, res, next) => {
   try {
     const { tripId } = req.params;
-    const result = await expensesService.settleTripDebts(tripId);
+    const result = await expensesService.settleTripDebts(tripId, req.user.id);
     return sendSuccess(res, result, 'Tính toán và rút gọn công nợ thành công', HTTP_STATUS.OK);
   } catch (error) {
     if (error.status) {
@@ -83,7 +83,7 @@ const settleTripDebts = async (req, res, next) => {
 const getSettlementVietQR = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const result = await expensesService.getSettlementVietQR(id);
+    const result = await expensesService.getSettlementVietQR(id, req.user.id);
     return sendSuccess(res, result, 'Lấy mã VietQR thanh toán thành công', HTTP_STATUS.OK);
   } catch (error) {
     if (error.status) {
@@ -136,4 +136,17 @@ module.exports = {
   getSettlementVietQR,
   markSettlementPaid,
   handleSepayWebhook,
+};
+
+module.exports.confirmSettlement = async (req,res,next) => {
+  try {
+    const result = await expensesService.confirmSettlement(req.params.id, req.user.id);
+    return sendSuccess(res, result.settlement, result.message);
+  } catch (error) { next(error); }
+};
+module.exports.updateBudget = async (req,res,next) => {
+  try {
+    const result = await expensesService.updateBudget(req.params.tripId, req.user.id, req.body.estimatedBudget);
+    return sendSuccess(res, result, 'Cập nhật ngân sách thành công');
+  } catch (error) { next(error); }
 };
