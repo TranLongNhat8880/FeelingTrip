@@ -1,18 +1,11 @@
-/**
- * VietQR Open Standard Service
- * Generates direct payment QR URL conforming to NAPAS standard
- */
+const { requireVnd } = require('../utils/money.util');
+const apiError = require('../utils/apiError.util');
 const generateVietQRUrl = ({ bankBin, accountNumber, amount, description, template = 'compact2' }) => {
-  if (!bankBin || !accountNumber) {
-    throw new Error('Bank BIN and account number are required to generate VietQR');
+  if (!/^\d{6}$/.test(bankBin || '') || !/^[a-zA-Z0-9]{1,50}$/.test(accountNumber || '') ||
+      !['compact', 'compact2', 'qr_only', 'print'].includes(template)) {
+    throw apiError(400, 'Thông tin ngân hàng VietQR không hợp lệ');
   }
-
-  const encodedDesc = encodeURIComponent(description || 'FeelingTrip Thanh Toan');
-  const roundedAmount = Math.round(amount || 0);
-
-  return `https://img.vietqr.io/image/${bankBin}-${accountNumber}-${template}.png?amount=${roundedAmount}&addInfo=${encodedDesc}`;
+  const query = new URLSearchParams({ amount: String(requireVnd(amount)), addInfo: description || 'FeelingTrip Thanh Toan' });
+  return 'https://img.vietqr.io/image/' + bankBin + '-' + accountNumber + '-' + template + '.png?' + query;
 };
-
-module.exports = {
-  generateVietQRUrl,
-};
+module.exports = { generateVietQRUrl };

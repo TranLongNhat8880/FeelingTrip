@@ -21,7 +21,7 @@ const generateItinerary = async (req, res, next) => {
       travelStyle,
       preferences,
     });
-    return sendSuccess(res, result, 'Sinh lịch trình du lịch AI thành công', HTTP_STATUS.OK);
+    return sendSuccess(res, result, result.source === 'fallback' ? 'Lịch trình mẫu cục bộ' : 'Sinh lịch trình du lịch AI thành công', HTTP_STATUS.OK);
   } catch (error) {
     if (error.status) {
       return sendError(res, error.message, error.status);

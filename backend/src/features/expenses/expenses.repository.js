@@ -1,68 +1,41 @@
 const db = require('../../config/database');
+const apiError = require('../../shared/utils/apiError.util');
 
-// ============================================================================
-// REPOSITORY: Expenses & Split Bill
-// Thao tác với các bảng 'expenses', 'expense_splits', 'settlements' trong Database
-// ============================================================================
-
-/**
- * 1. Tạo khoản chi tiêu và phân bổ số tiền nợ (Database Transaction)
- */
-const createExpenseWithSplits = async (expenseData, splitsData) => {
-  const client = await db.pool.connect();
-  try {
-    await client.query('BEGIN');
-
-    // 1.1 Insert khoản chi chính
-    const expenseQuery = `
-      INSERT INTO expenses (trip_id, payer_id, title, amount, category, receipt_image_url, expense_date)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-      RETURNING *;
-    `;
-    const expenseValues = [
-      expenseData.tripId,
-      expenseData.payerId,
-      expenseData.title,
-      expenseData.amount,
-      expenseData.category || 'OTHER',
-      expenseData.receiptImageUrl || null,
-      expenseData.expenseDate || new Date(),
-    ];
-    const { rows: expenseRows } = await client.query(expenseQuery, expenseValues);
-    const createdExpense = expenseRows[0];
-
-    // 1.2 Insert từng phần chia cho các thành viên
-    const savedSplits = [];
-    for (const split of splitsData) {
-      const splitQuery = `
-        INSERT INTO expense_splits (expense_id, user_id, amount_owed)
-        VALUES ($1, $2, $3)
-        RETURNING id, expense_id, user_id, amount_owed;
-      `;
-      const { rows: splitRows } = await client.query(splitQuery, [
-        createdExpense.id,
-        split.userId,
-        split.amountOwed,
-      ]);
-      savedSplits.push(splitRows[0]);
-    }
-
-    await client.query('COMMIT');
-    return {
-      expense: createdExpense,
-      splits: savedSplits,
-    };
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
-  } finally {
-    client.release();
+const lockTrip = async (client, tripId) => {
+  const { rows: [trip] } = await client.query('SELECT * FROM trips WHERE id = $1 FOR UPDATE', [tripId]);
+  if (!trip) throw apiError(404, 'Không tìm thấy chuyến đi');
+  return trip;
+};
+const requireMember = async (tripId, userId, client = db, leaderOnly = false) => {
+  const { rows: [row] } = await client.query(`
+    SELECT t.creator_id, tm.role FROM trips t
+    LEFT JOIN trip_members tm ON tm.trip_id = t.id AND tm.user_id = $2
+    WHERE t.id = $1`, [tripId, userId]);
+  if (!row || (row.creator_id !== userId && (!row.role || (leaderOnly && row.role !== 'LEADER')))) {
+    throw apiError(403, 'Bạn không có quyền truy cập chuyến đi này');
   }
 };
+const createExpenseWithSplits = async (expense, splits, client) => {
+  const { rows: [created] } = await client.query(`
+    INSERT INTO expenses (trip_id, payer_id, title, amount, category, receipt_image_url, expense_date)
+    VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+    [expense.tripId, expense.payerId, expense.title, expense.amount, expense.category,
+      expense.receiptImageUrl || null, expense.expenseDate || new Date()]);
+  const saved = [];
+  for (const split of splits) {
+    const { rows: [row] } = await client.query(
+      'INSERT INTO expense_splits (expense_id, user_id, amount_owed) VALUES ($1,$2,$3) RETURNING *',
+      [created.id, split.userId, split.amountOwed]);
+    saved.push(row);
+  }
+  await client.query(`
+    INSERT INTO notifications (user_id, title, message, type, data)
+    SELECT DISTINCT user_id, 'Khoản chi mới', $2, 'BILL', $3::jsonb
+    FROM expense_splits WHERE expense_id = $1`,
+    [created.id, expense.title, JSON.stringify({ tripId: expense.tripId, expenseId: created.id })]);
+  return { expense: created, splits: saved };
+};
 
-/**
- * 2. Lấy danh sách toàn bộ các khoản chi trong chuyến đi kèm chi tiết ai chịu
- */
 const findExpensesByTripId = async (tripId) => {
   // Lấy các khoản chi kèm thông tin người trả
   const expensesQuery = `
@@ -165,174 +138,100 @@ const getTripBudgetSummary = async (tripId) => {
  * 4. Tính toán số dư ròng của các thành viên trong chuyến đi
  * (Tổng tiền đã chi - Tổng tiền phải chịu)
  */
-const calculateTripNetBalances = async (tripId) => {
-  // Lấy tất cả thành viên trong chuyến đi (bao gồm creator và members)
-  const membersQuery = `
-    SELECT u.id AS user_id, u.full_name, u.avatar_url,
-           u.bank_bin, u.bank_name, u.bank_account_number, u.bank_account_name
-    FROM trip_members tm
-    JOIN users u ON tm.user_id = u.id
-    WHERE tm.trip_id = $1
-    UNION
-    SELECT u.id AS user_id, u.full_name, u.avatar_url,
-           u.bank_bin, u.bank_name, u.bank_account_number, u.bank_account_name
-    FROM trips t
-    JOIN users u ON t.creator_id = u.id
-    WHERE t.id = $1;
-  `;
-  const { rows: members } = await db.query(membersQuery, [tripId]);
 
-  // Tổng tiền mỗi người đã thanh toán trước
-  const paidQuery = `
-    SELECT payer_id AS user_id, COALESCE(SUM(amount), 0) AS total_paid
-    FROM expenses
-    WHERE trip_id = $1
-    GROUP BY payer_id;
-  `;
-  const { rows: paidRows } = await db.query(paidQuery, [tripId]);
-  const paidMap = {};
-  paidRows.forEach((r) => {
-    paidMap[r.user_id] = Number(r.total_paid);
-  });
-
-  // Tổng tiền mỗi người phải chịu theo các khoản chi
-  const owedQuery = `
-    SELECT es.user_id, COALESCE(SUM(es.amount_owed), 0) AS total_owed
-    FROM expense_splits es
-    JOIN expenses e ON es.expense_id = e.id
-    WHERE e.trip_id = $1
-    GROUP BY es.user_id;
-  `;
-  const { rows: owedRows } = await db.query(owedQuery, [tripId]);
-  const owedMap = {};
-  owedRows.forEach((r) => {
-    owedMap[r.user_id] = Number(r.total_owed);
-  });
-
-  return members.map((member) => {
-    const totalPaid = paidMap[member.user_id] || 0;
-    const totalOwed = owedMap[member.user_id] || 0;
-    const netBalance = totalPaid - totalOwed;
-    return {
-      userId: member.user_id,
-      fullName: member.full_name,
-      avatarUrl: member.avatar_url,
-      bankBin: member.bank_bin,
-      bankName: member.bank_name,
-      bankAccountNumber: member.bank_account_number,
-      bankAccountName: member.bank_account_name,
-      totalPaid,
-      totalOwed,
-      netBalance,
-    };
-  });
+// Include former members with financial history so removing a member cannot erase a debt.
+const calculateTripNetBalances = async (tripId, client = db) => {
+  const { rows } = await client.query(`
+    WITH ledger AS (
+      SELECT payer_id AS user_id, amount AS delta, amount AS paid, 0::numeric AS owed
+        FROM expenses WHERE trip_id = $1
+      UNION ALL
+      SELECT es.user_id, -es.amount_owed, 0, es.amount_owed FROM expense_splits es
+        JOIN expenses e ON e.id = es.expense_id WHERE e.trip_id = $1
+      UNION ALL SELECT from_user_id, amount, 0, 0 FROM settlements WHERE trip_id = $1 AND status = 'PAID'
+      UNION ALL SELECT to_user_id, -amount, 0, 0 FROM settlements WHERE trip_id = $1 AND status = 'PAID'
+    ), people AS (
+      SELECT user_id FROM trip_members WHERE trip_id = $1
+      UNION SELECT creator_id FROM trips WHERE id = $1
+      UNION SELECT user_id FROM ledger
+    )
+    SELECT u.id, u.full_name, u.avatar_url, u.bank_bin, u.bank_name, u.bank_account_number, u.bank_account_name,
+      COALESCE(SUM(l.delta),0) AS balance, COALESCE(SUM(l.paid),0) AS paid, COALESCE(SUM(l.owed),0) AS owed
+    FROM people p JOIN users u ON u.id = p.user_id LEFT JOIN ledger l ON l.user_id = u.id
+    GROUP BY u.id ORDER BY u.id`, [tripId]);
+  return rows.map(u => ({
+    userId: u.id, fullName: u.full_name, avatarUrl: u.avatar_url,
+    bankBin: u.bank_bin, bankName: u.bank_name, bankAccountNumber: u.bank_account_number,
+    bankAccountName: u.bank_account_name, totalPaid: Number(u.paid),
+    totalOwed: Number(u.owed), netBalance: Number(u.balance),
+  }));
 };
-
-/**
- * 5. Lưu danh sách thanh toán rút gọn vào bảng 'settlements'
- */
-const saveSettlements = async (tripId, settlementsList) => {
-  const client = await db.pool.connect();
-  try {
-    await client.query('BEGIN');
-
-    // Xóa các khoản nợ cũ chưa thanh toán (PENDING) để tính toán lại mới
-    await client.query(
-      `DELETE FROM settlements WHERE trip_id = $1 AND status = 'PENDING'`,
-      [tripId]
-    );
-
-    const savedSettlements = [];
-    for (const item of settlementsList) {
-      const queryText = item.id
-        ? `
-          INSERT INTO settlements (id, trip_id, from_user_id, to_user_id, amount, status, vietqr_url)
-          VALUES ($1, $2, $3, $4, $5, 'PENDING', $6)
-          RETURNING *;
-        `
-        : `
-          INSERT INTO settlements (trip_id, from_user_id, to_user_id, amount, status, vietqr_url)
-          VALUES ($1, $2, $3, $4, 'PENDING', $5)
-          RETURNING *;
-        `;
-      const values = item.id
-        ? [item.id, tripId, item.fromUserId, item.toUserId, item.amount, item.vietqrUrl || null]
-        : [tripId, item.fromUserId, item.toUserId, item.amount, item.vietqrUrl || null];
-
-      const { rows } = await client.query(queryText, values);
-      savedSettlements.push(rows[0]);
-    }
-
-    await client.query('COMMIT');
-    return savedSettlements;
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
-  } finally {
-    client.release();
+const findSettlementById = async (id, client = db) => {
+  const { rows: [row] } = await client.query(`
+    SELECT s.*, fu.full_name AS from_user_name, tu.full_name AS to_user_name
+    FROM settlements s JOIN users fu ON fu.id = s.from_user_id JOIN users tu ON tu.id = s.to_user_id
+    WHERE s.id = $1`, [id]);
+  return row || null;
+};
+const openSettlements = async (tripId, client) => {
+  const { rows } = await client.query(
+    "SELECT * FROM settlements WHERE trip_id = $1 AND status IN ('PENDING','REPORTED') ORDER BY id", [tripId]);
+  return rows;
+};
+const saveSettlements = async (tripId, list, client) => {
+  // Keep retired QR references for audit; they must never match a new payment.
+  await client.query("UPDATE settlements SET status = 'CANCELLED' WHERE trip_id = $1 AND status = 'PENDING'", [tripId]);
+  const saved = [];
+  for (const s of list) {
+    const { rows: [row] } = await client.query(`
+      INSERT INTO settlements (id, trip_id, from_user_id, to_user_id, amount, vietqr_url,
+        bank_bin, bank_account_number, bank_account_name)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+      [s.id, tripId, s.fromUserId, s.toUserId, s.amount, s.vietqrUrl,
+        s.bankBin, s.bankAccountNumber, s.bankAccountName]);
+    saved.push(row);
   }
+  return saved;
 };
-
-/**
- * 6. Lấy chi tiết một khoản nợ kèm thông tin ngân hàng người thụ hưởng
- */
-const findSettlementById = async (settlementId) => {
-  const queryText = `
-    SELECT s.id, s.trip_id, s.from_user_id, s.to_user_id, s.amount, s.status,
-           s.vietqr_url, s.paid_at, s.created_at,
-           fu.full_name AS from_user_name, fu.avatar_url AS from_user_avatar,
-           tu.full_name AS to_user_name, tu.avatar_url AS to_user_avatar,
-           tu.bank_bin, tu.bank_name, tu.bank_account_number, tu.bank_account_name
-    FROM settlements s
-    JOIN users fu ON s.from_user_id = fu.id
-    JOIN users tu ON s.to_user_id = tu.id
-    WHERE s.id = $1;
-  `;
-  const { rows } = await db.query(queryText, [settlementId]);
+const updateSettlementStatus = async (id, status, client) => {
+  const { rows: [row] } = await client.query(`
+    UPDATE settlements SET status = $2::varchar,
+      reported_at = CASE WHEN $2 = 'REPORTED' THEN NOW() ELSE reported_at END,
+      paid_at = CASE WHEN $2 = 'PAID' THEN NOW() ELSE paid_at END
+    WHERE id = $1 RETURNING *`, [id, status]);
+  return row;
+};
+const findSettlementByReference = async (reference, client = db) => {
+  // Exact full reference for new QRs; accept legacy 8-char references only when unambiguous.
+  const { rows } = await client.query(`
+    SELECT * FROM settlements WHERE REPLACE(id::text, '-', '') = $1
+      OR (LENGTH($1) = 8 AND LEFT(REPLACE(id::text, '-', ''),8) = $1)`, [reference.toLowerCase()]);
+  if (rows.length > 1) throw apiError(409, 'Mã thanh toán không duy nhất');
   return rows[0] || null;
 };
-
-/**
- * 7. Cập nhật trạng thái thanh toán khoản nợ ('PAID')
- */
-const updateSettlementStatus = async (settlementId, status = 'PAID') => {
-  const queryText = `
-    UPDATE settlements
-    SET status = $2, paid_at = CURRENT_TIMESTAMP
-    WHERE id = $1
-    RETURNING *;
-  `;
-  const { rows } = await db.query(queryText, [settlementId, status]);
-  return rows[0] || null;
+const updateBudget = async (tripId, amount, client) => {
+  const { rows: [row] } = await client.query(
+    'UPDATE trips SET estimated_budget = $2 WHERE id = $1 RETURNING id, estimated_budget', [tripId, amount]);
+  return { tripId: row.id, estimatedBudget: Number(row.estimated_budget) };
 };
-
-/**
- * 8. Tìm khoản nợ theo mã tham chiếu (Dùng cho SePay Webhook)
- */
-const findSettlementByReference = async (refText) => {
-  // Tìm kiếm theo chuỗi ID khớp với nội dung chuyển khoản
-  const queryText = `
-    SELECT s.*
-    FROM settlements s
-    WHERE s.status = 'PENDING'
-      AND (
-        $1 ILIKE '%' || REPLACE(s.id::text, '-', '') || '%'
-        OR $1 ILIKE '%' || SUBSTRING(REPLACE(s.id::text, '-', '') FROM 1 FOR 8) || '%'
-      )
-    ORDER BY s.created_at DESC
-    LIMIT 1;
-  `;
-  const { rows } = await db.query(queryText, [refText]);
-  return rows[0] || null;
+const recordWebhook = async (event, settlementId, client) => {
+  const { rows } = await client.query(`
+    INSERT INTO sepay_events (transaction_id, settlement_id) VALUES ($1,$2)
+    ON CONFLICT (transaction_id) DO NOTHING RETURNING transaction_id`, [String(event.id), settlementId]);
+  return rows.length === 1;
 };
-
-module.exports = {
-  createExpenseWithSplits,
-  findExpensesByTripId,
-  getTripBudgetSummary,
-  calculateTripNetBalances,
-  saveSettlements,
-  findSettlementById,
-  updateSettlementStatus,
-  findSettlementByReference,
+const findRecipientBank = async (id, client) => {
+  const { rows: [bank] } = await client.query(
+    'SELECT bank_bin, bank_account_number, bank_account_name FROM users WHERE id = $1', [id]);
+  return bank;
 };
+const attachVietQR = async (id, bank, url, client) => {
+  const { rows: [row] } = await client.query(`UPDATE settlements SET bank_bin = $2,
+    bank_account_number = $3, bank_account_name = $4, vietqr_url = $5 WHERE id = $1 RETURNING *`,
+    [id, bank.bank_bin, bank.bank_account_number, bank.bank_account_name, url]);
+  return row;
+};
+module.exports = { lockTrip, requireMember, createExpenseWithSplits, findExpensesByTripId,
+  getTripBudgetSummary, calculateTripNetBalances, findSettlementById, openSettlements,
+  saveSettlements, updateSettlementStatus, findSettlementByReference, updateBudget, recordWebhook,
+  findRecipientBank, attachVietQR };

@@ -1,5 +1,7 @@
 const express = require('express');
 const router = express.Router();
+const rateLimit = require('../../shared/middlewares/rateLimit.middleware');
+router.use(rateLimit('auth', 40, 900));
 const authController = require('./auth.controller');
 const validate = require('../../shared/middlewares/validate.middleware');
 const {

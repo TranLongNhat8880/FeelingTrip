@@ -16,11 +16,12 @@ const LOGO_URL = 'https://res.cloudinary.com/t1scpc2y/image/upload/v1788600701/f
  * Gửi email chứa mã OTP xác thực đăng ký tài khoản
  * Thiết kế sạch, phẳng, hiện đại theo nhận diện thương hiệu FeelingTrip
  */
-const sendOtpEmail = async (toEmail, otpCode) => {
+const sendOtpEmail = async (toEmail, otpCode, type = 'VERIFY_EMAIL') => {
+  const purpose = type === 'FORGOT_PASSWORD' ? 'đặt lại mật khẩu' : 'xác thực tài khoản';
   const mailOptions = {
     from: `"FeelingTrip Support" <${env.email.user}>`,
     to: toEmail,
-    subject: `[FeelingTrip] Mã xác thực OTP của bạn là: ${otpCode}`,
+    subject: `[FeelingTrip] Mã ${purpose}: ${otpCode}`,
     html: `
       <!DOCTYPE html>
       <html lang="vi">
@@ -64,7 +65,7 @@ const sendOtpEmail = async (toEmail, otpCode) => {
                     </h2>
                     
                     <p style="color: #4b5563; font-size: 15px; line-height: 1.7; margin: 0 0 20px 0;">
-                      Cảm ơn bạn đã lựa chọn <strong>FeelingTrip</strong>. Để hoàn tất kích hoạt tài khoản và bắt đầu lên kế hoạch cho những chuyến du lịch, vui lòng nhập mã xác thực OTP dưới đây:
+                      Cảm ơn bạn đã lựa chọn <strong>FeelingTrip</strong>. Để ${purpose}, vui lòng nhập mã OTP dưới đây:
                     </p>
 
                     <!-- KHỐI MÃ OTP NỔI BẬT -->

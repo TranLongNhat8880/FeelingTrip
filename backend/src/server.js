@@ -15,11 +15,8 @@ const startServer = async () => {
     });
   } catch (error) {
     console.error('Failed to start server:', error.message);
-    // Still start server even if DB connection fails in local dev without PostgreSQL running
-    app.listen(env.port, () => {
-      console.log(`Server is running on port ${env.port} (Database not connected yet)`);
-      console.log(`Health check: http://localhost:${env.port}/health`);
-    });
+    await db.pool.end();
+    process.exitCode = 1;
   }
 };
 

@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const rateLimit = require('../../shared/middlewares/rateLimit.middleware');
 const aiPlannerController = require('./aiPlanner.controller');
 const authenticate = require('../../shared/middlewares/auth.middleware');
 const validate = require('../../shared/middlewares/validate.middleware');
@@ -17,6 +18,7 @@ const {
 router.post(
   '/generate',
   authenticate,
+  rateLimit('ai-generate', 10, 3600),
   validate(generateItinerarySchema),
   aiPlannerController.generateItinerary
 );

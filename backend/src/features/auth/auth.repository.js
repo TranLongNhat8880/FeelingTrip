@@ -11,7 +11,7 @@ const db = require('../../config/database');
 const findUserByEmail = async (email) => {
   const queryText = `
     SELECT id, email, password_hash, full_name, nickname, phone, avatar_url,
-           role, status, is_email_verified, is_verified, verification_status,
+           role, status, is_email_verified, is_verified, verification_status, token_version,
            bank_bin, bank_name, bank_account_number, bank_account_name,
            created_at, updated_at
     FROM users
@@ -29,7 +29,7 @@ const findUserById = async (id) => {
   const queryText = `
     SELECT id, email, full_name, nickname, phone, avatar_url, bio, gender, dob,
            bank_bin, bank_name, bank_account_number, bank_account_name,
-           role, status, is_email_verified, is_verified, verification_status,
+           role, status, is_email_verified, is_verified, verification_status, token_version,
            created_at, updated_at
     FROM users
     WHERE id = $1
@@ -61,7 +61,7 @@ const updateEmailVerified = async (userId, isVerified = true) => {
     UPDATE users
     SET is_email_verified = $2, updated_at = CURRENT_TIMESTAMP
     WHERE id = $1
-    RETURNING id, email, full_name, role, status, is_email_verified, is_verified;
+    RETURNING id, email, full_name, role, status, is_email_verified, is_verified, token_version;
   `;
   const { rows } = await db.query(queryText, [userId, isVerified]);
   return rows[0];
@@ -73,7 +73,7 @@ const updateEmailVerified = async (userId, isVerified = true) => {
 const updatePassword = async (userId, passwordHash) => {
   const queryText = `
     UPDATE users
-    SET password_hash = $2, updated_at = CURRENT_TIMESTAMP
+    SET password_hash = $2, token_version = token_version + 1, updated_at = CURRENT_TIMESTAMP
     WHERE id = $1
     RETURNING id, email, updated_at;
   `;

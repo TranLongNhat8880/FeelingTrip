@@ -5,6 +5,7 @@ const authenticate = require('../../shared/middlewares/auth.middleware');
 const validate = require('../../shared/middlewares/validate.middleware');
 const {
   createExpenseSchema,
+  budgetSchema,
   tripIdParamSchema,
   settlementIdParamSchema,
 } = require('./expenses.validation');
@@ -62,4 +63,6 @@ router.put(
 // 4. Webhook tự động gạch nợ từ SePay (Công khai, xác thực qua API Key Header)
 router.post('/webhook/sepay', expensesController.handleSepayWebhook);
 
+router.put('/settlement/:id/confirm', authenticate, validate({params: settlementIdParamSchema}), expensesController.confirmSettlement);
+router.put('/trip/:tripId/budget', authenticate, validate({params: tripIdParamSchema, body: budgetSchema}), expensesController.updateBudget);
 module.exports = router;

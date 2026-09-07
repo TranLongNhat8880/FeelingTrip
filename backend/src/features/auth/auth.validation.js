@@ -6,7 +6,7 @@ const Joi = require('joi');
 // ============================================================================
 
 const registerSchema = Joi.object({
-  email: Joi.string()
+  email: Joi.string().trim().lowercase()
     .email({ tlds: { allow: false } })
     .required()
     .messages({
@@ -15,11 +15,11 @@ const registerSchema = Joi.object({
       'any.required': 'Email là trường bắt buộc',
     }),
   password: Joi.string()
-    .min(6)
+    .min(8).max(72)
     .required()
     .messages({
       'string.empty': 'Mật khẩu không được để trống',
-      'string.min': 'Mật khẩu phải có độ dài tối thiểu 6 ký tự',
+      'string.min': 'Mật khẩu phải có độ dài tối thiểu 8 ký tự',
       'any.required': 'Mật khẩu là trường bắt buộc',
     }),
   fullName: Joi.string()
@@ -43,7 +43,7 @@ const registerSchema = Joi.object({
 });
 
 const verifyOtpSchema = Joi.object({
-  email: Joi.string()
+  email: Joi.string().trim().lowercase()
     .email({ tlds: { allow: false } })
     .required()
     .messages({
@@ -53,17 +53,17 @@ const verifyOtpSchema = Joi.object({
     }),
   otp: Joi.string()
     .trim()
-    .length(6)
+    .pattern(/^[0-9]{6}$/)
     .required()
     .messages({
       'string.empty': 'Mã OTP không được để trống',
-      'string.length': 'Mã OTP phải bao gồm đúng 6 chữ số',
+      'string.pattern.base': 'Mã OTP phải bao gồm đúng 6 chữ số',
       'any.required': 'Mã OTP là trường bắt buộc',
     }),
 });
 
 const loginSchema = Joi.object({
-  email: Joi.string()
+  email: Joi.string().trim().lowercase()
     .email({ tlds: { allow: false } })
     .required()
     .messages({
@@ -80,7 +80,7 @@ const loginSchema = Joi.object({
 });
 
 const resendOtpSchema = Joi.object({
-  email: Joi.string()
+  email: Joi.string().trim().lowercase()
     .email({ tlds: { allow: false } })
     .required()
     .messages({
@@ -94,7 +94,7 @@ const resendOtpSchema = Joi.object({
 });
 
 const forgotPasswordSchema = Joi.object({
-  email: Joi.string()
+  email: Joi.string().trim().lowercase()
     .email({ tlds: { allow: false } })
     .required()
     .messages({
@@ -105,7 +105,7 @@ const forgotPasswordSchema = Joi.object({
 });
 
 const resetPasswordSchema = Joi.object({
-  email: Joi.string()
+  email: Joi.string().trim().lowercase()
     .email({ tlds: { allow: false } })
     .required()
     .messages({
@@ -115,19 +115,19 @@ const resetPasswordSchema = Joi.object({
     }),
   otp: Joi.string()
     .trim()
-    .length(6)
+    .pattern(/^[0-9]{6}$/)
     .required()
     .messages({
       'string.empty': 'Mã OTP không được để trống',
-      'string.length': 'Mã OTP phải bao gồm đúng 6 chữ số',
+      'string.pattern.base': 'Mã OTP phải bao gồm đúng 6 chữ số',
       'any.required': 'Mã OTP là trường bắt buộc',
     }),
   newPassword: Joi.string()
-    .min(6)
+    .min(8).max(72)
     .required()
     .messages({
       'string.empty': 'Mật khẩu mới không được để trống',
-      'string.min': 'Mật khẩu mới phải có tối thiểu 6 ký tự',
+      'string.min': 'Mật khẩu mới phải có tối thiểu 8 ký tự',
       'any.required': 'Mật khẩu mới là trường bắt buộc',
     }),
 });

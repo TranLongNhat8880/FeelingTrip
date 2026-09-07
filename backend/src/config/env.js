@@ -1,10 +1,15 @@
 require('dotenv').config();
+const crypto = require('crypto');
+const configuredSecret = process.env.JWT_SECRET;
+if (process.env.NODE_ENV === 'production' && (!configuredSecret || configuredSecret.length < 32 || /default|your_|replace_|feelingtrip/i.test(configuredSecret))) {
+  throw new Error('Production requires a random JWT_SECRET of at least 32 characters');
+}
 
 module.exports = {
   port: process.env.PORT || 5000,
   nodeEnv: process.env.NODE_ENV || 'development',
   jwt: {
-    secret: process.env.JWT_SECRET || 'default_jwt_secret_feelingtrip',
+    secret: configuredSecret || crypto.randomBytes(32).toString('hex'),
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',
   },
   db: {
@@ -30,5 +35,9 @@ module.exports = {
     pass: process.env.EMAIL_APP_PASSWORD,
   },
   geminiApiKey: process.env.GEMINI_API_KEY,
-  sepayApiKey: process.env.SEPAY_API_KEY || 'feelingtrip_sepay_secret_key_2026',
+  geminiModel: process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite',
+  geminiTimeoutMs: 30000,
+  aiAllowFallback: process.env.AI_ALLOW_FALLBACK === 'true',
+  sepayApiKey: process.env.SEPAY_API_KEY,
+  sepayBankBins: JSON.parse(process.env.SEPAY_BANK_BINS || '{}'),
 };

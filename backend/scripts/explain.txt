@@ -1,0 +1,30 @@
+================================================================================
+THƯ MỤC: SCRIPTS BẢO TRÌ & KIỂM THỬ - backend/scripts/
+================================================================================
+
+1. TÁC DỤNG CỦA THƯ MỤC NÀY:
+   Chứa các công cụ tự động hóa dạng CLI của dự án, phục vụ quy trình phát triển, kiểm tra cú pháp, chạy migration và kiểm thử tích hợp (CI/CD).
+
+2. CHI TIẾT CÁC SCRIPT:
+
+   A. check.js (Lệnh: `npm run check`):
+      - Tự động duyệt đệ quy toàn bộ các file `.js` trong `src/`, `scripts/`, `test/`.
+      - Chạy lệnh `node --check <file>` trên từng file riêng biệt để phát hiện lỗi cú pháp (syntax error, unclosed brackets...).
+      - Đảm bảo 100% không có file code lỗi nào bị lọt qua khi đẩy lên GitHub.
+
+   B. migrate.js (Lệnh: `npm run db:migrate`):
+      - Đọc và áp dụng các tệp SQL migration mới trong thư mục `database/migrations/`.
+      - Sử dụng PostgreSQL Advisory Lock để đảm bảo an toàn tuyệt đối khi triển khai nhiều container/instance.
+      - Ghi nhận lịch sử vào bảng `schema_migrations` để tránh áp dụng trùng lặp.
+
+   C. cleanup.js (Lệnh: `npm run db:cleanup`):
+      - Script dọn dẹp định kỳ (Housekeeping Cronjob):
+        + Xóa các bản ghi đếm request limit đã hết hạn trong bảng `request_limits`.
+        + Xóa các mã OTP đã hết hạn và đã qua thời gian cooldown 60 giây trong bảng `auth_otps`.
+
+   D. test.js (Lệnh: `npm test`):
+      - Script điều phối kiểm thử tích hợp tự động (Integration Test Runner).
+      - Tự động khởi tạo schema tạm thời (`ft_test_<random_hex>`) trong PostgreSQL, cô lập 100% dữ liệu test.
+      - Chạy toàn bộ test suites trong thư mục `test/` bằng native Node.js Test Runner (`node --test`).
+      - Tự động dọn dẹp và drop schema tạm thời sau khi test xong, không để lại dữ liệu rác trên DB.
+================================================================================
