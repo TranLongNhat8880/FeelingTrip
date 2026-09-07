@@ -48,7 +48,7 @@ const createExpenseSchema = Joi.object({
   expenseDate: Joi.date()
     .iso()
     .allow(null)
-    .default(() => new Date(), 'current date'),
+    .default(Date.now),
   splitType: Joi.string()
     .valid('EQUAL', 'EXACT', 'PERCENTAGE')
     .default('EQUAL')
