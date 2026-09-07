@@ -3,7 +3,7 @@ const authRepository = require('./auth.repository');
 const otpRepository = require('./otp.repository');
 const { hashPassword, comparePassword } = require('../../shared/utils/hash.util');
 const { generateToken } = require('../../shared/utils/token.util');
-const { sendOtpEmail } = require('../../shared/services/email.service');
+const emailService = require('../../shared/services/email.service');
 const apiError = require('../../shared/utils/apiError.util');
 
 const publicUser = (u) => ({
@@ -21,7 +21,7 @@ const session = (user) => ({
 const sendCode = async (user, type) => {
   const otp = crypto.randomInt(100000, 1000000).toString();
   await otpRepository.issue(user.id, type, await hashPassword(otp));
-  try { await sendOtpEmail(user.email, otp, type); }
+  try { await emailService.sendOtpEmail(user.email, otp, type); }
   catch { throw apiError(503, 'Chưa gửi được email. Vui lòng thử gửi lại OTP sau 60 giây.'); }
 };
 const register = async ({ email, password, fullName, phone }) => {

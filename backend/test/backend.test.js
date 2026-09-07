@@ -5,6 +5,9 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const db = require('../src/config/database');
 const email = require('../src/shared/services/email.service');
+const sentEmails = new Map();
+email.sendOtpEmail = async (address, otp) => sentEmails.set(address, otp);
+
 const auth = require('../src/features/auth/auth.service');
 const expenses = require('../src/features/expenses/expenses.service');
 const ai = require('../src/features/ai-planner/aiPlanner.service');
@@ -13,10 +16,6 @@ const { hashPassword } = require('../src/shared/utils/hash.util');
 const { generateToken } = require('../src/shared/utils/token.util');
 const env = require('../src/config/env');
 const migrate = require('../scripts/migrate');
-
-// Mock email sending in tests
-const sentEmails = new Map();
-email.sendOtpEmail = async (address, otp) => sentEmails.set(address, otp);
 
 let server;
 let baseUrl;
