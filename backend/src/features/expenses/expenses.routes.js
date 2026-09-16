@@ -53,6 +53,15 @@ router.get(
   expensesController.getSettlementVietQR
 );
 
+router.get('/settlement/:id/status', authenticate, validate({ params: settlementIdParamSchema }),
+  async (req,res,next) => {
+    try {
+      const data = await require('./expenses.service').getPaymentStatus(req.params.id,req.user.id);
+      res.set('Cache-Control','no-store');
+      return require('../../shared/utils/response.util').sendSuccess(res,data);
+    } catch (error) { next(error); }
+  });
+
 router.put(
   '/settlement/:id/paid',
   authenticate,
