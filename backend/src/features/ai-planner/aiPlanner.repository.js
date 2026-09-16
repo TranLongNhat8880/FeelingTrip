@@ -24,8 +24,8 @@ const saveAiItineraryToDb = async ({
 
     // 1. Tạo bản ghi chuyến đi chính trong bảng 'trips'
     const tripQuery = `
-      INSERT INTO trips (creator_id, name, destination, start_date, end_date, estimated_budget, privacy_type, status, invite_code)
-      VALUES ($1, $2, $3, $4, $5, $6, 'PRIVATE', 'UPCOMING', $7)
+      INSERT INTO trips (creator_id, name, destination, start_date, end_date, estimated_budget, privacy_type, status, invite_code, invite_code_status)
+      VALUES ($1, $2, $3, $4, $5, $6, 'PRIVATE', 'UPCOMING', $7, 'ACTIVE')
       ON CONFLICT (invite_code) DO NOTHING
       RETURNING *;
     `;
