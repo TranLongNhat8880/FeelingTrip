@@ -73,6 +73,49 @@ const createWebhookPayload = (debt) => ({
 
 const webhookKey = 'Apikey test-webhook-key';
 
+test('invite code status preserves consumed codes, resets on replacement and rejects invalid states', async () => {
+  const getState = async () => (await db.query(
+    'SELECT invite_code,invite_code_status,status FROM trips WHERE id=$1',[tripId])).rows[0];
+  assert.equal((await getState()).invite_code_status,'NONE');
+  await db.query('UPDATE trips SET invite_code=$2 WHERE id=$1',[tripId,'FIRST1']);
+  assert.equal((await getState()).invite_code_status,'ACTIVE');
+  await db.query("UPDATE trips SET invite_code_status='USED' WHERE id=$1",[tripId]);
+  await db.query("UPDATE trips SET name='Updated trip' WHERE id=$1",[tripId]);
+  assert.equal((await getState()).invite_code_status,'USED');
+  assert.equal((await getState()).invite_code,'FIRST1');
+  await assert.rejects(db.query("UPDATE trips SET invite_code_status='BOGUS' WHERE id=$1",[tripId]),{code:'23514'});
+  await assert.rejects(db.query("UPDATE trips SET invite_code_status='NONE' WHERE id=$1",[tripId]),{code:'23514'});
+  await db.query('UPDATE trips SET invite_code=$2 WHERE id=$1',[tripId,'SECOND']);
+  assert.equal((await getState()).invite_code_status,'ACTIVE');
+  await db.query("UPDATE trips SET invite_code_status='REVOKED' WHERE id=$1",[tripId]);
+  assert.equal((await getState()).invite_code_status,'REVOKED');
+  await db.query('UPDATE trips SET invite_code=NULL WHERE id=$1',[tripId]);
+  assert.equal((await getState()).invite_code_status,'NONE');
+  assert.equal((await getState()).status,'UPCOMING');
+});
+
+test('invite status migration backfills legacy rows and can be rerun without reactivating used codes', async () => {
+  const client = await db.pool.connect();
+  try {
+    await client.query('BEGIN');
+    // Temp table shadows the real test trips table; no application data is altered.
+    await client.query('CREATE TEMP TABLE trips (id INT PRIMARY KEY, invite_code VARCHAR(20) UNIQUE) ON COMMIT DROP');
+    await client.query("INSERT INTO trips VALUES (1,'LEGACY'),(2,NULL)");
+    const migration = fs.readFileSync(path.join(__dirname,'../database/migrations/003_invite_code_status.sql'),'utf8');
+    await client.query(migration);
+    assert.deepEqual((await client.query('SELECT invite_code_status FROM trips ORDER BY id')).rows,
+      [{invite_code_status:'ACTIVE'},{invite_code_status:'NONE'}]);
+    await client.query("UPDATE trips SET invite_code_status='USED' WHERE id=1");
+    await client.query(migration);
+    assert.equal((await client.query('SELECT invite_code_status FROM trips WHERE id=1')).rows[0].invite_code_status,'USED');
+    await client.query("INSERT INTO trips(id,invite_code) VALUES (3,'NEW123')");
+    assert.equal((await client.query('SELECT invite_code_status FROM trips WHERE id=3')).rows[0].invite_code_status,'ACTIVE');
+  } finally {
+    await client.query('ROLLBACK');
+    client.release();
+  }
+});
+
 const bankhub = require('../src/features/bankhub/bankhub.service');
 const bankhubClient = require('../src/features/bankhub/bankhub.client');
 const bankhubFixture = async (t) => {
@@ -765,6 +808,7 @@ test('AI save validates day order, times and cost; valid plan saves all rows', a
   const savedData = saveRes.body.data;
   assert.equal(Number(savedData.trip.estimated_budget), 0);
   assert.match(savedData.trip.invite_code, /^[A-F0-9]{6}$/);
+  assert.equal(savedData.trip.invite_code_status,'ACTIVE');
   assert.equal(savedData.itineraries[0].items[0].category, 'NATURE');
   assert.equal(savedData.itineraries[0].items[0].start_time, '08:30:00');
 });

@@ -65,6 +65,7 @@ CREATE TABLE IF NOT EXISTS trips (
     privacy_type VARCHAR(20) DEFAULT 'PRIVATE' CHECK (privacy_type IN ('PRIVATE', 'PUBLIC')),
     status VARCHAR(20) DEFAULT 'UPCOMING' CHECK (status IN ('UPCOMING', 'ONGOING', 'COMPLETED', 'CANCELLED')),
     invite_code VARCHAR(20) UNIQUE, -- Mã ngắn để bạn bè tham gia nhóm (VD: TRIP-8A9F)
+    invite_code_status VARCHAR(10) NOT NULL DEFAULT 'NONE', -- NONE / ACTIVE / USED / REVOKED; migration 003 adds synchronization and constraint
     
     -- Tính năng Clone / Fork Plan của cộng đồng
     is_clone BOOLEAN DEFAULT FALSE,
