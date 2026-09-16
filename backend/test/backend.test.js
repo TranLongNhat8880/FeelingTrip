@@ -73,6 +73,159 @@ const createWebhookPayload = (debt) => ({
 
 const webhookKey = 'Apikey test-webhook-key';
 
+const bankhub = require('../src/features/bankhub/bankhub.service');
+const bankhubClient = require('../src/features/bankhub/bankhub.client');
+const bankhubFixture = async (t) => {
+  const originalConfig = { ...env.bankhub };
+  const originalCall = bankhubClient.call;
+  Object.assign(env.bankhub, { eventSecret: 'event-secret', ipnKey: 'ipn-secret' });
+  t.after(() => { Object.assign(env.bankhub, originalConfig); bankhubClient.call = originalCall; });
+  const companyId = crypto.randomUUID();
+  const accountId = crypto.randomUUID();
+  await db.query('INSERT INTO bankhub_companies(user_id,company_xid) VALUES ($1,$2)', [userA,companyId]);
+  const account = { xid: accountId, company_xid: companyId, brand_name: 'MBBank',
+    account_number: '123456789', account_holder_name: 'TEST A', active: '1', bank_api_connected: '1' };
+  bankhubClient.call = async (route) => {
+    assert.equal(route, `/bank-account/${accountId}`);
+    return { data: account };
+  };
+  const event = { xid: crypto.randomUUID(),timestamp: 100,event: 'BANK_ACCOUNT_LINKED',
+    metadata: { bank_account_xid: accountId } };
+  const ipn = (debt, extra = {}) => ({ transaction_id: crypto.randomUUID(),bank_account_xid: accountId,
+    gateway: 'MBBank',account_number: '123456789',transfer_type: 'credit',amount: debt.amount,
+    content: 'FT ' + debt.id.replaceAll('-',''), ...extra });
+  return { accountId, companyId, account, event, ipn };
+};
+
+test('Bank Hub links only after authenticated provider verification; duplicate events are safe', async (t) => {
+  const f = await bankhubFixture(t);
+  await assert.rejects(bankhub.handleEvent(f.event,'wrong'), { status: 401 });
+  assert.equal((await bankhub.listAccounts(userA)).length,0);
+  await bankhub.handleEvent(f.event,'event-secret');
+  await bankhub.handleEvent(f.event,'event-secret');
+  const accounts = await bankhub.listAccounts(userA);
+  assert.equal(accounts.length,1);
+  assert.equal(accounts[0].isLinked,true);
+  assert.equal(accounts[0].isDefault,true);
+  assert.equal((await bankhub.listAccounts(userB)).length,0);
+});
+
+test('Bank Hub rejects ownership changes and does not revive accounts on stale events', async (t) => {
+  const f = await bankhubFixture(t);
+  await bankhub.handleEvent(f.event,'event-secret');
+  f.account.active = '0';
+  await bankhub.handleEvent({ ...f.event,xid: crypto.randomUUID(),timestamp: 200,event: 'BANK_ACCOUNT_UNLINKED' },'event-secret');
+  f.account.active = '1';
+  await bankhub.handleEvent({ ...f.event,xid: crypto.randomUUID(),timestamp: 150 },'event-secret');
+  assert.equal((await bankhub.listAccounts(userA))[0].isLinked,false);
+  const { rows: [user] } = await db.query('SELECT bank_account_number FROM users WHERE id=$1',[userA]);
+  assert.equal(user.bank_account_number,null);
+});
+
+test('Bank Hub IPN auto-pays without manual report; duplicate delivery and payment view are safe', async (t) => {
+  const f = await bankhubFixture(t);
+  await bankhub.handleEvent(f.event,'event-secret');
+  const debt = await createDebt();
+  const event = f.ipn(debt);
+  const before = await request(`/expenses/settlement/${debt.id}/status`,'GET',undefined,userB);
+  assert.equal(before.body.data.automaticConfirmationAvailable,true);
+  assert.ok(before.body.data.vietqrUrl);
+  assert.equal((await request(`/expenses/settlement/${debt.id}/status`,'GET',undefined,outsiderUser)).status,403);
+  assert.equal((await request('/users/me/bank/ipn','POST',event,null,{ Authorization: 'Apikey wrong' })).status,401);
+  const result = await request('/users/me/bank/ipn','POST',event,null,{ Authorization: 'Apikey ipn-secret' });
+  assert.deepEqual(result.body,{ success: true });
+  await bankhub.handleIpn(event,'Apikey ipn-secret');
+  const afterPayment = await expenses.getPaymentStatus(debt.id,userB);
+  assert.equal(afterPayment.status,'PAID');
+  assert.equal(afterPayment.vietqrUrl,null);
+  assert.equal((await db.query('SELECT COUNT(*) FROM bankhub_ipn')).rows[0].count,'1');
+});
+
+test('Bank Hub rejects mismatched amount, bank, account, reference and outgoing transfers', async (t) => {
+  const f = await bankhubFixture(t);
+  await bankhub.handleEvent(f.event,'event-secret');
+  const debt = await createDebt();
+  for (const extra of [{ amount: debt.amount-1 },{ account_number: '999' },{ gateway: 'OtherBank' },
+    { content: 'unrelated' },{ transfer_type: 'debit' }]) {
+    await bankhub.handleIpn(f.ipn(debt,extra),'Apikey ipn-secret');
+  }
+  assert.equal((await expenses.getPaymentStatus(debt.id,userB)).status,'PENDING');
+  await assert.rejects(bankhub.handleIpn(f.ipn(debt,{ amount: NaN }),'Apikey ipn-secret'),{status:400});
+});
+
+test('Bank Hub durably retains IPN arriving before link event and replays it afterwards', async (t) => {
+  const f = await bankhubFixture(t);
+  const debt = await createDebt();
+  const event = f.ipn(debt);
+  await assert.rejects(bankhub.handleIpn(event,'Apikey ipn-secret'),{status:409});
+  assert.equal((await db.query('SELECT processed_at FROM bankhub_ipn')).rows[0].processed_at,null);
+  await bankhub.handleEvent(f.event,'event-secret');
+  await require('../src/features/bankhub/bankhub.worker').retryPending();
+  assert.equal((await expenses.getPaymentStatus(debt.id,userB)).status,'PAID');
+});
+
+test('Bank Hub link API authenticates, reuses company and blocks unlinking another user account', async (t) => {
+  const f = await bankhubFixture(t);
+  const linkId = crypto.randomUUID();
+  bankhubClient.call = async (route,body) => {
+    assert.equal(route,'/link-token/create');
+    assert.equal(body.company_xid,f.companyId);
+    assert.equal(body.purpose,'LINK_BANK_ACCOUNT');
+    assert.equal(body.is_mobile_app,1);
+    return { xid: linkId,hosted_link_url:`https://bankhub.sepay.vn/link/${linkId}`,expires_at:'2026-12-01 00:00:00' };
+  };
+  assert.equal((await request('/users/me/bank/link','POST',{},null)).status,401);
+  const result = await request('/users/me/bank/link','POST',{});
+  assert.equal(result.status,200);
+  assert.ok(result.body.data.hostedLinkUrl);
+  assert.equal(result.body.data.link_token,undefined);
+  await assert.rejects(bankhub.createLink(userA,'UNLINK_BANK_ACCOUNT',crypto.randomUUID()),{status:404});
+});
+
+test('Bank Hub payment view hides QR for unlinked recipients', async () => {
+  const debt = await createDebt();
+  const view = await expenses.getPaymentStatus(debt.id,userB);
+  assert.equal(view.automaticConfirmationAvailable,false);
+  assert.equal(view.vietqrUrl,null);
+});
+
+test('Bank Hub recovers company provisioning and keeps failed link events for worker retry', async (t) => {
+  const f = await bankhubFixture(t);
+  await db.query('DELETE FROM bankhub_companies WHERE user_id=$1',[userA]);
+  let created = 0;
+  bankhubClient.call = async (route,body) => {
+    if (route.startsWith('/company?')) return { data: [{xid:f.companyId,full_name:`FeelingTrip-${userA}`}] };
+    if (route === '/company/create') { created++; throw new Error('Must recover existing company'); }
+    assert.equal(body.company_xid,f.companyId);
+    const xid = crypto.randomUUID();
+    return {xid,hosted_link_url:`https://bankhub.sepay.vn/link/${xid}`};
+  };
+  await bankhub.createLink(userA);
+  assert.equal(created,0);
+  bankhubClient.call = async () => { throw new Error('Provider unavailable'); };
+  await assert.rejects(bankhub.handleEvent(f.event,'event-secret'));
+  assert.equal((await db.query('SELECT processed_at FROM bankhub_events')).rows[0].processed_at,null);
+  bankhubClient.call = async () => ({data:f.account});
+  await require('../src/features/bankhub/bankhub.worker').retryPending();
+  assert.equal((await bankhub.listAccounts(userA))[0].isLinked,true);
+});
+
+test('Bank Hub cannot credit cancelled QR or reuse an IPN to pay another debt', async (t) => {
+  const f = await bankhubFixture(t);
+  await bankhub.handleEvent(f.event,'event-secret');
+  const oldDebt = await createDebt();
+  await expenses.createExpense(createBillPayload(),userA);
+  const [newDebt] = await expenses.settleTripDebts(tripId,userA);
+  assert.equal((await expenses.getPaymentStatus(oldDebt.id,userB)).status,'CANCELLED');
+  const event = f.ipn(oldDebt);
+  await bankhub.handleIpn(event,'Apikey ipn-secret');
+  await bankhub.handleIpn(f.ipn(newDebt,{transaction_id:event.transaction_id}),'Apikey ipn-secret');
+  assert.equal((await expenses.getPaymentStatus(newDebt.id,userB)).status,'PENDING');
+  const good = f.ipn(newDebt);
+  await joinTasks([bankhub.handleIpn(good,'Apikey ipn-secret'),bankhub.handleIpn(good,'Apikey ipn-secret')]);
+  assert.equal((await expenses.getPaymentStatus(newDebt.id,userB)).status,'PAID');
+});
+
 before(async () => {
   // Ensure we are operating within an ephemeral test schema
   const { rows } = await db.query('SELECT current_schema() AS s');
@@ -96,7 +249,7 @@ before(async () => {
 });
 
 beforeEach(async () => {
-  await db.query('TRUNCATE users, request_limits CASCADE');
+  await db.query('TRUNCATE users, request_limits, bankhub_ipn, bankhub_events CASCADE');
   sentEmails.clear();
 
   [userA, userB, outsiderUser, tripId] = Array.from({ length: 4 }, () => crypto.randomUUID());

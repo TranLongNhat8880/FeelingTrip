@@ -40,4 +40,12 @@ module.exports = {
   aiAllowFallback: process.env.AI_ALLOW_FALLBACK === 'true',
   sepayApiKey: process.env.SEPAY_API_KEY,
   sepayBankBins: JSON.parse(process.env.SEPAY_BANK_BINS || '{}'),
+  bankhub: {
+    environment: process.env.BANKHUB_ENVIRONMENT || 'sandbox',
+    clientId: process.env.BANKHUB_CLIENT_ID,
+    clientSecret: process.env.BANKHUB_CLIENT_SECRET,
+    eventSecret: process.env.BANKHUB_EVENT_SECRET,
+    ipnKey: process.env.BANKHUB_IPN_KEY,
+    redirectUri: process.env.BANKHUB_REDIRECT_URI,
+  },
 };

@@ -8,6 +8,9 @@ const startServer = async () => {
     console.log('Connecting to PostgreSQL database...');
     await db.query('SELECT NOW()');
     console.log('PostgreSQL database connected successfully!');
+    if (env.bankhub.clientId && env.bankhub.eventSecret && env.bankhub.ipnKey) {
+      require('./features/bankhub/bankhub.worker').startWorker();
+    }
 
     app.listen(env.port, () => {
       console.log(`Server is running on port ${env.port} in [${env.nodeEnv}] mode`);

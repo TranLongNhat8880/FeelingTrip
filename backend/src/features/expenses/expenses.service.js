@@ -316,6 +316,30 @@ const updateSettlementState = (settlementId, userId, isCreditorConfirmation) =>
 const markSettlementPaid = (id, userId) => updateSettlementState(id, userId, false);
 const confirmSettlement = (id, userId) => updateSettlementState(id, userId, true);
 
+// Pollable payment view: only a connected receiver can advertise automatic payment.
+const getPaymentStatus = async (id, userId) => {
+  const existing = await repo.findSettlementById(id, db);
+  if (!existing) throw apiError(404, 'Không tìm thấy khoản thanh toán');
+  await repo.requireMember(existing.trip_id, userId);
+  if (existing.status === 'CANCELLED') {
+    return { id, status: 'CANCELLED', amount: Number(existing.amount), vietqrUrl: null,
+      automaticConfirmationAvailable: false, paidAt: existing.paid_at };
+  }
+  const settlement = await getSettlementVietQR(id, userId);
+  const { rows: [account] } = await db.query(`SELECT xid FROM bankhub_accounts
+    WHERE user_id=$1 AND bank_bin=$2 AND account_number=$3 AND active=TRUE`,
+  [settlement.to_user_id,settlement.bank_bin,settlement.bank_account_number]);
+  const canPay = settlement.status === 'PENDING' && Boolean(account);
+  return {
+    id: settlement.id, status: settlement.status, amount: settlement.amount,
+    fromUserId: settlement.from_user_id, toUserId: settlement.to_user_id,
+    recipientName: settlement.to_user_name,
+    automaticConfirmationAvailable: Boolean(account),
+    vietqrUrl: canPay ? settlement.vietqrUrl : null,
+    paidAt: settlement.paid_at,
+  };
+};
+
 /**
  * Updates estimated budget for a trip (leader only).
  */
@@ -421,4 +445,5 @@ module.exports = {
   confirmSettlement,
   updateBudget,
   handleSepayWebhook,
+  getPaymentStatus,
 };
