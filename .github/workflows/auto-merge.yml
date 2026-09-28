@@ -31,6 +31,73 @@ jobs:
           node-version: 20
           cache: npm
           cache-dependency-path: backend/package-lock.json
+      # This guard protects backend infrastructure only; frontend is out of scope.
+      # Roll this workflow out to main AND each member branch before relying on it.
+      - name: Block changes to shared backend files
+        env:
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+        shell: bash
+        run: |
+          git fetch origin main
+          node <<'NODE'
+          const { execFileSync } = require('node:child_process');
+          const fs = require('node:fs');
+          const git = (...args) => execFileSync('git', args, { encoding: 'utf8' });
+          const branch = process.env.GITHUB_REF_NAME;
+          // Nhat (repository owner) may update shared files on any auto-merge branch.
+          // Check the authenticated actor, not the branch name or commit author.
+          const ownerPush = process.env.GITHUB_ACTOR.toLowerCase() ===
+            process.env.REPOSITORY_OWNER.toLowerCase();
+          if (!['nhat', 'phu', 'thanh', 'tung'].includes(branch)) {
+            throw new Error('Unknown branch: refusing auto-merge.');
+          }
+          // Pin the main commit used by both the guard and the real merge.
+          // If remote main advances afterwards, the final non-force push fails safely.
+          const main = git('rev-parse', 'origin/main').trim();
+          fs.appendFileSync(process.env.GITHUB_ENV, `VALIDATED_MAIN_SHA=${main}\n`);
+          // Inspect the prospective merge, not just the latest pushed commit.
+          // Conflicts stop the job. Changes already present on main are not violations.
+          const tree = git('merge-tree', '--write-tree', main, process.env.GITHUB_SHA).trim().split('\n')[0];
+          const changed = git('diff', '--name-only', '--no-renames', '-z', main, tree)
+            .split('\0').filter(Boolean);
+          const protectedDirectories = [
+            '.github/',
+            'backend/src/shared/',
+            'backend/src/config/',
+            'backend/database/',
+            'backend/scripts/',
+          ];
+          const protectedFiles = new Set([
+            'backend/src/app.js',
+            'backend/src/server.js',
+            'backend/package.json',
+            'backend/package-lock.json',
+            'backend/npm-shrinkwrap.json',
+            'backend/.npmrc',
+          ]);
+          const isProtected = path => protectedFiles.has(path) ||
+            protectedDirectories.some(prefix => path.startsWith(prefix)) ||
+            /^backend\/\.env(?:\.|$)/.test(path);
+          // --no-renames reports both paths, so moving/deleting a protected file is blocked too.
+          const blocked = changed.filter(isProtected);
+          const escapeCommand = text => text.replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
+          const lines = ['## Shared backend guard', ''];
+          if (blocked.length && !ownerPush) {
+            lines.push('**BLOCKED:** shared backend files would change on main.',
+              'Restore these changes on your branch, or ask Nhat to integrate them separately.', '');
+            for (const path of blocked) {
+              lines.push('- ' + JSON.stringify(path));
+              console.log('::error::' + escapeCommand('Shared backend file blocked: ' + JSON.stringify(path)));
+            }
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join('\n') + '\n');
+            process.exit(1);
+          }
+          lines.push(ownerPush
+            ? 'PASS: repository owner push; shared backend changes are permitted on this branch.'
+            : 'PASS: no shared backend files would change.');
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join('\n') + '\n');
+          console.log(lines.at(-1));
+          NODE
       - name: Test pushed commit
         working-directory: backend
         run: |
@@ -41,8 +108,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git fetch origin main
-          git checkout -B main origin/main
+          git checkout -B main "$VALIDATED_MAIN_SHA"
           git merge --no-ff "${{ github.sha }}" -m "ci: auto-merge ${{ github.ref_name }} into main [skip ci]"
       - name: Test merged result
         working-directory: backend
