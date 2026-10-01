@@ -1,20 +1,17 @@
 const Joi = require('joi');
 
-// ============================================================================
-// VALIDATION SCHEMAS: Notifications (src/features/notifications/)
-// Quy tắc kiểm tra danh sách thông báo, phân trang và đánh dấu đã đọc
-// ============================================================================
 
 /**
- * Lấy danh sách thông báo (Query)
+ * Lấy danh sách thông báo
  */
 const getNotificationsQuerySchema = Joi.object({
   page: Joi.number().integer().min(1).default(1),
   limit: Joi.number().integer().min(1).max(100).default(20),
-  is_read: Joi.boolean(),
+  isRead: Joi.boolean(),
   type: Joi.string().valid('INVITE', 'REQUEST', 'BILL', 'TRIP_UPDATE', 'SYSTEM'),
-  sort_by: Joi.string().valid('created_at', 'is_read').default('created_at'),
+  sortBy: Joi.string().valid('createdAt', 'isRead').default('createdAt'),
 });
+
 
 
 /**
