@@ -23,3 +23,7 @@ frontend/build/
 frontend/.dart_tool/
 frontend/.flutter-plugins
 frontend/.flutter-plugins-dependencies
+
+# Report and Spec files
+bao_cao.md
+dac_ta.md

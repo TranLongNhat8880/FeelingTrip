@@ -9,6 +9,7 @@ const notificationsRepository = require('./notifications.repository');
  * @param {string} params.message - Nội dung chi tiết thông báo
  * @param {('INVITE'|'REQUEST'|'BILL'|'TRIP_UPDATE'|'SYSTEM')} params.type - Loại thông báo
  * @param {Object} [params.data={}] - Dữ liệu mở rộng đính kèm (ví dụ: { tripId, billId })
+ * @param {Object} [client=null] - DB client nếu thực hiện trong Transaction (tùy chọn)
  * 
  * @returns {Promise<Object>} Object thông báo vừa được tạo trong Database
  * 
@@ -21,8 +22,8 @@ const notificationsRepository = require('./notifications.repository');
  *   data: { tripId: '123' }
  * });
  */
-const createNotification = async ({ recipientId, title, message, type, data = {} }) => {
-  return notificationsRepository.createNotification({ recipientId, title, message, type, data });
+const createNotification = async ({ recipientId, title, message, type, data = {} }, client = null) => {
+  return notificationsRepository.createNotification({ recipientId, title, message, type, data }, client);
 };
 
 const getNotifications = async ({ userId, limit, page, type, isRead, sortBy }) => {
@@ -33,7 +34,13 @@ const getNotifications = async ({ userId, limit, page, type, isRead, sortBy }) =
 };
 
 const markReadNotification = async ({ notificationId, userId }) => {
-  return notificationsRepository.markReadNotification({ notificationId, userId });
+  const notification = await notificationsRepository.markReadNotification({ notificationId, userId });
+  if (!notification) {
+    const error = new Error('Thông báo không tồn tại');
+    error.statusCode = 404;
+    throw error;
+  }
+  return notification;
 }
 
 const markAllReadNotification = async ({ userId }) => {
@@ -41,7 +48,13 @@ const markAllReadNotification = async ({ userId }) => {
 }
 
 const deleteNotification = async ({ notificationId, userId }) => {
-  return notificationsRepository.deleteNotification({ notificationId, userId });
+  const notification = await notificationsRepository.deleteNotification({ notificationId, userId });
+  if (!notification) {
+    const error = new Error('Thông báo không tồn tại');
+    error.statusCode = 404;
+    throw error;
+  }
+  return notification;
 }
 
 const deleteAllNotifications = async ({ userId }) => {

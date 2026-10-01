@@ -1,7 +1,7 @@
 const notificationsService = require('./notifications.service');
-const { sendSuccess, sendError } = require('../../shared/utils/response.util');
+const { sendSuccess } = require('../../shared/utils/response.util');
 
-const getNotifications = async (req, res) => {
+const getNotifications = async (req, res, next) => {
   try {
     const userId = req.user.id;
     const {
@@ -23,59 +23,59 @@ const getNotifications = async (req, res) => {
 
     sendSuccess(res, result);
   } catch (err) {
-    sendError(res, err);
+    next(err);
   }
 };
 
-const markReadNotification = async (req, res) => {
+const markReadNotification = async (req, res, next) => {
   try {
     const userId = req.user.id;
     const notificationId = req.params.id;
     const result = await notificationsService.markReadNotification({ notificationId, userId });
     sendSuccess(res, result);
   } catch (err) {
-    sendError(res, err);
+    next(err);
   }
 }
 
-const markAllReadNotification = async (req, res) => {
+const markAllReadNotification = async (req, res, next) => {
   try {
     const userId = req.user.id;
     const result = await notificationsService.markAllReadNotification({ userId });
     sendSuccess(res, result);
   } catch (err) {
-    sendError(res, err);
+    next(err);
   }
 }
 
-const deleteNotification = async (req, res) => {
+const deleteNotification = async (req, res, next) => {
   try {
     const userId = req.user.id;
     const notificationId = req.params.id;
     const result = await notificationsService.deleteNotification({ notificationId, userId });
     sendSuccess(res, result);
   } catch (err) {
-    sendError(res, err);
+    next(err);
   }
 }
 
-const deleteAllNotifications = async (req, res) => {
+const deleteAllNotifications = async (req, res, next) => {
   try {
     const userId = req.user.id;
     const result = await notificationsService.deleteAllNotifications({ userId });
     sendSuccess(res, result);
   } catch (err) {
-    sendError(res, err);
+    next(err);
   }
 }
 
-const getUnreadCount = async (req, res) => {
+const getUnreadCount = async (req, res, next) => {
   try {
     const userId = req.user.id;
     const result = await notificationsService.getUnreadCount({ userId });
     sendSuccess(res, result);
   } catch (err) {
-    sendError(res, err);
+    next(err);
   }
 }
 
