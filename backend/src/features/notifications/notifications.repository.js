@@ -1,11 +1,12 @@
 const db = require('../../config/database');
 
-const createNotification = async ({ recipientId, title, message, type,data = {} }) =>{
-  const query = `INSERT INTO notifications (user_id,title,message,type,data)
-                 VALUES ($1,$2,$3,$4,$5)
+const createNotification = async ({ recipientId, title, message, type, data = {} }, client = null) => {
+  const query = `INSERT INTO notifications (user_id, title, message, type, data)
+                 VALUES ($1, $2, $3, $4, $5)
                  RETURNING *
   `;
-  const {rows} = await db.query(query, [recipientId, title, message, type, data]);
+  const executor = client || db;
+  const { rows } = await executor.query(query, [recipientId, title, message, type, data]);
   return rows[0];
 }
   
@@ -25,13 +26,12 @@ const getNotifications = async (filters) => {
     conditions.push(`is_read = $${params.length}`);
   }
 
-  // Whitelist sortBy để chặn SQL Injection
-  // Không cho phép client tự truyền chuỗi SQL bất kỳ vào ORDER BY
+  // Whitelist sortBy để chặn SQL Injection và thêm id DESC để ổn định phân trang
   const ALLOWED_SORT = {
-    createdAt: 'created_at DESC',
-    isRead: 'is_read ASC, created_at DESC', // chưa đọc (false=0) lên đầu 
+    createdAt: 'created_at DESC, id DESC',
+    isRead: 'is_read ASC, created_at DESC, id DESC',
   };
-  const orderClause = ALLOWED_SORT[sortBy] || 'created_at DESC';
+  const orderClause = ALLOWED_SORT[sortBy] || 'created_at DESC, id DESC';
 
   params.push(limit, offset);
   const limitIndex = params.length - 1;
@@ -55,7 +55,7 @@ const markReadNotification = async ({ notificationId, userId }) => {
 }
 
 const markAllReadNotification = async ({ userId }) => {
-  const query = `UPDATE notifications SET is_read = true WHERE user_id = $1 RETURNING *`;
+  const query = `UPDATE notifications SET is_read = true WHERE user_id = $1 AND is_read = false RETURNING *`;
   const { rows } = await db.query(query, [userId]);
   return rows; 
 }
@@ -69,7 +69,7 @@ const deleteNotification = async ({ notificationId, userId }) => {
 const deleteAllNotifications = async ({ userId }) => {
   const query = `DELETE FROM notifications WHERE user_id = $1 RETURNING *`;
   const { rows } = await db.query(query, [userId]);
-  return rows; // Trả về danh sách đã xóa
+  return rows;
 }
 
 const getUnreadCount = async ({ userId }) => {
