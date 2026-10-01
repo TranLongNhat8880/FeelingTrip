@@ -8,8 +8,8 @@ const getNotifications = async (req, res) => {
       limit,
       page,
       type,
-      is_read,
-      sort_by
+      isRead,
+      sortBy
     } = req.query;
 
     const result = await notificationsService.getNotifications({
@@ -17,8 +17,8 @@ const getNotifications = async (req, res) => {
       limit,
       page,
       type,
-      is_read,
-      sort_by
+      isRead,
+      sortBy
     });
 
     sendSuccess(res, result);
@@ -27,6 +27,63 @@ const getNotifications = async (req, res) => {
   }
 };
 
+const markReadNotification = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const notificationId = req.params.id;
+    const result = await notificationsService.markReadNotification({ notificationId, userId });
+    sendSuccess(res, result);
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+const markAllReadNotification = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const result = await notificationsService.markAllReadNotification({ userId });
+    sendSuccess(res, result);
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+const deleteNotification = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const notificationId = req.params.id;
+    const result = await notificationsService.deleteNotification({ notificationId, userId });
+    sendSuccess(res, result);
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+const deleteAllNotifications = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const result = await notificationsService.deleteAllNotifications({ userId });
+    sendSuccess(res, result);
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
+const getUnreadCount = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const result = await notificationsService.getUnreadCount({ userId });
+    sendSuccess(res, result);
+  } catch (err) {
+    sendError(res, err);
+  }
+}
+
 module.exports = {
-  getNotifications
+  getNotifications,
+  getUnreadCount,
+  markReadNotification,
+  markAllReadNotification,
+  deleteNotification,
+  deleteAllNotifications,
 };
