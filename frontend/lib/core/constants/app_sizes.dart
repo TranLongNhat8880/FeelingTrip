@@ -26,6 +26,12 @@ class AppSizes {
   static const double radiusXL = 24.0;
   static const double radiusRound = 100.0;
 
+  static const double inputRadius = 18;
+  static const double cardRadius = 24;
+  static const double sheetRadius = 28;
+  static const double buttonRadius = 30;
+  static const double touchTarget = 48;
+
   // === Icon Size ===
   static const double iconS = 16.0;
   static const double iconM = 24.0;
