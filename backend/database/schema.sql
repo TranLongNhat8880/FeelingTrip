@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS users (
     is_verified BOOLEAN DEFAULT FALSE, -- Tích xanh eKYC CCCD
     verification_status VARCHAR(20) DEFAULT 'UNVERIFIED' 
         CHECK (verification_status IN ('UNVERIFIED', 'PENDING', 'VERIFIED', 'REJECTED')),
+    verification_rejection_reason VARCHAR(500), -- Lý do từ chối eKYC gần nhất; xóa khi nộp lại/duyệt
     cccd_number VARCHAR(20),
     cccd_front_image TEXT,
     cccd_back_image TEXT,
@@ -95,7 +96,7 @@ CREATE TABLE IF NOT EXISTS places (
     destination VARCHAR(100) NOT NULL, -- TP/Tỉnh (VD: Da Lat, Ha Noi, Da Nang)
     address TEXT,
     category VARCHAR(50) NOT NULL CHECK (category IN (
-        'ATTRACTION', 'RESTAURANT', 'CAFE', 'HOTEL', 'ENTERTAINMENT', 'NATURE', 'CULTURE', 'OTHER'
+        'ATTRACTION', 'RESTAURANT', 'CAFE', 'HOTEL', 'ENTERTAINMENT', 'NATURE', 'CULTURE', 'SHOPPING', 'OTHER'
     )),
     latitude DOUBLE PRECISION,
     longitude DOUBLE PRECISION,
@@ -103,6 +104,7 @@ CREATE TABLE IF NOT EXISTS places (
     price_level INT DEFAULT 1 CHECK (price_level BETWEEN 1 AND 4), -- 1: Rẻ, 4: Rất đắt
     avg_duration_minutes INT DEFAULT 60,
     rating NUMERIC(3, 2) DEFAULT 5.0,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE, -- FALSE: ẩn; TRUE: hiển thị/khôi phục
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -227,6 +229,7 @@ CREATE TABLE IF NOT EXISTS user_reports (
     reported_user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     reported_trip_id UUID REFERENCES trips(id) ON DELETE CASCADE,
     reason TEXT NOT NULL,
+    evidence_image_url TEXT, -- API: evidenceImageUrl; URL ảnh đã upload
     status VARCHAR(20) DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'RESOLVED', 'DISMISSED')),
     admin_notes TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -344,7 +347,8 @@ CREATE TABLE IF NOT EXISTS sos_alerts (
   trip_id UUID REFERENCES trips(id) ON DELETE SET NULL,
   latitude DOUBLE PRECISION NOT NULL CHECK (latitude BETWEEN -90 AND 90),
   longitude DOUBLE PRECISION NOT NULL CHECK (longitude BETWEEN -180 AND 180),
-  status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','RESOLVED')),
+  message VARCHAR(500),
+  status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','RESOLVED','FALSE_ALARM')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   resolved_at TIMESTAMPTZ
 );
@@ -354,3 +358,9 @@ CREATE INDEX IF NOT EXISTS idx_sos_alerts_user ON sos_alerts(user_id);
 ALTER TABLE itinerary_items ADD COLUMN IF NOT EXISTS category VARCHAR(50) NOT NULL DEFAULT 'OTHER';
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_lower ON users (LOWER(email));
+
+-- One review per target per trip; NULL reviewee_id means a review of the trip.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_trip_reviews_member_unique
+  ON trip_reviews (trip_id, reviewer_id, reviewee_id) WHERE reviewee_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_trip_reviews_trip_unique
+  ON trip_reviews (trip_id, reviewer_id) WHERE reviewee_id IS NULL;

@@ -79,6 +79,13 @@ feature reviews/SOS; không có endpoint SOS mới trong lần sửa này.
 SHOPPING được chấp nhận ở cả constants và bảng places.
 app.js giữ nguyên đăng ký router; owner feature tự thêm endpoint trong routes.
 
+Migration `004_member_feature_contracts.sql` bổ sung lý do từ chối eKYC,
+`places.is_active`, tin nhắn/trạng thái báo nhầm SOS, ảnh bằng chứng báo cáo và
+hai unique index chống đánh giá trùng. Đọc `database/explain.txt` cùng explain
+của users/places/reviews/admin để dùng đúng tên trường và chuyển trạng thái.
+Nếu dữ liệu đánh giá cũ trùng, migration báo SQLSTATE 23505 và hoàn tác; không
+tự xóa hay gộp đánh giá. API của các feature này vẫn do Thành/Tùng triển khai.
+
 ## Kiểm thử và CI
 
 `npm run check` kiểm tra từng file JS riêng.

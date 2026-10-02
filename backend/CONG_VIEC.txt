@@ -7,6 +7,8 @@
 - Bảng điện tổng 'src/app.js' ĐÃ ĐƯỢC KHAI BÁO SẴN 100% TẤT CẢ CÁC ĐƯỜNG DÂY ROUTER.
   => TUYỆT ĐỐI KHÔNG AI ĐƯỢC CHỈNH SỬA FILE 'src/app.js'!
 - Mỗi thành viên chỉ làm việc TRONG ĐÚNG CÁC THƯ MỤC TÍNH NĂNG được phân công.
+  Ngoại lệ kiểm thử: được thêm file *.test.js mới trực tiếp trong backend/test/
+  cho feature của mình. Trao đổi với Nhật trước khi sửa test chung hiện có.
 - Không ai đụng vào file của người khác.
 - CẤM TUYỆT ĐỐI push trực tiếp lên nhánh 'main'. Mọi người chỉ push lên nhánh của mình.
 - Trước khi code: Checkout đúng nhánh của mình rồi 'git pull origin main'.

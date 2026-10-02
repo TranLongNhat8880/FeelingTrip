@@ -1,7 +1,7 @@
 ================================================================================
 TÀI LIỆU CHI TIẾT CƠ SỞ DỮ LIỆU POSTGRESQL (SUPABASE) - FEELINGTRIP
 Mã nguồn DDL: backend/database/schema.sql
-Migrations: backend/database/migrations/ (001_backend_integrity, 002_bankhub, 003_invite_code_status)
+Migrations: backend/database/migrations/ (001_backend_integrity, 002_bankhub, 003_invite_code_status, 004_member_feature_contracts)
 ================================================================================
 
 Dự án sử dụng chung 1 cơ sở dữ liệu PostgreSQL trên Supabase. Toàn bộ hệ thống
@@ -30,6 +30,7 @@ PHÂN HỆ I: TÀI KHOẢN, XÁC THỰC & BẢO MẬT HỆ THỐNG
     - is_email_verified (BOOLEAN): Trạng thái xác thực email (TRUE khi đã nhập đúng OTP).
     - is_verified (BOOLEAN): Cấp huy hiệu Tích xanh tín nhiệm (TRUE khi Admin duyệt CCCD).
     - verification_status (VARCHAR): Tiến trình eKYC ('UNVERIFIED', 'PENDING', 'VERIFIED', 'REJECTED').
+    - verification_rejection_reason (VARCHAR(500), NULLABLE): Lý do Admin từ chối hồ sơ eKYC; API profile/eKYC dự kiến trả verificationRejectionReason. Khi nộp lại hồ sơ chuyển PENDING hoặc được duyệt VERIFIED, service phải xóa lý do cũ về NULL cùng lần cập nhật trạng thái.
     - cccd_number (VARCHAR): Số thẻ Căn cước công dân 12 chữ số.
     - cccd_front_image (TEXT): Ảnh chụp mặt trước thẻ CCCD.
     - cccd_back_image (TEXT): Ảnh chụp mặt sau thẻ CCCD.
@@ -44,19 +45,18 @@ PHÂN HỆ I: TÀI KHOẢN, XÁC THỰC & BẢO MẬT HỆ THỐNG
     - created_at, updated_at (TIMESTAMPTZ): Mốc thời gian tạo tài khoản và cập nhật hồ sơ gần nhất.
 
 [2] BẢNG auth_otps (Quản lý mã OTP gửi qua Email)
-    - id (UUID, PK): Khóa chính bản ghi OTP.
     - user_id (UUID, FK -> users): Định danh người dùng nhận mã OTP.
-    - type (VARCHAR): Mục đích gửi mã ('VERIFY_EMAIL', 'FORGOT_PASSWORD').
-    - otp_hash (VARCHAR): Mã OTP 6 số được băm bcrypt an toàn (chống rò rỉ khi lộ DB).
+    - purpose (TEXT): Mục đích gửi mã ('VERIFY_EMAIL', 'FORGOT_PASSWORD').
+    - Khóa chính kết hợp (user_id, purpose): mỗi người có một mã hiện hành cho mỗi mục đích.
+    - otp_hash (TEXT): Mã OTP 6 số được băm bcrypt an toàn (chống rò rỉ khi lộ DB).
     - attempts (INTEGER): Đếm số lần gõ sai (tối đa 5 lần sai sẽ vô hiệu hóa mã).
-    - last_sent_at (TIMESTAMPTZ): Thời điểm gửi mã gần nhất (cooldown chống spam 60 giây).
-    - expires_at (TIMESTAMPTZ): Thời điểm hết hạn của mã OTP (thường là 10 phút).
-    - created_at (TIMESTAMPTZ): Thời điểm sinh mã OTP.
+    - sent_at (TIMESTAMPTZ): Thời điểm cấp mã gần nhất (cooldown chống spam 60 giây).
+    - expires_at (TIMESTAMPTZ): Thời điểm hết hạn của mã OTP (5 phút sau khi cấp).
 
 [3] BẢNG request_limits (Bộ đệm chặn Brute-force & Rate Limit)
     - key (TEXT, PK): Khóa định danh lượt gọi (theo IP máy hoặc theo ID tài khoản).
-    - points (INTEGER): Số lần request đã thực hiện trong khung thời gian cửa sổ.
-    - expire_at (TIMESTAMPTZ): Mốc thời gian reset lại số lượt đếm.
+    - hits (INTEGER): Số lần request đã thực hiện trong khung thời gian cửa sổ.
+    - expires_at (TIMESTAMPTZ): Mốc thời gian reset lại số lượt đếm.
 
 [4] BẢNG user_reports (Báo cáo vi phạm & Tài khoản xấu)
     - id (UUID, PK): Khóa chính báo cáo.
@@ -64,6 +64,7 @@ PHÂN HỆ I: TÀI KHOẢN, XÁC THỰC & BẢO MẬT HỆ THỐNG
     - reported_user_id (UUID, FK -> users): Tài khoản bị báo cáo vi phạm.
     - reported_trip_id (UUID, FK -> trips): Chuyến đi bị báo cáo (nếu liên quan đến tour gian lận).
     - reason (TEXT): Nội dung chi tiết lý do tố cáo (lừa đảo, quỵt tiền, thái độ xấu...).
+    - evidence_image_url (TEXT, NULLABLE): URL ảnh bằng chứng đã upload lên Cloudinary; API dự kiến nhận evidenceImageUrl. Bỏ trống nếu báo cáo không có ảnh.
     - status (VARCHAR): Trạng thái xử lý của Admin ('PENDING', 'RESOLVED', 'DISMISSED').
     - admin_notes (TEXT): Ghi chú kết quả xử lý của Ban quản trị.
     - created_at (TIMESTAMPTZ): Thời điểm gửi báo cáo.
@@ -131,12 +132,13 @@ PHÂN HỆ II: CHUYẾN ĐI & LẬP LỊCH TRÌNH THÔNG MINH
     - name (VARCHAR): Tên địa điểm (quán ăn, quán cafe, điểm check-in, khách sạn).
     - destination (VARCHAR): Thành phố / Tỉnh (Đà Lạt, Hà Giang, Phú Quốc...).
     - address (TEXT): Địa chỉ chi tiết của địa điểm.
-    - category (VARCHAR): Phân loại danh mục ('ATTRACTION', 'RESTAURANT', 'CAFE', 'HOTEL', 'ENTERTAINMENT', 'NATURE', 'CULTURE', 'OTHER').
+    - category (VARCHAR): Phân loại danh mục ('ATTRACTION', 'RESTAURANT', 'CAFE', 'HOTEL', 'ENTERTAINMENT', 'NATURE', 'CULTURE', 'SHOPPING', 'OTHER').
     - latitude, longitude (DOUBLE PRECISION): Tọa độ địa lý dùng tính cự ly và hiển thị bản đồ Map API.
     - image_url (TEXT): Ảnh đại diện thực tế của địa điểm.
     - price_level (INTEGER): Phân khúc giá thành (từ 1: Bình dân đến 4: Sang chảnh).
     - avg_duration_minutes (INTEGER): Thời lượng tham quan trung bình (tính bằng phút).
     - rating (NUMERIC): Điểm đánh giá chất lượng trung bình từ cộng đồng (thang điểm 5.0).
+    - is_active (BOOLEAN, NOT NULL, DEFAULT TRUE): Trạng thái hiển thị. FALSE là ẩn, TRUE là đang hiển thị/được khôi phục. Không dùng deleted_at; không xóa vật lý bản ghi khi ẩn. Truy vấn công khai và gợi ý địa điểm phải lọc is_active = TRUE.
     - created_at (TIMESTAMPTZ): Thời điểm thêm địa điểm vào kho.
 
 [11] BẢNG trip_reviews (Đánh giá Chuyến đi & Thành viên)
@@ -147,6 +149,11 @@ PHÂN HỆ II: CHUYẾN ĐI & LẬP LỊCH TRÌNH THÔNG MINH
     - rating (INTEGER): Điểm sao đánh giá (từ 1 đến 5 sao).
     - comment (TEXT): Nội dung bình luận, chia sẻ cảm nhận thực tế.
     - created_at (TIMESTAMPTZ): Thời điểm gửi đánh giá.
+    - Quy tắc chống trùng tại DB:
+      + reviewee_id IS NULL: Đánh giá chuyến đi, duy nhất theo (trip_id, reviewer_id).
+      + reviewee_id IS NOT NULL: Đánh giá thành viên, duy nhất theo (trip_id, reviewer_id, reviewee_id).
+      + Hai unique index riêng cho phép cùng một người đánh giá chuyến đi và từng thành viên của chuyến đi đó. UNIQUE có cột NULL theo cách thông thường không chặn được đánh giá chuyến đi trùng.
+      + Migration 004 kiểm tra dữ liệu trùng trước; nếu có thì dừng và hoàn tác, không tự xóa hay gộp đánh giá cũ.
 
 --------------------------------------------------------------------------------
 PHÂN HỆ III: QUẢN LÝ TÀI CHÍNH, CHIA TIỀN (SPLIT BILL) & VIETQR
@@ -278,7 +285,7 @@ PHÂN HỆ VI: THÔNG BÁO IN-APP & AN TOÀN KHẨN CẤP SOS
 [24] BẢNG emergency_contacts (Danh bạ Người liên hệ khẩn cấp)
     - id (UUID, PK): Khóa chính người liên hệ khẩn cấp.
     - user_id (UUID, FK -> users): Người dùng cài đặt danh bạ khẩn cấp.
-    - name (VARCHAR): Họ tên người thân/bạn bè (bố, mẹ, anh chị em...).
+    - full_name (VARCHAR): Họ tên người thân/bạn bè (bố, mẹ, anh chị em...).
     - phone (VARCHAR): Số điện thoại liên lạc khẩn cấp khi gặp sự cố.
     - relationship (VARCHAR): Mối quan hệ thân nhân (VD: "Bố", "Mẹ", "Vợ", "Bạn thân").
     - created_at (TIMESTAMPTZ): Thời điểm lưu số liên hệ khẩn cấp.
@@ -288,11 +295,27 @@ PHÂN HỆ VI: THÔNG BÁO IN-APP & AN TOÀN KHẨN CẤP SOS
     - user_id (UUID, FK -> users): Người dùng kích hoạt bấm nút khẩn cấp SOS.
     - trip_id (UUID, FK -> trips, NULLABLE): Chuyến đi đang tham gia khi gặp sự cố.
     - latitude, longitude (DOUBLE PRECISION): Tọa độ định vị GPS chính xác của người gặp nạn.
-    - message (TEXT): Lời kêu cứu hoặc mô tả tình trạng sự cố (hỏng xe trên đèo, gặp chấn thương...).
-    - status (VARCHAR): Tiến trình cứu hộ ('ACTIVE' - đang cần giúp đỡ, 'RESOLVED' - đã an toàn, 'FALSE_ALARM' - bấm nhầm).
+    - message (VARCHAR(500), NULLABLE): Lời kêu cứu hoặc mô tả tình trạng sự cố (hỏng xe trên đèo, gặp chấn thương...), tối đa 500 ký tự; không bắt buộc.
+    - status (TEXT): Tiến trình cứu hộ ('ACTIVE' - đang cần giúp đỡ, 'RESOLVED' - đã an toàn, 'FALSE_ALARM' - bấm nhầm).
     - created_at (TIMESTAMPTZ): Thời điểm gửi tín hiệu kêu cứu SOS.
 
 [26] BẢNG schema_migrations (Lịch sử thực thi Migration)
-    - name (TEXT, PK): Tên file migration đã được áp dụng thành công (001, 002, 003...).
+    - name (TEXT, PK): Tên file migration đã được áp dụng thành công (001, 002, 003, 004...).
     - applied_at (TIMESTAMPTZ): Mốc thời gian migration được chạy vào hệ thống.
+================================================================================
+LƯU Ý HỢP ĐỒNG DỮ LIỆU SAU MIGRATION 004
+================================================================================
+Các cột/ràng buộc ở trên là phần lưu trữ dùng chung. Thêm migration không tự triển
+khai API profile, eKYC, places, reviews, reports hoặc SOS. Thành triển khai phần
+users/places/reviews; Tùng triển khai luồng quản trị Admin và thống nhất dữ liệu
+trạng thái eKYC với users. DB đã tồn tại phải chạy npm run db:migrate để có cấu
+trúc mới; sửa schema.sql chỉ phục vụ khởi tạo DB mới.
+
+Ảnh avatar/CCCD/địa điểm/bằng chứng: dùng shared/middlewares/upload.middleware.js
+để upload multipart lên Cloudinary rồi lưu URL vào DB. Feature tự gắn middleware
+và xử lý request/response; việc có cột URL chưa có nghĩa endpoint upload đã có.
+
+Các trường ngân hàng và bảng bankhub_* tiếp tục theo tích hợp Bank Hub hiện có.
+Nhập/lưu thông tin ngân hàng thủ công không được coi là đã liên kết Bank Hub;
+thanh toán tự động phải kiểm tra liên kết bankhub_accounts đang hoạt động.
 ================================================================================

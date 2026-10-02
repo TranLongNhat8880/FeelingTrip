@@ -26,6 +26,19 @@ THƯ MỤC: TESTS (KIỂM THỬ TỰ ĐỘNG) - backend/test/
         + Webhook SePay: Xác thực API Key an toàn (Timing-safe), kiểm tra chiều tiền vào, kiểm tra đúng STK/ngân hàng và số tiền, chống xử lý lặp giao dịch (Idempotency).
         + AI Planner: Validate thứ tự các ngày và khung giờ tăng dần, cấu trúc JSON có cấu trúc, rollback toàn bộ nếu có lỗi khi lưu lịch trình vào database.
 
+   C. shared-contracts.test.js:
+      - Kiểm tra migration 004 trên cấu trúc cũ: giữ dữ liệu, thêm trường và chạy lại.
+      - Kiểm tra is_active không NULL, ẩn/khôi phục và giới hạn 500 ký tự cho lý do eKYC/tin nhắn SOS.
+      - Chấp nhận FALSE_ALARM; từ chối trạng thái SOS không hợp lệ.
+      - Chặn đánh giá trùng cho từng thành viên và cả đánh giá chuyến đi (reviewee_id NULL).
+      - Dữ liệu cũ trùng: migration báo lỗi rõ ràng, giữ cả hai đánh giá và rollback DDL.
+      - So sánh contract trong schema mới với DB nâng cấp, chạy tất cả migrations theo thứ tự.
+      - Dùng bảng tạm/schema trong transaction trên DB test; không tác động DB ứng dụng.
+
+   Thành viên được thêm file *.test.js mới trực tiếp trong backend/test/ cho feature
+   của mình. Runner npm test tự tìm các file đó. Trao đổi với Nhật trước khi sửa
+   test chung hiện có hoặc scripts/test.js.
+
 3. HƯỚNG DẪN CHẠY TEST:
    - Chạy toàn bộ test tích hợp kèm tự động tạo schema test trong DB:
      ```bash
