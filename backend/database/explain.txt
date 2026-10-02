@@ -11,7 +11,7 @@ THƯ MỤC: DATABASE & MIGRATIONS - backend/database/
 
    - schema.sql:
      + Chứa toàn bộ câu lệnh DDL khởi tạo toàn bộ schema của hệ thống từ đầu (bảng users, trips, trip_members, itineraries, itinerary_items, places, expenses, expense_splits, settlements, companion_posts, companion_requests, notifications, user_reports, user_blocks, emergency_contacts, sos_alerts, auth_otps, request_limits, sepay_events).
-     + Được cập nhật đồng bộ với migration mới nhất, cho phép tạo database mới hoàn chỉnh chỉ với 1 lần chạy.
+     + Chứa các bảng và trường hiện hành để khởi tạo DB mới; sau đó chạy npm run db:migrate để hoàn tất trigger/ràng buộc và ghi lịch sử migration.
 
    - migrations/001_backend_integrity.sql:
      + Migration nâng cấp cơ sở dữ liệu cho các tính năng bảo mật và toàn vẹn dữ liệu:
@@ -24,6 +24,21 @@ THƯ MỤC: DATABASE & MIGRATIONS - backend/database/
        * Mở rộng danh mục chuẩn cho `places` và `itinerary_items`.
        * Bổ sung các bảng `user_blocks`, `emergency_contacts`, `sos_alerts` và index tăng tốc độ truy vấn.
 
+   - migrations/002_bankhub.sql:
+     + Tạo các bảng company/link/tài khoản ngân hàng và hàng đợi sự kiện của SePay Bank Hub.
+     + Thông báo giao dịch được lưu trước khi đối chiếu; giao dịch trùng không cập nhật thanh toán nhiều lần.
+
+   - migrations/003_invite_code_status.sql:
+     + Bổ sung trạng thái mã mời `NONE`, `ACTIVE`, `USED`, `REVOKED` cùng ràng buộc và trigger đồng bộ.
+
+   - migrations/004_member_feature_contracts.sql:
+     + users.verification_rejection_reason: VARCHAR(500), cho phép NULL, lưu lý do từ chối eKYC.
+     + places.is_active: BOOLEAN NOT NULL DEFAULT TRUE. Ẩn bằng FALSE, khôi phục bằng TRUE; không thêm deleted_at.
+     + sos_alerts.message: VARCHAR(500), cho phép NULL; chấp nhận trạng thái ACTIVE, RESOLVED và FALSE_ALARM.
+     + user_reports.evidence_image_url: TEXT, cho phép NULL, lưu URL ảnh bằng chứng.
+     + trip_reviews: hai unique index có điều kiện, tách đánh giá chuyến đi (reviewee_id NULL) và đánh giá thành viên (reviewee_id khác NULL).
+     + Nếu đã có đánh giá trùng, migration dừng với lỗi và hoàn tác, không tự xóa/gộp dữ liệu.
+
 3. HƯỚNG DẪN CHẠY MIGRATION:
    - Chạy lệnh sau tại thư mục `backend/`:
      ```bash
@@ -33,4 +48,36 @@ THƯ MỤC: DATABASE & MIGRATIONS - backend/database/
      + Tự động xin khóa phân tán PostgreSQL (`pg_advisory_xact_lock(741825)`), chống chạy đè khi có nhiều tiến trình chạy song song.
      + Lưu lịch sử các migration đã chạy vào bảng `schema_migrations`.
      + Đảm bảo tính lũy thừa (Idempotent): Nếu migration đã áp dụng rồi thì sẽ tự động bỏ qua, không gây lỗi.
+     + Các migration chưa chạy được thực thi theo tên file trong cùng transaction. Khi một migration lỗi, không ghi lịch sử thành công và hoàn tác các thay đổi của lần chạy đó.
+   - Database đã tồn tại: chạy migration mới, không chạy lại schema.sql để thay thế việc nâng cấp.
+   - Database mới: schema.sql chứa cấu trúc hiện hành; runner vẫn quản lý lịch sử migrations.
+   - Không sửa lại migration 001/002/003 đã được áp dụng ở môi trường khác.
+   - Nếu 004 báo có đánh giá trùng: kiểm tra các nhóm theo (trip_id, reviewer_id)
+     khi reviewee_id IS NULL và (trip_id, reviewer_id, reviewee_id) khi reviewee_id
+     IS NOT NULL. Chốt cách xử lý từng bản ghi rồi chạy lại migration; không tự xóa dữ liệu.
+     Migration báo SQLSTATE 23505 nếu phát hiện trùng. Hai câu truy vấn chỉ đọc:
+
+     SELECT trip_id, reviewer_id, COUNT(*) AS review_count
+     FROM trip_reviews WHERE reviewee_id IS NULL
+     GROUP BY trip_id, reviewer_id HAVING COUNT(*) > 1;
+
+     SELECT trip_id, reviewer_id, reviewee_id, COUNT(*) AS review_count
+     FROM trip_reviews WHERE reviewee_id IS NOT NULL
+     GROUP BY trip_id, reviewer_id, reviewee_id HAVING COUNT(*) > 1;
+
+     Index tương ứng: idx_trip_reviews_trip_unique và idx_trip_reviews_member_unique.
+
+4. PHẦN API CẦN TỪNG THÀNH VIÊN NỐI SAU KHI CHẠY 004:
+   - Thành (users): trả verificationRejectionReason trong profile/eKYC; khi nộp lại
+     hồ sơ chuyển PENDING và xóa lý do cũ cùng một transaction.
+   - Tùng (admin): khi từ chối chuyển REJECTED và lưu lý do; khi duyệt chuyển
+     VERIFIED, cập nhật is_verified và xóa lý do cũ cùng lần cập nhật.
+   - Thành (places): luồng ẩn/khôi phục dùng is_active. Danh sách, tìm kiếm, bản đồ
+     và gợi ý công khai chỉ lấy địa điểm đang hoạt động; quyền quản lý kiểm tra ở service.
+   - Thành (reviews): thêm validation/mapping evidenceImageUrl, lưu message SOS,
+     xử lý FALSE_ALARM, trả lỗi nghiệp vụ khi đánh giá trùng thay vì lộ lỗi SQL.
+   - Tên camelCase dùng ở API; tên snake_case dùng ở DB, được map ở feature tương ứng.
+   - Đây là hợp đồng lưu trữ, không phải xác nhận các endpoint scaffold đã hoàn tất.
+   - Upload ảnh: feature dùng upload.middleware.js để nhận multipart và upload
+     lên Cloudinary; sau đó lưu URL. Các tích hợp Bank Hub tiếp tục giữ nguyên.
 ================================================================================
