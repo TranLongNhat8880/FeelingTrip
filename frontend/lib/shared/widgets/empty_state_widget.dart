@@ -41,28 +41,25 @@ class EmptyStateWidget extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(AppSizes.paddingL),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             // Icon to, màu nhạt
-            Icon(
-              icon,
-              size: 80,
-              color: AppColors.primaryLight.withValues(alpha: 0.5),
+            CircleAvatar(
+              radius: 36,
+              backgroundColor: AppColors.primarySurface,
+              child: Icon(icon, size: 32, color: AppColors.primary),
             ),
             const SizedBox(height: AppSizes.spaceM),
-            
+
             // Tiêu đề chính
             Text(
               title,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textPrimary,
-              ),
+              style: Theme.of(context).textTheme.titleLarge,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: AppSizes.spaceS),
-            
+
             // Lời giải thích/hướng dẫn
             Text(
               message,
@@ -72,14 +69,14 @@ class EmptyStateWidget extends StatelessWidget {
               ),
               textAlign: TextAlign.center,
             ),
-            
+
             // Nút bấm Call-to-action (nếu có)
             if (buttonText != null && onButtonPressed != null) ...[
               const SizedBox(height: AppSizes.spaceL),
               CustomButton(
                 text: buttonText!,
                 onPressed: onButtonPressed,
-                width: 200, // Nút không full màn hình để trông gọn hơn
+                width: 240,
               ),
             ],
           ],

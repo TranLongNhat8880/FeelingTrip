@@ -1,25 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 
-// ================================================================================
-// WIDGET DÙNG CHUNG: Custom Button
-// ================================================================================
-// Nút bấm chuẩn hóa cho toàn app. Hỗ trợ loading, outline, disabled.
-//
-// Cách dùng:
-//   CustomButton(text: 'Đăng nhập', onPressed: _login)
-//   CustomButton(text: 'Đang xử lý...', isLoading: true, onPressed: null)
-//   CustomButton(text: 'Hủy', isOutline: true, onPressed: _cancel)
-// ================================================================================
+enum AppButtonVariant { primary, secondary, text, destructive }
 
+/// The existing name is retained so team screens keep the same API.
 class CustomButton extends StatelessWidget {
-  final String text;
-  final VoidCallback? onPressed;
-  final bool isLoading;
-  final bool isOutline;
-  final Color? backgroundColor;
-  final double? width;
-
   const CustomButton({
     super.key,
     required this.text,
@@ -28,58 +13,73 @@ class CustomButton extends StatelessWidget {
     this.isOutline = false,
     this.backgroundColor,
     this.width,
+    this.icon,
+    this.variant = AppButtonVariant.primary,
   });
-
+  final String text;
+  final VoidCallback? onPressed;
+  final bool isLoading;
+  final bool isOutline;
+  final Color? backgroundColor;
+  final double? width;
+  final IconData? icon;
+  final AppButtonVariant variant;
   @override
   Widget build(BuildContext context) {
-    if (isOutline) {
-      return SizedBox(
-        width: width ?? double.infinity,
-        height: 48,
-        child: OutlinedButton(
-          onPressed: isLoading ? null : onPressed,
-          style: OutlinedButton.styleFrom(
-            side: const BorderSide(color: AppColors.primary),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
+    final kind = isOutline ? AppButtonVariant.secondary : variant;
+    final enabled = onPressed != null && !isLoading;
+    final foreground =
+        kind == AppButtonVariant.primary || kind == AppButtonVariant.destructive
+        ? (enabled || isLoading ? Colors.white : AppColors.textHint)
+        : (enabled || isLoading ? AppColors.textPrimary : AppColors.textHint);
+    final content = Row(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        if (isLoading) ...[
+          SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2, color: foreground),
           ),
-          child: _buildChild(color: AppColors.primary),
-        ),
-      );
-    }
-
-    return SizedBox(
-      width: width ?? double.infinity,
-      height: 48,
-      child: ElevatedButton(
-        onPressed: isLoading ? null : onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: backgroundColor ?? AppColors.primary,
-        ),
-        child: _buildChild(color: Colors.white),
-      ),
+          const SizedBox(width: 10),
+        ] else if (icon != null) ...[
+          Icon(icon, size: 20),
+          const SizedBox(width: 10),
+        ],
+        Flexible(child: Text(text, textAlign: TextAlign.center)),
+      ],
     );
-  }
-
-  Widget _buildChild({required Color color}) {
-    if (isLoading) {
-      return SizedBox(
-        height: 20,
-        width: 20,
-        child: CircularProgressIndicator(
-          color: color,
-          strokeWidth: 2,
-        ),
-      );
-    }
-    return Text(
-      text,
-      style: TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.w600,
-        color: isOutline ? AppColors.primary : null,
+    final callback = enabled ? onPressed : null;
+    final button = switch (kind) {
+      AppButtonVariant.secondary => OutlinedButton(
+        onPressed: callback,
+        child: content,
       ),
+      AppButtonVariant.text => TextButton(onPressed: callback, child: content),
+      _ => ElevatedButton(
+        onPressed: callback,
+        style: ElevatedButton.styleFrom(
+          backgroundColor:
+              backgroundColor ??
+              (kind == AppButtonVariant.destructive
+                  ? AppColors.error
+                  : AppColors.action),
+          disabledBackgroundColor: isLoading
+              ? (backgroundColor ??
+                    (kind == AppButtonVariant.destructive
+                        ? AppColors.error
+                        : AppColors.action))
+              : null,
+        ),
+        child: content,
+      ),
+    };
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      liveRegion: isLoading,
+      child: SizedBox(width: width ?? double.infinity, child: button),
     );
   }
 }
