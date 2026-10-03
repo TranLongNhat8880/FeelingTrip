@@ -36,10 +36,12 @@ class ApiAuthRepository implements AuthRepository {
   }
 
   @override
-  Future<({UserModel user, String token})> register({
+  Future<({UserModel user, String token, String? message})> register({
     required String email,
     required String password,
     required String fullName,
+    required bool termsAccepted,
+    required String termsVersion,
     String? phone,
   }) async {
     final response = await ApiClient.post(
@@ -48,15 +50,48 @@ class ApiAuthRepository implements AuthRepository {
         'email': email,
         'password': password,
         'fullName': fullName,
-        'phone': phone,
+        'termsAccepted': termsAccepted,
+        'termsVersion': termsVersion,
+        if (phone != null && phone.trim().isNotEmpty) 'phone': phone.trim(),
       },
     );
 
+    final data = response['data'];
+    final userMap =
+        (data is Map<String, dynamic> && data['user'] is Map<String, dynamic>)
+        ? data['user'] as Map<String, dynamic>
+        : (data is Map<String, dynamic> ? data : <String, dynamic>{});
+    final token = (data is Map<String, dynamic> && data['token'] is String)
+        ? data['token'] as String
+        : '';
+    final message = response['message'] as String?;
+
+    return (user: UserModel.fromJson(userMap), token: token, message: message);
+  }
+
+  @override
+  Future<({UserModel user, String token})> verifyOtp(
+    String email,
+    String otp,
+  ) async {
+    final response = await ApiClient.post(
+      ApiEndpoints.verifyOtp,
+      body: {'email': email, 'otp': otp},
+    );
     final data = response['data'];
     return (
       user: UserModel.fromJson(data['user']),
       token: data['token'] as String,
     );
+  }
+
+  @override
+  Future<String> resendOtp(String email) async {
+    final response = await ApiClient.post(
+      ApiEndpoints.sendOtp,
+      body: {'email': email, 'type': 'VERIFY_EMAIL'},
+    );
+    return response['message'] as String? ?? 'OTP mới đã được gửi';
   }
 
   @override

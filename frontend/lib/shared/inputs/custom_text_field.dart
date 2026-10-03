@@ -50,6 +50,7 @@ class _CustomTextFieldState extends State<CustomTextField> {
   @override
   Widget build(BuildContext context) => TextFormField(
     controller: widget.controller,
+    style: Theme.of(context).textTheme.bodyLarge,
     obscureText: widget.isPassword && _obscure,
     enableSuggestions: !widget.isPassword,
     autocorrect: !widget.isPassword,

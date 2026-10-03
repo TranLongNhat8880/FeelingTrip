@@ -26,11 +26,22 @@ class AppSizes {
   static const double radiusXL = 24.0;
   static const double radiusRound = 100.0;
 
-  static const double inputRadius = 18;
-  static const double cardRadius = 24;
-  static const double sheetRadius = 28;
-  static const double buttonRadius = 30;
+  static const double inputRadius = 12;
+  static const double cardRadius = 12;
+  static const double sheetRadius = 24;
+  static const double buttonRadius = 12;
   static const double touchTarget = 48;
+  static const double buttonHeight = 52;
+  static const double screenPadding = 24;
+  static const double cardPadding = 18;
+  static const double formMaxWidth = 440;
+  static const double documentMaxWidth = 600;
+  static const double toolbarHeight = 56;
+  static const double fontCaption = 12;
+  static const double fontSmall = 13;
+  static const double fontBody = 14;
+  static const double fontControl = 16;
+  static const double fontAuthTitle = 32;
 
   // === Icon Size ===
   static const double iconS = 16.0;

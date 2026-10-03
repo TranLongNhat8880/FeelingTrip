@@ -1,3 +1,4 @@
+import '../../core/constants/app_sizes.dart';
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 
@@ -6,7 +7,7 @@ class AppImage extends StatelessWidget {
     super.key,
     this.url,
     this.aspectRatio = 16 / 9,
-    this.radius = 24,
+    this.radius = AppSizes.cardRadius,
     this.semanticLabel = 'Hình ảnh',
   });
   final String? url;

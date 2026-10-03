@@ -42,13 +42,13 @@ const findUserById = async (id) => {
 /**
  * Tạo người dùng mới khi đăng ký
  */
-const createUser = async ({ email, passwordHash, fullName, phone = null }) => {
+const createUser = async ({ email, passwordHash, fullName, phone = null, termsVersion }) => {
   const queryText = `
-    INSERT INTO users (email, password_hash, full_name, phone, is_email_verified, role, status)
-    VALUES ($1, $2, $3, $4, false, 'USER', 'ACTIVE')
+    INSERT INTO users (email, password_hash, full_name, phone, terms_version, terms_accepted_at, is_email_verified, role, status)
+    VALUES ($1, $2, $3, $4, $5, NOW(), false, 'USER', 'ACTIVE')
     RETURNING id, email, full_name, phone, role, status, is_email_verified, is_verified, created_at;
   `;
-  const values = [email, passwordHash, fullName, phone];
+  const values = [email, passwordHash, fullName, phone, termsVersion];
   const { rows } = await db.query(queryText, values);
   return rows[0];
 };

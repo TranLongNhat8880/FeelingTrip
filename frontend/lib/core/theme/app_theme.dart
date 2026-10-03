@@ -19,7 +19,7 @@ class AppTheme {
         primary: AppColors.primary,
         onPrimary: Colors.white,
         secondary: AppColors.accent,
-        onSecondary: AppColors.action,
+        onSecondary: Colors.white,
         surface: AppColors.surface,
         onSurface: AppColors.textPrimary,
         error: AppColors.error,
@@ -39,20 +39,24 @@ class AppTheme {
           foregroundColor: Colors.white,
           disabledBackgroundColor: AppColors.divider,
           disabledForegroundColor: AppColors.textHint,
-          minimumSize: const Size(48, 56),
+          minimumSize: const Size(AppSizes.touchTarget, AppSizes.buttonHeight),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           elevation: 0,
           shadowColor: Colors.transparent,
-          shape: const StadiumBorder(),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppSizes.buttonRadius),
+          ),
           textStyle: text.labelLarge,
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.textPrimary,
-          minimumSize: const Size(48, 56),
-          side: const BorderSide(color: AppColors.border),
-          shape: const StadiumBorder(),
+          foregroundColor: AppColors.primary,
+          minimumSize: const Size(AppSizes.touchTarget, AppSizes.buttonHeight),
+          side: const BorderSide(color: AppColors.primary),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppSizes.buttonRadius),
+          ),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           textStyle: text.labelLarge,
         ),
@@ -70,20 +74,33 @@ class AppTheme {
           foregroundColor: AppColors.textPrimary,
         ),
       ),
+      checkboxTheme: CheckboxThemeData(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppSizes.radiusS),
+        ),
+        side: const BorderSide(color: AppColors.border, width: 1.5),
+        fillColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? AppColors.primary
+              : AppColors.surface,
+        ),
+        checkColor: const WidgetStatePropertyAll(AppColors.textOnPrimary),
+      ),
       switchTheme: SwitchThemeData(
         trackColor: WidgetStateProperty.resolveWith(
           (states) => states.contains(WidgetState.selected)
-              ? AppColors.lime
+              ? AppColors.primary
               : AppColors.border,
         ),
         thumbColor: const WidgetStatePropertyAll(Colors.white),
         trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
       ),
       inputDecorationTheme: InputDecorationTheme(
+        floatingLabelBehavior: FloatingLabelBehavior.always,
         filled: true,
-        fillColor: AppColors.surface,
+        fillColor: AppColors.inputSurface,
         contentPadding: const EdgeInsets.symmetric(
-          horizontal: 18,
+          horizontal: 16,
           vertical: 18,
         ),
         border: border,
@@ -99,7 +116,12 @@ class AppTheme {
           borderSide: const BorderSide(color: AppColors.error, width: 1.5),
         ),
         hintStyle: text.bodyMedium?.copyWith(color: AppColors.textHint),
-        labelStyle: text.bodyMedium?.copyWith(color: AppColors.textSecondary),
+        labelStyle: text.bodyMedium?.copyWith(
+          color: AppColors.textSecondary,
+          fontWeight: FontWeight.w500,
+        ),
+        suffixIconColor: AppColors.textHint,
+        prefixIconColor: AppColors.textHint,
         errorMaxLines: 3,
       ),
       cardTheme: CardThemeData(
@@ -113,10 +135,19 @@ class AppTheme {
       ),
       chipTheme: ChipThemeData(
         backgroundColor: Colors.white,
-        selectedColor: AppColors.lime,
+        selectedColor: AppColors.primary,
         side: const BorderSide(color: AppColors.border),
-        shape: const StadiumBorder(),
-        labelStyle: text.labelMedium,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppSizes.buttonRadius),
+        ),
+        checkmarkColor: AppColors.textOnPrimary,
+        labelStyle: WidgetStateTextStyle.resolveWith(
+          (states) => text.labelMedium!.copyWith(
+            color: states.contains(WidgetState.selected)
+                ? AppColors.textOnPrimary
+                : AppColors.textPrimary,
+          ),
+        ),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       ),
       bottomSheetTheme: const BottomSheetThemeData(
@@ -139,9 +170,11 @@ class AppTheme {
         contentTextStyle: text.bodyMedium,
       ),
       snackBarTheme: SnackBarThemeData(
-        backgroundColor: AppColors.action,
+        backgroundColor: AppColors.textPrimary,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppSizes.cardRadius),
+        ),
       ),
       dividerTheme: const DividerThemeData(
         color: AppColors.divider,

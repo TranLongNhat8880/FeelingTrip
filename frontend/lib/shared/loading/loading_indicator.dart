@@ -1,3 +1,4 @@
+import '../../core/constants/app_sizes.dart';
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 
@@ -38,7 +39,7 @@ class LoadingIndicator extends StatelessWidget {
               message!,
               style: const TextStyle(
                 color: AppColors.textSecondary,
-                fontSize: 14,
+                fontSize: AppSizes.fontBody,
               ),
             ),
           ],
@@ -57,7 +58,7 @@ class LoadingIndicator extends StatelessWidget {
         child: Dialog(
           backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(AppSizes.sheetRadius),
           ),
           child: Padding(
             padding: const EdgeInsets.all(24),

@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../widgets/app_status_badge.dart';
@@ -26,52 +25,38 @@ class AppBottomNavigation extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onSelected;
   @override
-  Widget build(BuildContext context) => SafeArea(
-    top: false,
-    child: Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(36),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-          child: Material(
-            color: AppColors.glassDark,
-            borderRadius: BorderRadius.circular(36),
-            child: Padding(
-              padding: const EdgeInsets.all(6),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  // Always keep labels. At large text sizes, scrolling is safer than hiding destinations.
-                  final largeText =
-                      MediaQuery.textScalerOf(context).scale(14) > 20;
-                  final tiles = <Widget>[
-                    for (var index = 0; index < items.length; index++)
-                      _Destination(
-                        item: items[index],
-                        selected: index == selectedIndex,
-                        onTap: () => onSelected(index),
-                      ),
-                  ];
-                  return largeText || constraints.maxWidth < items.length * 64
-                      ? SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
-                            children: [
-                              for (final tile in tiles)
-                                SizedBox(width: 110, child: tile),
-                            ],
-                          ),
-                        )
-                      : Row(
-                          children: [
-                            for (final tile in tiles) Expanded(child: tile),
-                          ],
-                        );
-                },
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: const BoxDecoration(
+      color: AppColors.surface,
+      border: Border(top: BorderSide(color: AppColors.divider)),
+    ),
+    child: SafeArea(
+      top: false,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final largeText = MediaQuery.textScalerOf(context).scale(12) > 18;
+          final tiles = [
+            for (var i = 0; i < items.length; i++)
+              _Destination(
+                item: items[i],
+                selected: i == selectedIndex,
+                onTap: () => onSelected(i),
               ),
-            ),
-          ),
-        ),
+          ];
+          return largeText || constraints.maxWidth < items.length * 64
+              ? SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      for (final tile in tiles)
+                        SizedBox(width: 110, child: tile),
+                    ],
+                  ),
+                )
+              : Row(
+                  children: [for (final tile in tiles) Expanded(child: tile)],
+                );
+        },
       ),
     ),
   );
@@ -87,41 +72,38 @@ class _Destination extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
   @override
-  Widget build(BuildContext context) => Semantics(
-    selected: selected,
-    button: true,
-    child: Material(
-      color: selected ? AppColors.lime : Colors.transparent,
-      borderRadius: BorderRadius.circular(30),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(30),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              UnreadBadge(
-                count: item.unreadCount,
-                child: Icon(
-                  item.icon,
-                  size: 20,
-                  color: selected ? AppColors.action : Colors.white70,
+  Widget build(BuildContext context) {
+    final color = selected ? AppColors.primary : AppColors.textSecondary;
+    return Semantics(
+      selected: selected,
+      button: true,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                UnreadBadge(
+                  count: item.unreadCount,
+                  child: Icon(item.icon, size: 22, color: color),
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                item.label,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: selected ? AppColors.action : Colors.white70,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                const SizedBox(height: 5),
+                Text(
+                  item.label,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: color,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }

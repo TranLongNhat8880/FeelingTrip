@@ -1,3 +1,4 @@
+import '../../core/constants/app_sizes.dart';
 import 'package:flutter/material.dart';
 import '../buttons/app_icon_button.dart';
 
@@ -12,18 +13,18 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
   final bool showBack;
   final List<Widget> actions;
   @override
-  Size get preferredSize => const Size.fromHeight(72);
+  Size get preferredSize => const Size.fromHeight(AppSizes.toolbarHeight);
   @override
   Widget build(BuildContext context) => AppBar(
     title: Text(title),
-    toolbarHeight: 72,
+    toolbarHeight: AppSizes.toolbarHeight,
     automaticallyImplyLeading: false,
-    leadingWidth: 72,
+    leadingWidth: AppSizes.toolbarHeight,
     leading: showBack && Navigator.canPop(context)
         ? Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(4),
             child: AppIconButton(
-              icon: Icons.arrow_back_rounded,
+              icon: Icons.arrow_back_ios_new_rounded,
               tooltip: 'Quay lại',
               onPressed: () => Navigator.maybePop(context),
             ),
@@ -43,7 +44,7 @@ class AppScaffold extends StatelessWidget {
     this.scrollable = false,
     this.bottomAction,
     this.bottomNavigationBar,
-    this.padding = const EdgeInsets.all(20),
+    this.padding = const EdgeInsets.all(AppSizes.screenPadding),
   });
   final Widget body;
   final String? title;
@@ -68,7 +69,12 @@ class AppScaffold extends StatelessWidget {
         : SafeArea(
             top: false,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+              padding: const EdgeInsets.fromLTRB(
+                AppSizes.screenPadding,
+                12,
+                AppSizes.screenPadding,
+                16,
+              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [bottomAction!, ?bottomNavigationBar],

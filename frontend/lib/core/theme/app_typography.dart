@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
+import '../constants/app_sizes.dart';
 
 class AppTypography {
   AppTypography._();
   static TextTheme get textTheme =>
       const TextTheme(
         headlineLarge: TextStyle(
-          fontSize: 30,
+          fontSize: AppSizes.fontAuthTitle,
           fontWeight: FontWeight.w700,
           height: 1.25,
         ),
@@ -30,11 +31,11 @@ class AppTypography {
           fontWeight: FontWeight.w600,
           height: 1.4,
         ),
-        bodyLarge: TextStyle(fontSize: 16, height: 1.5),
-        bodyMedium: TextStyle(fontSize: 14, height: 1.5),
-        bodySmall: TextStyle(fontSize: 12, height: 1.5),
+        bodyLarge: TextStyle(fontSize: AppSizes.fontControl, height: 1.5),
+        bodyMedium: TextStyle(fontSize: AppSizes.fontBody, height: 1.5),
+        bodySmall: TextStyle(fontSize: AppSizes.fontCaption, height: 1.5),
         labelLarge: TextStyle(
-          fontSize: 14,
+          fontSize: AppSizes.fontControl,
           fontWeight: FontWeight.w600,
           height: 1.4,
         ),

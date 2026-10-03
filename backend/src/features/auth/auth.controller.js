@@ -13,8 +13,8 @@ const HTTP_STATUS = require('../../shared/constants/httpStatus');
  */
 const register = async (req, res, next) => {
   try {
-    const { email, password, fullName, phone } = req.body;
-    const result = await authService.register({ email, password, fullName, phone });
+    const { email, password, fullName, phone, termsAccepted, termsVersion } = req.body;
+    const result = await authService.register({ email, password, fullName, phone, termsAccepted, termsVersion });
     return sendSuccess(res, result.user, result.message, HTTP_STATUS.CREATED);
   } catch (error) {
     if (error.status) {
@@ -68,6 +68,13 @@ const login = async (req, res, next) => {
     const result = await authService.login({ email, password });
     return sendSuccess(res, { token: result.token, user: result.user }, result.message, HTTP_STATUS.OK);
   } catch (error) {
+    if (error.code === 'EMAIL_NOT_VERIFIED') {
+      return res.status(HTTP_STATUS.FORBIDDEN).json({
+        success: false,
+        code: error.code,
+        message: error.message,
+      });
+    }
     if (error.status) {
       return sendError(res, error.message, error.status);
     }

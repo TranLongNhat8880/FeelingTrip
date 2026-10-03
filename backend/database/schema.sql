@@ -23,6 +23,8 @@ CREATE TABLE IF NOT EXISTS users (
     dob DATE,
     
     -- Trạng thái xác thực
+    terms_version VARCHAR(32),
+    terms_accepted_at TIMESTAMPTZ,
     is_email_verified BOOLEAN DEFAULT FALSE,
     is_verified BOOLEAN DEFAULT FALSE, -- Tích xanh eKYC CCCD
     verification_status VARCHAR(20) DEFAULT 'UNVERIFIED' 

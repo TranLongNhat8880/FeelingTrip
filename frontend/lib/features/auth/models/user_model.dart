@@ -10,7 +10,7 @@
 // ================================================================================
 
 class UserModel {
-  final int id;
+  final String id;
   final String email;
   final String? fullName;
   final String? phone;
@@ -29,11 +29,11 @@ class UserModel {
   /// Parse từ JSON (Backend trả về) → Object Dart
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
-      id: json['id'],
+      id: json['id'].toString(),
       email: json['email'],
-      fullName: json['full_name'],
+      fullName: json['fullName'] ?? json['full_name'],
       phone: json['phone'],
-      avatarUrl: json['avatar_url'],
+      avatarUrl: json['avatarUrl'] ?? json['avatar_url'],
       role: json['role'] ?? 'USER',
     );
   }

@@ -22,13 +22,23 @@ const sendCode = async (user, type) => {
   const otp = crypto.randomInt(100000, 1000000).toString();
   await otpRepository.issue(user.id, type, await hashPassword(otp));
   try { await emailService.sendOtpEmail(user.email, otp, type); }
-  catch { throw apiError(503, 'Chưa gửi được email. Vui lòng thử gửi lại OTP sau 60 giây.'); }
+  catch (error) {
+    console.error('OTP email delivery failed', {
+      code: error.code || 'UNKNOWN',
+      command: error.command,
+      responseCode: error.responseCode,
+    });
+    throw apiError(503, 'Chưa gửi được email. Vui lòng thử gửi lại OTP sau 60 giây.');
+  }
 };
-const register = async ({ email, password, fullName, phone }) => {
+const register = async ({ email, password, fullName, phone, termsAccepted, termsVersion }) => {
+  if (termsAccepted !== true || termsVersion !== '1.0') {
+    throw apiError(400, 'Vui lòng đồng ý với Điều khoản sử dụng phiên bản hiện tại');
+  }
   email = email.trim().toLowerCase();
   if (await authRepository.findUserByEmail(email)) throw apiError(409, 'Email đã được sử dụng');
   const user = await authRepository.createUser({
-    email, passwordHash: await hashPassword(password), fullName: fullName.trim(), phone,
+    email, passwordHash: await hashPassword(password), fullName: fullName.trim(), phone, termsVersion,
   });
   let emailSent = true;
   try { await sendCode(user, 'VERIFY_EMAIL'); }
@@ -59,7 +69,11 @@ const login = async ({ email, password }) => {
   const user = await authRepository.findUserByEmail(email.trim());
   if (!user?.password_hash || !await comparePassword(password, user.password_hash)) throw apiError(401, 'Email hoặc mật khẩu không chính xác');
   if (user.status !== 'ACTIVE') throw apiError(403, 'Tài khoản đã bị khóa');
-  if (!user.is_email_verified) throw apiError(403, 'Vui lòng xác thực email trước khi đăng nhập');
+  if (!user.is_email_verified) {
+    const error = apiError(403, 'Vui lòng xác thực email trước khi đăng nhập');
+    error.code = 'EMAIL_NOT_VERIFIED';
+    throw error;
+  }
   return { ...session(user), message: 'Đăng nhập thành công' };
 };
 const forgotPassword = async ({ email }) => {

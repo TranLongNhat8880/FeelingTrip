@@ -1,5 +1,46 @@
+import '../../core/constants/app_sizes.dart';
 import 'package:flutter/material.dart';
 import '../widgets/app_status_badge.dart';
+
+class AppInlineNotice extends StatelessWidget {
+  const AppInlineNotice({
+    super.key,
+    required this.message,
+    this.tone = AppStatusTone.info,
+  });
+  final String message;
+  final AppStatusTone tone;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    liveRegion: true,
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: tone.background,
+        borderRadius: BorderRadius.circular(AppSizes.cardRadius),
+        border: Border.all(color: tone.foreground.withValues(alpha: .25)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(tone.icon, color: tone.foreground, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                fontSize: AppSizes.fontSmall,
+                color: tone.foreground,
+                height: 1.5,
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
 
 class AppFeedback {
   AppFeedback._();
@@ -38,7 +79,7 @@ class InlineError extends StatelessWidget {
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
       color: AppStatusTone.error.background,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(AppSizes.cardRadius),
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,

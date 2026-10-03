@@ -1,43 +1,54 @@
-================================================================================
-FEATURE MẪU: AUTHENTICATION (XÁC THỰC) - lib/features/auth/
-================================================================================
+LOGIN VÀ HOME — 02/10/2026
 
-1. TÁC DỤNG CỦA FEATURE NÀY:
-   Quản lý đăng nhập, đăng ký, quên mật khẩu, đăng nhập Google.
-   Đây là FEATURE MẪU để các thành viên tham khảo khi code feature khác.
+Đã triển khai:
+- Login dùng ApiAuthRepository thật: POST /api/v1/auth/login.
+- AuthScope giữ AuthViewModel chung; AuthGate hiện Login hoặc Home theo phiên.
+- Nhập email/mật khẩu, ẩn/hiện mật khẩu, loading chống gửi lặp và lỗi backend.
+- UserModel nhận UUID dạng String, fullName/avatarUrl camelCase từ API.
+- Token và user lưu cùng một bản ghi auth_session; khôi phục khi mở app.
+- Token hết hạn hoặc dữ liệu phiên hỏng đưa về Login. Đây là kiểm tra cục bộ;
+  quyền truy cập dữ liệu vẫn do backend xác thực trên từng request.
+  Chưa có API users/profile hoạt động để kiểm tra lại user khi mở app.
+- Đăng xuất xóa riêng dữ liệu auth, giữ tùy chọn ứng dụng khác.
+- Home gồm lời chào, thẻ hành trình, thanh điều hướng và tab cá nhân có đăng xuất.
+- Chuyến đi/thông báo là khung chờ tích hợp, không dùng số liệu giả.
+- Đăng ký đã triển khai đầy đủ (RegisterScreen): POST /api/v1/auth/register nhận fullName, email, phone (tùy chọn), password. Gửi thêm termsAccepted=true và termsVersion=1.0; chuyển sang màn hình nhập OTP. Chỉ lưu phiên và vào Home sau khi xác thực thành công.
+- Quên mật khẩu đã có giao diện, chưa nối trọn luồng API. Đăng nhập Google cũng chưa được kết nối.
+- UI Kit vẫn mở được bằng --dart-define=UI_KIT=true trong bản debug.
 
-2. CẤU TRÚC MVVM + REPOSITORY PATTERN:
-   - models/user_model.dart           → Data class đại diện cho User
-   - repositories/auth_repository.dart     → Abstract class (hợp đồng)
-   - repositories/mock_auth_repository.dart → Data giả (dùng khi chưa có API)
-   - repositories/api_auth_repository.dart  → Gọi API thật (dùng khi API sẵn sàng)
-   - viewmodels/auth_viewmodel.dart    → Quản lý state, gọi repository
-   - views/login_screen.dart           → Giao diện đăng nhập
+CHẠY TRÊN ANDROID STUDIO
+1. Mở thư mục frontend (dự án Flutter), chọn Android Emulator rồi Run main.dart.
+2. API mặc định: http://10.0.2.2:5000/api/v1.
+   Chạy backend trên máy tính bằng npm run dev trong thư mục backend.
+   Dùng tài khoản thật có email đã xác thực. Không có tài khoản demo mặc định.
+3. Nếu dùng Railway: Run > Edit Configurations > Additional run args:
+   --dart-define=API_BASE_URL=https://TEN-BACKEND.up.railway.app/api/v1
+   Thay bằng URL backend thực tế. Chạy lại app, không chỉ hot reload.
+4. Điện thoại thật: dùng URL HTTPS Railway hoặc IP LAN máy tính thay 10.0.2.2.
+5. HTTP nội bộ chỉ được bật ở Android debug manifest. Release dùng HTTPS.
 
-3. LUỒNG DỮ LIỆU KHI USER NHẤN "ĐĂNG NHẬP":
+KIỂM TRA GIAO DIỆN
+- Đăng ký:
+  + Họ và tên < 2 ký tự hoặc để trống: báo lỗi form.
+  + Email sai định dạng hoặc để trống: báo lỗi form.
+  + Số điện thoại: không bắt buộc, nếu nhập kiểm tra 9-12 chữ số.
+  + Mật khẩu: 8-72 ký tự, không quá 72 byte UTF-8; có chữ hoa, chữ thường, số và ký tự đặc biệt. Hiển thị điều kiện còn thiếu ngay khi nhập.
+  + Xác nhận mật khẩu: phải khớp với mật khẩu đã nhập.
+  + Email trùng backend: hiển thị banner lỗi "Email đã được sử dụng".
+  + Đăng ký thành công: nhập OTP 6 chữ số; có gửi lại với thời gian chờ 60 giây. Phải đồng ý điều khoản trước khi gửi đăng ký.
+- Đăng nhập:
+  + Email trống/sai, mật khẩu trống: hiển thị lỗi, không gửi yêu cầu.
+  + Email/mật khẩu sai hoặc tài khoản khóa: ở lại Login. Đúng mật khẩu nhưng chưa xác thực email: chuyển tới màn hình OTP để gửi lại mã.
+  + Đăng nhập đúng: vào Home, tab cá nhân hiển thị user thật.
+- Tắt/mở app: giữ phiên còn hạn.
+- Cá nhân > Đăng xuất: về Login; mở lại không tự vào Home.
+- Bàn phím mở: có thể cuộn form. Font lớn/màn hình nhỏ: nội dung được xuống dòng.
 
-   [LoginScreen]
-       ↓ gọi _viewModel.login(email, password)
-   [AuthViewModel]
-       ↓ isLoading = true → notifyListeners() → UI hiện loading
-       ↓ gọi _repo.login(email, password)
-   [MockAuthRepository hoặc ApiAuthRepository]
-       ↓ trả về (user, token)
-   [AuthViewModel]
-       ↓ _user = result.user → isLoading = false → notifyListeners()
-   [LoginScreen]
-       ↓ UI tự rebuild → hiện "Đăng nhập thành công!"
-
-4. CÁCH CHUYỂN TỪ MOCK SANG API THẬT:
-
-   Mở file: viewmodels/auth_viewmodel.dart
-   Tìm dòng:  final AuthRepository _repo = MockAuthRepository();
-   Đổi thành: final AuthRepository _repo = ApiAuthRepository();
-   → XONG! Không cần sửa gì ở View.
-
-5. CÁC MÀN HÌNH CẦN TRIỂN KHAI:
-   - login_screen.dart        ✅ Đã có mẫu
-   - register_screen.dart     ❌ Cần code
-   - forgot_password_screen.dart ❌ Cần code
-   - otp_verification_screen.dart ❌ Cần code
-================================================================================
+Các file chính:
+lib/features/auth/views/login_screen.dart
+lib/features/auth/views/register_screen.dart
+lib/features/auth/views/auth_gate.dart
+lib/features/auth/viewmodels/auth_viewmodel.dart
+lib/features/home/views/home_screen.dart
+lib/core/network/storage_helper.dart
+lib/core/constants/api_endpoints.dart

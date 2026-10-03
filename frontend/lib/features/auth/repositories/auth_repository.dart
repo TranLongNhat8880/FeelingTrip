@@ -18,12 +18,17 @@ abstract class AuthRepository {
   Future<({UserModel user, String token})> login(String email, String password);
 
   /// Đăng ký tài khoản mới
-  Future<({UserModel user, String token})> register({
+  Future<({UserModel user, String token, String? message})> register({
     required String email,
     required String password,
     required String fullName,
+    required bool termsAccepted,
+    required String termsVersion,
     String? phone,
   });
+
+  Future<({UserModel user, String token})> verifyOtp(String email, String otp);
+  Future<String> resendOtp(String email);
 
   /// Đăng nhập bằng Google (gửi idToken từ Google SDK)
   Future<({UserModel user, String token})> googleLogin(String idToken);
