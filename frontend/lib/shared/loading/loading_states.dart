@@ -1,3 +1,4 @@
+import '../../core/constants/app_sizes.dart';
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import 'loading_indicator.dart';
@@ -20,7 +21,10 @@ class LoadingOverlay extends StatelessWidget {
         Positioned.fill(
           child: Stack(
             children: [
-              const ModalBarrier(dismissible: false, color: Color(0xCCF5F5F4)),
+              const ModalBarrier(
+                dismissible: false,
+                color: AppColors.loadingOverlay,
+              ),
               LoadingIndicator(message: message),
             ],
           ),
@@ -31,7 +35,12 @@ class LoadingOverlay extends StatelessWidget {
 
 /// Static skeleton avoids endless animations and honors reduced-motion by default.
 class Skeleton extends StatelessWidget {
-  const Skeleton({super.key, this.width, this.height = 18, this.radius = 12});
+  const Skeleton({
+    super.key,
+    this.width,
+    this.height = 18,
+    this.radius = AppSizes.cardRadius,
+  });
   final double? width;
   final double height;
   final double radius;

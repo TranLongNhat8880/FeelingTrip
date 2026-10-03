@@ -1,3 +1,4 @@
+import '../../core/constants/app_sizes.dart';
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import 'avatar_placeholder.dart';
@@ -54,7 +55,7 @@ class AvatarGroup extends StatelessWidget {
                           child: Text(
                             '+$extra',
                             style: const TextStyle(
-                              fontSize: 12,
+                              fontSize: AppSizes.fontCaption,
                               color: AppColors.primaryDark,
                             ),
                           ),

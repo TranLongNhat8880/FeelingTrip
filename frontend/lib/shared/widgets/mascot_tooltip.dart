@@ -42,7 +42,7 @@ class MascotTooltip extends StatelessWidget {
             ),
           ),
           const SizedBox(width: AppSizes.spaceS),
-          
+
           // 2. Bong bóng chat
           Expanded(
             child: Container(
@@ -52,7 +52,9 @@ class MascotTooltip extends StatelessWidget {
                 borderRadius: BorderRadius.only(
                   topRight: const Radius.circular(16),
                   bottomRight: const Radius.circular(16),
-                  bottomLeft: isArrowTop ? const Radius.circular(16) : Radius.zero,
+                  bottomLeft: isArrowTop
+                      ? const Radius.circular(16)
+                      : Radius.zero,
                   topLeft: isArrowTop ? Radius.zero : const Radius.circular(16),
                 ),
                 boxShadow: [
@@ -67,7 +69,7 @@ class MascotTooltip extends StatelessWidget {
                 message,
                 style: const TextStyle(
                   color: AppColors.textPrimary,
-                  fontSize: 14,
+                  fontSize: AppSizes.fontBody,
                   fontWeight: FontWeight.w500,
                   height: 1.4,
                 ),

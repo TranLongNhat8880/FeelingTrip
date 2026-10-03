@@ -30,7 +30,7 @@ class MockAuthRepository implements AuthRepository {
     // Trả về data giả
     return (
       user: UserModel(
-        id: 1,
+        id: '1',
         email: email,
         fullName: 'Nguyễn Văn Test',
         phone: '0901234567',
@@ -41,10 +41,12 @@ class MockAuthRepository implements AuthRepository {
   }
 
   @override
-  Future<({UserModel user, String token})> register({
+  Future<({UserModel user, String token, String? message})> register({
     required String email,
     required String password,
     required String fullName,
+    required bool termsAccepted,
+    required String termsVersion,
     String? phone,
   }) async {
     await Future.delayed(const Duration(seconds: 1));
@@ -55,14 +57,30 @@ class MockAuthRepository implements AuthRepository {
 
     return (
       user: UserModel(
-        id: 2,
+        id: '2',
         email: email,
         fullName: fullName,
         phone: phone,
         role: 'USER',
       ),
       token: 'mock_jwt_token_new_user_456',
+      message: 'Đăng ký thành công. Vui lòng kiểm tra email để xác thực.',
     );
+  }
+
+  @override
+  Future<({UserModel user, String token})> verifyOtp(
+    String email,
+    String otp,
+  ) async {
+    throw UnsupportedError(
+      'OTP cần backend thật, không xác thực bằng dữ liệu giả.',
+    );
+  }
+
+  @override
+  Future<String> resendOtp(String email) async {
+    throw UnsupportedError('OTP cần backend thật để gửi email.');
   }
 
   @override
@@ -71,7 +89,7 @@ class MockAuthRepository implements AuthRepository {
 
     return (
       user: UserModel(
-        id: 3,
+        id: '3',
         email: 'google_user@gmail.com',
         fullName: 'Google User',
         avatarUrl: 'https://via.placeholder.com/150',

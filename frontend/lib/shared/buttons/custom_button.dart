@@ -31,7 +31,7 @@ class CustomButton extends StatelessWidget {
     final foreground =
         kind == AppButtonVariant.primary || kind == AppButtonVariant.destructive
         ? (enabled || isLoading ? Colors.white : AppColors.textHint)
-        : (enabled || isLoading ? AppColors.textPrimary : AppColors.textHint);
+        : (enabled || isLoading ? AppColors.primary : AppColors.textHint);
     final content = Row(
       mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,

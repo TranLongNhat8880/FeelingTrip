@@ -14,7 +14,10 @@ class ApiEndpoints {
 
   // === Base URL ===
   // Đổi thành URL Railway khi deploy
-  static const String baseUrl = 'http://10.0.2.2:5000/api/v1';
+  static const String baseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'http://10.0.2.2:5000/api/v1',
+  );
   // 10.0.2.2 = localhost khi chạy Android Emulator
   // Nếu chạy trên máy thật (qua WiFi), đổi thành IP máy tính: 'http://192.168.x.x:5000/api/v1'
 

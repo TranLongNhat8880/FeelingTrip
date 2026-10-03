@@ -7,7 +7,7 @@ class AppCard extends StatelessWidget {
   const AppCard({
     super.key,
     required this.child,
-    this.padding = const EdgeInsets.all(20),
+    this.padding = const EdgeInsets.all(AppSizes.cardPadding),
     this.onTap,
     this.color = AppColors.surface,
     this.outlined = false,
@@ -156,7 +156,7 @@ class SummaryTile extends StatelessWidget {
 }
 
 /// Thẻ địa điểm du lịch cao cấp chuẩn phong cách Travel Guide:
-/// Ảnh nền tràn viền bo góc 24, huy hiệu khoảng cách lơ lửng, nút tim và thanh thông tin frosted glass.
+/// Ảnh nền tràn viền bo góc theo AppSizes.cardRadius, huy hiệu khoảng cách lơ lửng, nút tim và thanh thông tin frosted glass.
 class AppPlaceCard extends StatelessWidget {
   const AppPlaceCard({
     super.key,
@@ -236,7 +236,7 @@ class AppPlaceCard extends StatelessWidget {
                     distance!,
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 12,
+                      fontSize: AppSizes.fontCaption,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -275,7 +275,7 @@ class AppPlaceCard extends StatelessWidget {
               right: 12,
               bottom: 12,
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(AppSizes.cardRadius),
                 child: BackdropFilter(
                   filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
                   child: Container(
@@ -285,7 +285,7 @@ class AppPlaceCard extends StatelessWidget {
                     ),
                     decoration: BoxDecoration(
                       color: AppColors.glassDark,
-                      borderRadius: BorderRadius.circular(18),
+                      borderRadius: BorderRadius.circular(AppSizes.cardRadius),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -300,7 +300,7 @@ class AppPlaceCard extends StatelessWidget {
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
                                   color: Colors.white,
-                                  fontSize: 16,
+                                  fontSize: AppSizes.fontControl,
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
@@ -316,7 +316,7 @@ class AppPlaceCard extends StatelessWidget {
                               rating.toStringAsFixed(1),
                               style: const TextStyle(
                                 color: Colors.white,
-                                fontSize: 13,
+                                fontSize: AppSizes.fontSmall,
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
@@ -338,7 +338,7 @@ class AppPlaceCard extends StatelessWidget {
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
                                   color: Colors.white70,
-                                  fontSize: 12,
+                                  fontSize: AppSizes.fontCaption,
                                 ),
                               ),
                             ),
@@ -371,7 +371,7 @@ class AppPlaceCard extends StatelessWidget {
 }
 
 /// Chip phân loại theo phong cách Du lịch (Parks, Shops, Cafes):
-/// Nền Lime rực rỡ khi được chọn, nền trắng khi chưa chọn.
+/// Màu nhấn khi được chọn, nền trắng khi chưa chọn.
 class AppCategoryPill extends StatelessWidget {
   const AppCategoryPill({
     super.key,
@@ -389,7 +389,7 @@ class AppCategoryPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: selected ? AppColors.lime : Colors.white,
+      color: selected ? AppColors.primary : Colors.white,
       shape: StadiumBorder(
         side: selected
             ? BorderSide.none
@@ -407,14 +407,14 @@ class AppCategoryPill extends StatelessWidget {
               Icon(
                 icon,
                 size: 18,
-                color: selected ? AppColors.action : AppColors.textPrimary,
+                color: selected ? Colors.white : AppColors.textPrimary,
               ),
               const SizedBox(width: 8),
               Text(
                 label,
                 style: TextStyle(
-                  color: selected ? AppColors.action : AppColors.textPrimary,
-                  fontSize: 14,
+                  color: selected ? Colors.white : AppColors.textPrimary,
+                  fontSize: AppSizes.fontBody,
                   fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                 ),
               ),

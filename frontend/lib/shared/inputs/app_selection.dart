@@ -1,3 +1,4 @@
+import '../../core/constants/app_sizes.dart';
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 
@@ -74,7 +75,7 @@ class AppSelectionField extends StatelessWidget {
     enabled: enabled,
     child: InkWell(
       onTap: enabled ? onTap : null,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(AppSizes.inputRadius),
       child: InputDecorator(
         isEmpty: value.isEmpty,
         decoration: InputDecoration(
@@ -114,7 +115,7 @@ class AppChoiceChips<T> extends StatelessWidget {
           onSelected: enabled ? (_) => onChanged(option.key) : null,
           labelStyle: TextStyle(
             color: selected.contains(option.key)
-                ? AppColors.primaryDark
+                ? AppColors.textOnPrimary
                 : AppColors.textPrimary,
           ),
         ),
@@ -140,7 +141,7 @@ class AppFilterChip extends StatelessWidget {
         : Icon(icon, size: 16, color: AppColors.primary),
     onDeleted: onDeleted,
     deleteButtonTooltipMessage: 'Bỏ bộ lọc',
-    backgroundColor: AppColors.limeSurface,
+    backgroundColor: AppColors.primarySurface,
   );
 }
 

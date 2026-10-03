@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import '../shared/gallery/ui_kit_gallery_screen.dart';
-import '../features/auth/views/login_screen.dart';
-import '../features/trip/views/trip_list_screen.dart';
+import '../features/auth/views/auth_gate.dart';
+import '../features/auth/views/register_screen.dart';
+import '../features/auth/views/terms_screen.dart';
 
-// import '../features/auth/views/register_screen.dart';
 // import '../features/trip/views/trip_detail_screen.dart';
 // import '../features/trip/views/create_trip_screen.dart';
 // import '../features/profile/views/profile_screen.dart';
@@ -20,9 +20,11 @@ import '../features/trip/views/trip_list_screen.dart';
 // ================================================================================
 
 class AppRoutes {
+  static const String home = '/';
   // Tên route (dùng trong Navigator)
   static const String login = '/login';
   static const String register = '/register';
+  static const String terms = '/terms';
   static const String tripList = '/trips';
   static const String tripDetail = '/trips/detail';
   static const String createTrip = '/trips/create';
@@ -31,10 +33,12 @@ class AppRoutes {
 
   // Mapping route → screen
   static Map<String, WidgetBuilder> get routes => {
-    login: (context) => const LoginScreen(),
-    tripList: (context) => const TripListScreen(),
+    home: (context) => const AuthGate(),
+    login: (context) => const AuthGate(),
+    register: (context) => const RegisterScreen(),
+    terms: (context) => const TermsScreen(),
+    tripList: (context) => const AuthGate(),
     if (kDebugMode) uiKit: (context) => const UiKitGalleryScreen(),
-    // register: (context) => const RegisterScreen(),
     // tripList: (context) => const TripListScreen(),
     // tripDetail: (context) => const TripDetailScreen(),
     // createTrip: (context) => const CreateTripScreen(),

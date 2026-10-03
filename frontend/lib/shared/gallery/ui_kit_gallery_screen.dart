@@ -1,3 +1,4 @@
+import '../../core/constants/app_sizes.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/constants/app_colors.dart';
@@ -592,7 +593,7 @@ class _CodeSample extends StatelessWidget {
   final String code;
   @override
   Widget build(BuildContext context) => AppCard(
-    color: const Color(0xFFEDEFEA),
+    color: AppColors.background,
     padding: const EdgeInsets.all(14),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -600,7 +601,10 @@ class _CodeSample extends StatelessWidget {
         Row(
           children: [
             const Expanded(
-              child: Text('Ví dụ sử dụng', style: TextStyle(fontSize: 12)),
+              child: Text(
+                'Ví dụ sử dụng',
+                style: TextStyle(fontSize: AppSizes.fontCaption),
+              ),
             ),
             IconButton(
               tooltip: 'Copy đoạn mẫu',
@@ -618,7 +622,10 @@ class _CodeSample extends StatelessWidget {
             ),
           ],
         ),
-        SelectableText(code, style: const TextStyle(fontSize: 12)),
+        SelectableText(
+          code,
+          style: const TextStyle(fontSize: AppSizes.fontCaption),
+        ),
       ],
     ),
   );

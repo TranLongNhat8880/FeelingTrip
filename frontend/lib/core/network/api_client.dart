@@ -84,6 +84,7 @@ class ApiClient {
       throw ApiException(
         statusCode: response.statusCode,
         message: body['message'] ?? 'Đã xảy ra lỗi',
+        code: body['code'] as String?,
       );
     }
   }
@@ -93,8 +94,9 @@ class ApiClient {
 class ApiException implements Exception {
   final int statusCode;
   final String message;
+  final String? code;
 
-  ApiException({required this.statusCode, required this.message});
+  ApiException({required this.statusCode, required this.message, this.code});
 
   @override
   String toString() => 'ApiException($statusCode): $message';
