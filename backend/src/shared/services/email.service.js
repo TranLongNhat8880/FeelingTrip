@@ -3,6 +3,9 @@ const env = require('../../config/env');
 
 const transporter = nodemailer.createTransport({
   service: 'gmail',
+  connectionTimeout: 10000,
+  greetingTimeout: 10000,
+  socketTimeout: 15000,
   auth: {
     user: env.email.user,
     pass: env.email.pass,

@@ -1,7 +1,7 @@
 ================================================================================
 TÀI LIỆU CHI TIẾT CƠ SỞ DỮ LIỆU POSTGRESQL (SUPABASE) - FEELINGTRIP
 Mã nguồn DDL: backend/database/schema.sql
-Migrations: backend/database/migrations/ (001_backend_integrity, 002_bankhub, 003_invite_code_status, 004_member_feature_contracts)
+Migrations: backend/database/migrations/ (001_backend_integrity, 002_bankhub, 003_invite_code_status, 004_member_feature_contracts, 005_registration_terms)
 ================================================================================
 
 Dự án sử dụng chung 1 cơ sở dữ liệu PostgreSQL trên Supabase. Toàn bộ hệ thống
@@ -27,6 +27,8 @@ PHÂN HỆ I: TÀI KHOẢN, XÁC THỰC & BẢO MẬT HỆ THỐNG
     - bio (TEXT): Lời giới thiệu ngắn về sở thích du lịch, phong cách phượt.
     - gender (VARCHAR): Giới tính ('MALE', 'FEMALE', 'OTHER').
     - dob (DATE): Ngày tháng năm sinh.
+    - terms_version (VARCHAR(32), NULLABLE): Phiên bản Điều khoản sử dụng mà người dùng đã đồng ý khi đăng ký (VD: '1.0'). Các tài khoản cũ tạo trước migration 005 giữ NULL (không tự bịa lịch sử đồng thuận).
+    - terms_accepted_at (TIMESTAMPTZ, NULLABLE): Thời điểm người dùng chấp thuận Điều khoản sử dụng khi đăng ký.
     - is_email_verified (BOOLEAN): Trạng thái xác thực email (TRUE khi đã nhập đúng OTP).
     - is_verified (BOOLEAN): Cấp huy hiệu Tích xanh tín nhiệm (TRUE khi Admin duyệt CCCD).
     - verification_status (VARCHAR): Tiến trình eKYC ('UNVERIFIED', 'PENDING', 'VERIFIED', 'REJECTED').
@@ -300,7 +302,7 @@ PHÂN HỆ VI: THÔNG BÁO IN-APP & AN TOÀN KHẨN CẤP SOS
     - created_at (TIMESTAMPTZ): Thời điểm gửi tín hiệu kêu cứu SOS.
 
 [26] BẢNG schema_migrations (Lịch sử thực thi Migration)
-    - name (TEXT, PK): Tên file migration đã được áp dụng thành công (001, 002, 003, 004...).
+    - name (TEXT, PK): Tên file migration đã được áp dụng thành công (001, 002, 003, 004, 005...).
     - applied_at (TIMESTAMPTZ): Mốc thời gian migration được chạy vào hệ thống.
 ================================================================================
 LƯU Ý HỢP ĐỒNG DỮ LIỆU SAU MIGRATION 004
@@ -318,4 +320,15 @@ và xử lý request/response; việc có cột URL chưa có nghĩa endpoint up
 Các trường ngân hàng và bảng bankhub_* tiếp tục theo tích hợp Bank Hub hiện có.
 Nhập/lưu thông tin ngân hàng thủ công không được coi là đã liên kết Bank Hub;
 thanh toán tự động phải kiểm tra liên kết bankhub_accounts đang hoạt động.
+================================================================================
+LƯU Ý HỢP ĐỒNG DỮ LIỆU SAU MIGRATION 005 (005_registration_terms)
+================================================================================
+Bổ sung lưu vết pháp lý đồng thuận Điều khoản sử dụng khi đăng ký tài khoản mới:
+- users.terms_version (VARCHAR(32), NULLABLE): Lưu version điều khoản (VD: '1.0').
+- users.terms_accepted_at (TIMESTAMPTZ, NULLABLE): Thời điểm ghi nhận chấp thuận (NOW()).
+Ràng buộc nghiệp vụ:
+- Luồng đăng ký tài khoản mới (POST /api/v1/auth/register) bắt buộc gửi termsAccepted = true
+  và termsVersion = '1.0' (được validate bởi auth.validation.js và auth.service.js).
+- Không tự bịa hoặc suy đoán sự đồng thuận của các tài khoản cũ tạo trước migration 005 (giữ NULL).
+- DB đã tồn tại cần chạy npm run db:migrate để áp dụng 005_registration_terms.sql.
 ================================================================================

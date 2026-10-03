@@ -5,7 +5,33 @@ const Joi = require('joi');
 // Định nghĩa quy tắc kiểm tra dữ liệu đầu vào cho phân hệ Auth
 // ============================================================================
 
+// Same policy for registration and password reset; login accepts existing passwords.
+const passwordSchema = Joi.string().min(8).max(72)
+  .pattern(/[A-Z]/, 'uppercase')
+  .pattern(/[a-z]/, 'lowercase')
+  .pattern(/[0-9]/, 'number')
+  .pattern(/[!-/:-@\[-`{-~]/, 'special')
+  .custom((value, helpers) => Buffer.byteLength(value, 'utf8') > 72
+    ? helpers.error('password.bytes') : value)
+  .required()
+  .messages({
+    'string.empty': 'Mật khẩu không được để trống',
+    'string.min': 'Mật khẩu phải có ít nhất 8 ký tự',
+    'string.max': 'Mật khẩu không được vượt quá 72 ký tự',
+    'string.pattern.name': 'Mật khẩu phải có chữ hoa, chữ thường, số và ký tự đặc biệt',
+    'password.bytes': 'Mật khẩu không được vượt quá 72 byte UTF-8',
+    'any.required': 'Mật khẩu là trường bắt buộc',
+  });
+
 const registerSchema = Joi.object({
+  termsAccepted: Joi.boolean().strict().valid(true).required().messages({
+    'any.only': 'Vui lòng đồng ý với Điều khoản sử dụng',
+    'any.required': 'Vui lòng đồng ý với Điều khoản sử dụng',
+  }),
+  termsVersion: Joi.string().valid('1.0').required().messages({
+    'any.only': 'Vui lòng đọc và đồng ý với phiên bản điều khoản hiện tại',
+    'any.required': 'Thiếu phiên bản điều khoản sử dụng',
+  }),
   email: Joi.string().trim().lowercase()
     .email({ tlds: { allow: false } })
     .required()
@@ -14,14 +40,7 @@ const registerSchema = Joi.object({
       'string.email': 'Email không đúng định dạng',
       'any.required': 'Email là trường bắt buộc',
     }),
-  password: Joi.string()
-    .min(8).max(72)
-    .required()
-    .messages({
-      'string.empty': 'Mật khẩu không được để trống',
-      'string.min': 'Mật khẩu phải có độ dài tối thiểu 8 ký tự',
-      'any.required': 'Mật khẩu là trường bắt buộc',
-    }),
+  password: passwordSchema,
   fullName: Joi.string()
     .trim()
     .min(2)
@@ -122,14 +141,7 @@ const resetPasswordSchema = Joi.object({
       'string.pattern.base': 'Mã OTP phải bao gồm đúng 6 chữ số',
       'any.required': 'Mã OTP là trường bắt buộc',
     }),
-  newPassword: Joi.string()
-    .min(8).max(72)
-    .required()
-    .messages({
-      'string.empty': 'Mật khẩu mới không được để trống',
-      'string.min': 'Mật khẩu mới phải có tối thiểu 8 ký tự',
-      'any.required': 'Mật khẩu mới là trường bắt buộc',
-    }),
+  newPassword: passwordSchema,
 });
 
 module.exports = {

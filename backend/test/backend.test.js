@@ -284,7 +284,7 @@ before(async () => {
   // Fresh schema can be re-run safely without duplicate trigger errors
   await db.query(schemaSql);
 
-  defaultPasswordHash = await hashPassword('Password123');
+  defaultPasswordHash = await hashPassword('Password123!');
 
   server = app.listen(0, '127.0.0.1');
   await new Promise((resolve) => server.once('listening', resolve));
@@ -333,19 +333,31 @@ test('registration, OTP activation, login, reset and revocation work through HTT
   const regRes = await request(
     '/auth/register',
     'POST',
-    { email: address, password: 'Password123', fullName: 'New User' },
+    { email: address, password: 'Password123!', fullName: 'New User', termsAccepted: true, termsVersion: '1.0' },
     null
   );
   assert.equal(regRes.status, 201);
+  const { rows: [consent] } = await db.query(
+    'SELECT terms_version, terms_accepted_at FROM users WHERE email = $1', [address]
+  );
+  assert.equal(consent.terms_version, '1.0');
+  assert.ok(consent.terms_accepted_at);
 
   // 2. Unverified login should be blocked
   const loginBlocked = await request(
     '/auth/login',
     'POST',
-    { email: address, password: 'Password123' },
+    { email: address, password: 'Password123!' },
     null
   );
   assert.equal(loginBlocked.status, 403);
+  assert.equal(loginBlocked.body.code, 'EMAIL_NOT_VERIFIED');
+  assert.equal(loginBlocked.body.token, undefined);
+  const wrongPassword = await request('/auth/login', 'POST', {
+    email: address, password: 'WrongPassword123!',
+  }, null);
+  assert.equal(wrongPassword.status, 401);
+  assert.equal(wrongPassword.body.code, undefined);
 
   // 3. Verify OTP
   const otp = sentEmails.get(address);
@@ -373,7 +385,7 @@ test('registration, OTP activation, login, reset and revocation work through HTT
   const loginSuccess = await request(
     '/auth/login',
     'POST',
-    { email: address, password: 'Password123' },
+    { email: address, password: 'Password123!' },
     null
   );
   assert.equal(loginSuccess.status, 200);
@@ -383,7 +395,7 @@ test('registration, OTP activation, login, reset and revocation work through HTT
   const resetRes = await request(
     '/auth/reset-password',
     'POST',
-    { email: address, otp: sentEmails.get(address), newPassword: 'NewPassword123' },
+    { email: address, otp: sentEmails.get(address), newPassword: 'NewPassword123!' },
     null
   );
   assert.equal(resetRes.status, 200);
@@ -400,7 +412,7 @@ test('registration, OTP activation, login, reset and revocation work through HTT
 });
 
 test('OTP failures are persisted, limited to five attempts and sending has a cooldown', async () => {
-  await auth.register({ email: 'otp@test.local', password: 'Password123', fullName: 'OTP User' });
+  await auth.register({ email: 'otp@test.local', password: 'Password123!', fullName: 'OTP User', termsAccepted: true, termsVersion: '1.0' });
   const otp = sentEmails.get('otp@test.local');
 
   // Cooldown rejected
@@ -421,8 +433,34 @@ test('OTP failures are persisted, limited to five attempts and sending has a coo
   assert.equal(rows[0].attempts, 5);
 });
 
+test('email failure keeps the unverified account and resend recovers it', async () => {
+  const sendEmail = email.sendOtpEmail;
+  email.sendOtpEmail = async () => {
+    const error = new Error('Simulated email outage');
+    error.code = 'ETIMEDOUT';
+    throw error;
+  };
+  try {
+    const result = await request('/auth/register', 'POST', {
+      email: 'mail-outage@test.local', password: 'Password123!', fullName: 'Mail Outage', termsAccepted: true, termsVersion: '1.0',
+    }, null);
+    assert.equal(result.status, 201);
+    assert.equal(result.body.data.emailSent, false);
+    assert.equal(result.body.data.isEmailVerified, false);
+    assert.equal(result.body.data.token, undefined);
+  } finally {
+    email.sendOtpEmail = sendEmail;
+  }
+  assert.equal((await request('/auth/resend-otp', 'POST', { email: 'mail-outage@test.local' }, null)).status, 429);
+  await db.query("UPDATE auth_otps SET sent_at = NOW() - INTERVAL '61 seconds'");
+  assert.equal((await request('/auth/resend-otp', 'POST', { email: 'mail-outage@test.local' }, null)).status, 200);
+  assert.equal((await request('/auth/verify-otp', 'POST', {
+    email: 'mail-outage@test.local', otp: sentEmails.get('mail-outage@test.local'),
+  }, null)).status, 200);
+});
+
 test('expired OTP cannot activate the user', async () => {
-  await auth.register({ email: 'expired@test.local', password: 'Password123', fullName: 'Expired User' });
+  await auth.register({ email: 'expired@test.local', password: 'Password123!', fullName: 'Expired User', termsAccepted: true, termsVersion: '1.0' });
   await db.query("UPDATE auth_otps SET expires_at = NOW() - INTERVAL '1 second'");
   await assert.rejects(
     auth.verifyOtp({ email: 'expired@test.local', otp: sentEmails.get('expired@test.local') }),
@@ -436,8 +474,8 @@ test('new passwords cannot exceed the bcrypt UTF-8 byte limit', async () => {
     'POST',
     {
       email: 'long@test.local',
-      fullName: 'Long Password',
-      password: 'ậ'.repeat(30),
+      fullName: 'Long Password', termsAccepted: true, termsVersion: '1.0',
+      password: 'Aa1!' + 'ậ'.repeat(24),
     },
     null
   );
