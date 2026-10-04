@@ -85,8 +85,42 @@ CREATE TABLE IF NOT EXISTS trip_members (
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     role VARCHAR(20) DEFAULT 'MEMBER' CHECK (role IN ('LEADER', 'MEMBER')),
     joined_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    membership_status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE'
+        CONSTRAINT trip_members_membership_status_check
+        CHECK (membership_status IN ('ACTIVE', 'LEFT', 'REMOVED')),
+    left_at TIMESTAMPTZ,
+    removed_at TIMESTAMPTZ,
+    removed_by UUID REFERENCES users(id) ON DELETE SET NULL,
     UNIQUE(trip_id, user_id)
 );
+
+CREATE INDEX IF NOT EXISTS idx_trip_members_trip_status
+    ON trip_members(trip_id, membership_status);
+
+-- Lời mời đích danh; thông báo chỉ hiển thị sự kiện, không giữ trạng thái lời mời.
+CREATE TABLE IF NOT EXISTS trip_invitations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    trip_id UUID NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
+    inviter_id UUID NOT NULL REFERENCES users(id),
+    invitee_id UUID NOT NULL REFERENCES users(id),
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING'
+        CONSTRAINT trip_invitations_status_check
+        CHECK (status IN ('PENDING', 'ACCEPTED', 'REJECTED', 'REVOKED', 'EXPIRED')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    responded_at TIMESTAMPTZ,
+    revoked_at TIMESTAMPTZ,
+    expires_at TIMESTAMPTZ,
+    CONSTRAINT trip_invitations_not_self_check CHECK (inviter_id <> invitee_id),
+    CONSTRAINT trip_invitations_expiry_check
+        CHECK (expires_at IS NULL OR expires_at > created_at)
+);
+CREATE INDEX IF NOT EXISTS idx_trip_invitations_invitee_status
+    ON trip_invitations(invitee_id, status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_trip_invitations_trip_status
+    ON trip_invitations(trip_id, status);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_trip_invitations_one_pending
+    ON trip_invitations(trip_id, invitee_id) WHERE status = 'PENDING';
+ALTER TABLE trip_invitations ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================================
 -- 3. BẢNG ĐỊA ĐIỂM (PLACES) & LỊCH TRÌNH THEO NGÀY (ITINERARIES)

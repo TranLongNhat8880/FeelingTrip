@@ -10,7 +10,9 @@ THƯ MỤC: DATABASE & MIGRATIONS - backend/database/
 2. CÁC FILE TRONG THƯ MỤC:
 
    - schema.sql:
-     + Chứa toàn bộ câu lệnh DDL khởi tạo toàn bộ schema của hệ thống từ đầu (bảng users, trips, trip_members, itineraries, itinerary_items, places, expenses, expense_splits, settlements, companion_posts, companion_requests, notifications, user_reports, user_blocks, emergency_contacts, sos_alerts, auth_otps, request_limits, sepay_events).
+     + Chứa câu lệnh DDL khởi tạo schema từ đầu, gồm users, trips, trip_members,
+       trip_invitations, itineraries, itinerary_items, places, các bảng chi phí,
+       cộng đồng, thông báo, an toàn, xác thực và Bank Hub.
      + Chứa các bảng và trường hiện hành để khởi tạo DB mới; sau đó chạy npm run db:migrate để hoàn tất trigger/ràng buộc và ghi lịch sử migration.
 
    - migrations/001_backend_integrity.sql:
@@ -38,6 +40,16 @@ THƯ MỤC: DATABASE & MIGRATIONS - backend/database/
      + user_reports.evidence_image_url: TEXT, cho phép NULL, lưu URL ảnh bằng chứng.
      + trip_reviews: hai unique index có điều kiện, tách đánh giá chuyến đi (reviewee_id NULL) và đánh giá thành viên (reviewee_id khác NULL).
      + Nếu đã có đánh giá trùng, migration dừng với lỗi và hoàn tác, không tự xóa/gộp dữ liệu.
+
+   - migrations/005_registration_terms.sql:
+     + Lưu phiên bản và thời điểm chấp nhận điều khoản khi đăng ký.
+
+   - migrations/006_trip_invitation_membership.sql:
+     + trip_members: membership_status ACTIVE/LEFT/REMOVED và các trường rời/kick.
+     + trip_invitations: lời mời đích danh; hạn có thể NULL, không mặc định 72 giờ.
+     + Index chống trùng lời mời PENDING và hỗ trợ truy vấn thành viên/lời mời.
+     + Bật RLS cho bảng lời mời; quyền API và vòng đời do feature kiểm tra.
+     + Đọc HUONG_DAN_DB_PHU.md để nối API, transaction và các hợp đồng liên quan.
 
 3. HƯỚNG DẪN CHẠY MIGRATION:
    - Chạy lệnh sau tại thư mục `backend/`:

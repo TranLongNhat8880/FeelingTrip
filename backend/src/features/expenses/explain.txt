@@ -15,6 +15,11 @@ Phụ trách chính: NHẬT
    - Cổng thanh toán Webhook SePay: Tự động gạch nợ real-time qua biến động số dư ngân hàng.
 
 2. CẤU TRÚC 4 TẦNG (Controller - Service - Repository - Validation):
+   Hợp đồng membership sau migration 006: requireMember chỉ cho ACTIVE thao tác;
+   fallback creator chỉ áp dụng khi chưa có bản ghi membership. Người LEFT/REMOVED
+   không được cấp quyền bằng creator_id hoặc role cũ. Đổi ngân sách cần LEADER.
+   Sổ công nợ vẫn tính người đã rời có expenses/splits/settlements; không xóa dữ liệu
+   tài chính hoặc lọc ACTIVE trên ledger. Đọc database/HUONG_DAN_DB_PHU.md.
    - expenses.routes.js: Định nghĩa các endpoint RESTful và gắn middleware phân quyền/validate.
    - expenses.controller.js: Tiếp nhận request, bóc tách params, gọi service và trả response chuẩn qua sendSuccess/sendError.
    - expenses.service.js: Chứa logic nghiệp vụ cốt lõi, thuật toán chia tiền, máy trạng thái thanh toán (State Machine), và xác thực Webhook SePay.

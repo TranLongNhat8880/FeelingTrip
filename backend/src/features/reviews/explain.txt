@@ -29,6 +29,10 @@ PHÂN HỆ: REVIEWS (ĐÁNH GIÁ, BÁO CÁO VI PHẠM & AN TOÀN SOS) - src/feat
    - POST /api/v1/reviews/sos          : Kích hoạt tín hiệu khẩn cấp SOS (lưu tọa độ hiện tại)
 
 5. HỢP ĐỒNG LƯU TRỮ SAU MIGRATION 004_member_feature_contracts.sql:
+   Sau migration 006, findTripContext kiểm tra người đã từng tham gia: giữ cả
+   membership ACTIVE/LEFT/REMOVED cho quyền đánh giá khi chuyến đi COMPLETED.
+   Không dùng predicate này để cấp quyền thao tác của thành viên đang hoạt động.
+   Đọc database/HUONG_DAN_DB_PHU.md; rời/kick không DELETE membership.
    - trip_reviews dùng reviewee_id để phân biệt hai loại đánh giá:
      + Đánh giá chuyến đi: reviewee_id = NULL; chỉ một đánh giá cho mỗi
        (trip_id, reviewer_id), được chặn tại DB bởi idx_trip_reviews_trip_unique.
