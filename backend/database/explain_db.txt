@@ -1,11 +1,11 @@
 ================================================================================
 TÀI LIỆU CHI TIẾT CƠ SỞ DỮ LIỆU POSTGRESQL (SUPABASE) - FEELINGTRIP
 Mã nguồn DDL: backend/database/schema.sql
-Migrations: backend/database/migrations/ (001_backend_integrity, 002_bankhub, 003_invite_code_status, 004_member_feature_contracts, 005_registration_terms)
+Migrations: backend/database/migrations/ (001_backend_integrity, 002_bankhub, 003_invite_code_status, 004_member_feature_contracts, 005_registration_terms, 006_trip_invitation_membership)
 ================================================================================
 
 Dự án sử dụng chung 1 cơ sở dữ liệu PostgreSQL trên Supabase. Toàn bộ hệ thống
-gồm 25 bảng chính và 1 bảng quản lý migration, được chia theo 6 phân hệ nghiệp vụ.
+gồm 26 bảng chính và 1 bảng quản lý migration (tổng cộng 27 bảng), được chia theo 6 phân hệ nghiệp vụ.
 
 ================================================================================
 DANH SÁCH CHI TIẾT CÁC BẢNG VÀ Ý NGHĨA TỪNG TRƯỜNG DỮ LIỆU (FIELDS)
@@ -82,7 +82,7 @@ PHÂN HỆ II: CHUYẾN ĐI & LẬP LỊCH TRÌNH THÔNG MINH
 
 [6] BẢNG trips (Thông tin Chuyến đi du lịch)
     - id (UUID, PK): Khóa chính định danh chuyến đi.
-    - creator_id (UUID, FK -> users): Người sáng lập / Trưởng nhóm chuyến đi.
+    - creator_id (UUID, FK -> users): Người sáng lập; trưởng nhóm hiện tại xác định bằng trip_members đang ACTIVE có role LEADER.
     - name (VARCHAR): Tên chuyến đi (VD: "Phượt Mộc Châu - Mùa hoa mận 3N2Đ").
     - destination (VARCHAR): Tỉnh/Thành phố hoặc địa danh chính (VD: "Mộc Châu").
     - start_date (DATE): Ngày bắt đầu khởi hành.
@@ -106,8 +106,29 @@ PHÂN HỆ II: CHUYẾN ĐI & LẬP LỊCH TRÌNH THÔNG MINH
     - user_id (UUID, FK -> users): Tài khoản thành viên.
     - role (VARCHAR): Vai trò trong chuyến đi ('LEADER' - Trưởng nhóm, 'MEMBER' - Thành viên).
     - joined_at (TIMESTAMPTZ): Thời điểm gia nhập vào nhóm.
+    - membership_status (VARCHAR(20), NOT NULL, DEFAULT ACTIVE): ACTIVE / LEFT / REMOVED.
+    - left_at, removed_at (TIMESTAMPTZ, NULLABLE): Thời điểm tự rời / bị kick gần nhất.
+    - removed_by (UUID -> users, NULLABLE): Người kick; về NULL nếu user đó bị xóa.
+    - UNIQUE(trip_id, user_id) giữ một membership để cập nhật khi tham gia lại.
+    - Count/danh sách/quyền hiện tại lọc ACTIVE; công nợ và đánh giá giữ lịch sử.
 
-[8] BẢNG itineraries (Lịch trình phân chia theo ngày)
+[8] BẢNG trip_invitations (Lời mời đích danh tham gia Chuyến đi, migration 006)
+    - id (UUID, PK): Khóa chính định danh lời mời.
+    - trip_id (UUID, FK -> trips): Chuyến đi được mời tham gia (ON DELETE CASCADE).
+    - inviter_id (UUID, FK -> users): Người gửi lời mời (Trưởng nhóm hoặc thành viên có quyền).
+    - invitee_id (UUID, FK -> users): Người nhận lời mời đích danh.
+    - status (VARCHAR(20), NOT NULL, DEFAULT 'PENDING'): Trạng thái lời mời ('PENDING', 'ACCEPTED', 'REJECTED', 'REVOKED', 'EXPIRED').
+    - created_at (TIMESTAMPTZ, NOT NULL, DEFAULT NOW()): Thời điểm tạo lời mời.
+    - responded_at (TIMESTAMPTZ, NULLABLE): Thời điểm người được mời phản hồi (chấp nhận hoặc từ chối).
+    - revoked_at (TIMESTAMPTZ, NULLABLE): Thời điểm người mời thu hồi lời mời.
+    - expires_at (TIMESTAMPTZ, NULLABLE): Thời điểm hết hạn của lời mời (NULL: không giới hạn thời gian).
+    - Quy tắc toàn vẹn & Bảo mật:
+      + Chặn tự gửi lời mời cho chính mình (inviter_id <> invitee_id).
+      + Thời điểm hết hạn phải sau thời điểm tạo (expires_at IS NULL OR expires_at > created_at).
+      + Chống spam: Tối đa 1 lời mời PENDING duy nhất cho cùng cặp (trip_id, invitee_id) qua partial unique index.
+      + Bật Row Level Security (RLS); truy cập và cập nhật trạng thái thực hiện qua API backend.
+
+[9] BẢNG itineraries (Lịch trình phân chia theo ngày)
     - id (UUID, PK): Khóa chính ngày lịch trình.
     - trip_id (UUID, FK -> trips): Chuyến đi tương ứng.
     - day_number (INTEGER): Thứ tự ngày trong tour (Day 1, Day 2, Day 3...).
@@ -115,7 +136,7 @@ PHÂN HỆ II: CHUYẾN ĐI & LẬP LỊCH TRÌNH THÔNG MINH
     - trip_date (DATE): Ngày thực tế tương ứng trên lịch.
     - created_at (TIMESTAMPTZ): Thời điểm khởi tạo ngày.
 
-[9] BẢNG itinerary_items (Chi tiết hoạt động / Điểm dừng chân trong ngày)
+[10] BẢNG itinerary_items (Chi tiết hoạt động / Điểm dừng chân trong ngày)
     - id (UUID, PK): Khóa chính hoạt động dừng chân.
     - itinerary_id (UUID, FK -> itineraries): Thuộc về ngày lịch trình nào.
     - place_id (UUID, FK -> places, NULLABLE): Liên kết với địa điểm chuẩn trong kho places (nếu có).
@@ -129,7 +150,7 @@ PHÂN HỆ II: CHUYẾN ĐI & LẬP LỊCH TRÌNH THÔNG MINH
     - is_completed (BOOLEAN): Đã hoàn thành điểm check-in này chưa.
     - created_at (TIMESTAMPTZ): Thời điểm tạo hoạt động.
 
-[10] BẢNG places (Kho dữ liệu địa điểm du lịch & Smart Swap)
+[11] BẢNG places (Kho dữ liệu địa điểm du lịch & Smart Swap)
     - id (UUID, PK): Khóa chính địa điểm.
     - name (VARCHAR): Tên địa điểm (quán ăn, quán cafe, điểm check-in, khách sạn).
     - destination (VARCHAR): Thành phố / Tỉnh (Đà Lạt, Hà Giang, Phú Quốc...).
@@ -143,7 +164,7 @@ PHÂN HỆ II: CHUYẾN ĐI & LẬP LỊCH TRÌNH THÔNG MINH
     - is_active (BOOLEAN, NOT NULL, DEFAULT TRUE): Trạng thái hiển thị. FALSE là ẩn, TRUE là đang hiển thị/được khôi phục. Không dùng deleted_at; không xóa vật lý bản ghi khi ẩn. Truy vấn công khai và gợi ý địa điểm phải lọc is_active = TRUE.
     - created_at (TIMESTAMPTZ): Thời điểm thêm địa điểm vào kho.
 
-[11] BẢNG trip_reviews (Đánh giá Chuyến đi & Thành viên)
+[12] BẢNG trip_reviews (Đánh giá Chuyến đi & Thành viên)
     - id (UUID, PK): Khóa chính đánh giá.
     - trip_id (UUID, FK -> trips): Chuyến đi được đánh giá sau khi hoàn thành.
     - reviewer_id (UUID, FK -> users): Người viết nhận xét.
@@ -161,7 +182,7 @@ PHÂN HỆ II: CHUYẾN ĐI & LẬP LỊCH TRÌNH THÔNG MINH
 PHÂN HỆ III: QUẢN LÝ TÀI CHÍNH, CHIA TIỀN (SPLIT BILL) & VIETQR
 --------------------------------------------------------------------------------
 
-[12] BẢNG expenses (Các khoản chi tiêu chung trong chuyến đi)
+[13] BẢNG expenses (Các khoản chi tiêu chung trong chuyến đi)
     - id (UUID, PK): Khóa chính khoản chi tiêu.
     - trip_id (UUID, FK -> trips): Chuyến đi phát sinh chi phí.
     - payer_id (UUID, FK -> users): Thành viên nhóm đứng ra quẹt thẻ/trả tiền trước.
@@ -172,14 +193,14 @@ PHÂN HỆ III: QUẢN LÝ TÀI CHÍNH, CHIA TIỀN (SPLIT BILL) & VIETQR
     - expense_date (TIMESTAMPTZ): Ngày giờ phát sinh khoản chi.
     - created_at (TIMESTAMPTZ): Thời điểm tạo hóa đơn trên app.
 
-[13] BẢNG expense_splits (Phân bổ chia tiền cho từng thành viên)
+[14] BẢNG expense_splits (Phân bổ chia tiền cho từng thành viên)
     - id (UUID, PK): Khóa chính dòng chia tiền.
     - expense_id (UUID, FK -> expenses): Khoản chi tiêu cần chia.
     - user_id (UUID, FK -> users): Thành viên tham gia chia khoản chi này.
     - amount_owed (NUMERIC): Số tiền chính xác thành viên này phải gánh chịu.
     - created_at (TIMESTAMPTZ): Thời điểm tính toán chia bill.
 
-[14] BẢNG settlements (Bảng quyết toán công nợ rút gọn - Min Cash Flow)
+[15] BẢNG settlements (Bảng quyết toán công nợ rút gọn - Min Cash Flow)
     - id (UUID, PK): Khóa chính khoản nợ thanh toán.
     - trip_id (UUID, FK -> trips): Chuyến đi diễn ra quyết toán.
     - from_user_id (UUID, FK -> users): Người nợ tiền (người phải chuyển khoản trả).
@@ -195,7 +216,7 @@ PHÂN HỆ III: QUẢN LÝ TÀI CHÍNH, CHIA TIỀN (SPLIT BILL) & VIETQR
     - paid_at (TIMESTAMPTZ): Mốc thời gian khoản nợ được gạch thanh toán thành công.
     - created_at (TIMESTAMPTZ): Thời điểm tạo bảng chốt nợ.
 
-[15] BẢNG sepay_events (Nhật ký giao dịch Webhook SePay truyền thống)
+[16] BẢNG sepay_events (Nhật ký giao dịch Webhook SePay truyền thống)
     - id (UUID, PK): Khóa chính sự kiện webhook.
     - transaction_id (VARCHAR, UNIQUE): Mã giao dịch độc nhất từ ngân hàng/SePay gửi sang.
     - reference_code (VARCHAR): Mã tham chiếu FT trích xuất từ nội dung chuyển khoản.
@@ -207,17 +228,17 @@ PHÂN HỆ III: QUẢN LÝ TÀI CHÍNH, CHIA TIỀN (SPLIT BILL) & VIETQR
 PHÂN HỆ IV: SEPAY BANK HUB - TỰ ĐỘNG XÁC MINH & GẠCH NỢ TỨC THÌ
 --------------------------------------------------------------------------------
 
-[16] BẢNG bankhub_companies (Định danh doanh nghiệp ảo trên SePay)
+[17] BẢNG bankhub_companies (Định danh doanh nghiệp ảo trên SePay)
     - user_id (UUID, PK, FK -> users): Định danh người dùng sở hữu công ty.
     - company_xid (UUID, UNIQUE): Mã UUID công ty ảo trên hệ thống SePay Bank Hub ('FeelingTrip-<UUID>').
 
-[17] BẢNG bankhub_links (Lưu phiên tạo Hosted Link liên kết ngân hàng)
+[18] BẢNG bankhub_links (Lưu phiên tạo Hosted Link liên kết ngân hàng)
     - xid (UUID, PK): Mã định danh phiên tạo link token.
     - user_id (UUID, FK -> users): Người dùng thực hiện thao tác liên kết.
     - purpose (TEXT): Mục đích mở link ('LINK_BANK_ACCOUNT', 'UNLINK_BANK_ACCOUNT', 'REACTIVATE_BANK_ACCOUNT').
     - created_at (TIMESTAMPTZ): Thời điểm sinh đường dẫn liên kết.
 
-[18] BẢNG bankhub_accounts (Tài khoản ngân hàng đã liên kết qua Bank Hub)
+[19] BẢNG bankhub_accounts (Tài khoản ngân hàng đã liên kết qua Bank Hub)
     - xid (UUID, PK): Mã định danh tài khoản ngân hàng trên hệ thống SePay.
     - user_id (UUID, FK -> users): Chủ tài khoản người dùng trong hệ thống.
     - bank_bin (VARCHAR): Mã 6 chữ số định danh ngân hàng NAPAS.
@@ -227,7 +248,7 @@ PHÂN HỆ IV: SEPAY BANK HUB - TỰ ĐỘNG XÁC MINH & GẠCH NỢ TỨC THÌ
     - active (BOOLEAN): Trạng thái liên kết đang hoạt động (TRUE khi tài khoản hợp lệ).
     - event_timestamp (BIGINT): Mốc thời gian sự kiện cập nhật gần nhất (chống nhận sự kiện cũ).
 
-[19] BẢNG bankhub_events (Hàng đợi sự kiện Webhook từ SePay Bank Hub)
+[20] BẢNG bankhub_events (Hàng đợi sự kiện Webhook từ SePay Bank Hub)
     - xid (UUID, PK): Mã sự kiện do SePay Bank Hub cung cấp.
     - payload (JSONB): Dữ liệu chi tiết sự kiện thay đổi trạng thái tài khoản.
     - received_at (TIMESTAMPTZ): Thời điểm nhận được webhook.
@@ -235,7 +256,7 @@ PHÂN HỆ IV: SEPAY BANK HUB - TỰ ĐỘNG XÁC MINH & GẠCH NỢ TỨC THÌ
     - retry_at (TIMESTAMPTZ): Mốc thời gian worker nền sẽ quét chạy lại nếu xảy ra lỗi mạng.
     - attempts (INTEGER): Số lần đã thử chạy lại (áp dụng thuật toán Exponential Backoff).
 
-[20] BẢNG bankhub_ipn (Thông báo biến động số dư tức thì - Gạch nợ tự động)
+[21] BẢNG bankhub_ipn (Thông báo biến động số dư tức thì - Gạch nợ tự động)
     - transaction_id (TEXT, PK): Khóa chính chống xử lý trùng lặp giao dịch (Idempotency Key).
     - payload (JSONB): Toàn bộ gói tin giao dịch tiền vào từ ngân hàng.
     - received_at (TIMESTAMPTZ): Thời điểm nhận được thông báo biến động số dư.
@@ -248,7 +269,7 @@ PHÂN HỆ IV: SEPAY BANK HUB - TỰ ĐỘNG XÁC MINH & GẠCH NỢ TỨC THÌ
 PHÂN HỆ V: MẠNG XÃ HỘI TÌM BẠN ĐỒNG HÀNH (COMPANION NEWSFEED)
 --------------------------------------------------------------------------------
 
-[21] BẢNG companion_posts (Bảng tin đăng bài tuyển xế / ôm ghép tour)
+[22] BẢNG companion_posts (Bảng tin đăng bài tuyển xế / ôm ghép tour)
     - id (UUID, PK): Khóa chính bài đăng tìm bạn đồng hành.
     - trip_id (UUID, FK -> trips): Chuyến đi công khai cần tuyển thêm người.
     - creator_id (UUID, FK -> users): Người đăng bài (Trưởng nhóm).
@@ -262,7 +283,7 @@ PHÂN HỆ V: MẠNG XÃ HỘI TÌM BẠN ĐỒNG HÀNH (COMPANION NEWSFEED)
     - tags (TEXT[]): Mảng các nhãn phong cách (ARRAY['Phượt xe máy', 'Ăn uống', 'Chill', 'Check-in']).
     - created_at, updated_at (TIMESTAMPTZ): Mốc thời gian đăng bài và sửa bài viết.
 
-[22] BẢNG companion_requests (Yêu cầu xin tham gia ghép đoàn)
+[23] BẢNG companion_requests (Yêu cầu xin tham gia ghép đoàn)
     - id (UUID, PK): Khóa chính lời xin ghép đoàn.
     - post_id (UUID, FK -> companion_posts): Bài đăng tìm bạn muốn tham gia.
     - user_id (UUID, FK -> users): Người gửi yêu cầu tham gia.
@@ -274,7 +295,7 @@ PHÂN HỆ V: MẠNG XÃ HỘI TÌM BẠN ĐỒNG HÀNH (COMPANION NEWSFEED)
 PHÂN HỆ VI: THÔNG BÁO IN-APP & AN TOÀN KHẨN CẤP SOS
 --------------------------------------------------------------------------------
 
-[23] BẢNG notifications (Hệ thống Thông báo ứng dụng)
+[24] BẢNG notifications (Hệ thống Thông báo ứng dụng)
     - id (UUID, PK): Khóa chính thông báo.
     - user_id (UUID, FK -> users): Người nhận thông báo.
     - title (VARCHAR): Tiêu đề thông báo ngắn gọn.
@@ -284,7 +305,7 @@ PHÂN HỆ VI: THÔNG BÁO IN-APP & AN TOÀN KHẨN CẤP SOS
     - is_read (BOOLEAN): Trạng thái đọc (FALSE: hiện badge đỏ chưa đọc, TRUE: đã đọc).
     - created_at (TIMESTAMPTZ): Thời điểm phát sinh thông báo.
 
-[24] BẢNG emergency_contacts (Danh bạ Người liên hệ khẩn cấp)
+[25] BẢNG emergency_contacts (Danh bạ Người liên hệ khẩn cấp)
     - id (UUID, PK): Khóa chính người liên hệ khẩn cấp.
     - user_id (UUID, FK -> users): Người dùng cài đặt danh bạ khẩn cấp.
     - full_name (VARCHAR): Họ tên người thân/bạn bè (bố, mẹ, anh chị em...).
@@ -292,7 +313,7 @@ PHÂN HỆ VI: THÔNG BÁO IN-APP & AN TOÀN KHẨN CẤP SOS
     - relationship (VARCHAR): Mối quan hệ thân nhân (VD: "Bố", "Mẹ", "Vợ", "Bạn thân").
     - created_at (TIMESTAMPTZ): Thời điểm lưu số liên hệ khẩn cấp.
 
-[25] BẢNG sos_alerts (Nhật ký Báo động khẩn cấp SOS)
+[26] BẢNG sos_alerts (Nhật ký Báo động khẩn cấp SOS)
     - id (UUID, PK): Khóa chính tín hiệu SOS.
     - user_id (UUID, FK -> users): Người dùng kích hoạt bấm nút khẩn cấp SOS.
     - trip_id (UUID, FK -> trips, NULLABLE): Chuyến đi đang tham gia khi gặp sự cố.
@@ -301,7 +322,7 @@ PHÂN HỆ VI: THÔNG BÁO IN-APP & AN TOÀN KHẨN CẤP SOS
     - status (TEXT): Tiến trình cứu hộ ('ACTIVE' - đang cần giúp đỡ, 'RESOLVED' - đã an toàn, 'FALSE_ALARM' - bấm nhầm).
     - created_at (TIMESTAMPTZ): Thời điểm gửi tín hiệu kêu cứu SOS.
 
-[26] BẢNG schema_migrations (Lịch sử thực thi Migration)
+[27] BẢNG schema_migrations (Lịch sử thực thi Migration)
     - name (TEXT, PK): Tên file migration đã được áp dụng thành công (001, 002, 003, 004, 005...).
     - applied_at (TIMESTAMPTZ): Mốc thời gian migration được chạy vào hệ thống.
 ================================================================================
@@ -331,4 +352,21 @@ Ràng buộc nghiệp vụ:
   và termsVersion = '1.0' (được validate bởi auth.validation.js và auth.service.js).
 - Không tự bịa hoặc suy đoán sự đồng thuận của các tài khoản cũ tạo trước migration 005 (giữ NULL).
 - DB đã tồn tại cần chạy npm run db:migrate để áp dụng 005_registration_terms.sql.
+================================================================================
+LƯU Ý HỢP ĐỒNG DỮ LIỆU SAU MIGRATION 006 (006_trip_invitation_membership)
+================================================================================
+Bổ sung vòng đời thành viên nhóm và cơ chế gửi lời mời đích danh:
+1. Vòng đời thành viên (trip_members):
+   - Cột membership_status ('ACTIVE', 'LEFT', 'REMOVED'): Phân biệt thành viên đang sinh hoạt, tự rời hoặc bị kick.
+   - Khi thành viên rời hoặc bị kick: KHÔNG xóa dòng dữ liệu mà cập nhật membership_status và mốc thời gian (left_at, removed_at, removed_by).
+   - Bảo toàn dữ liệu tài chính & pháp lý: Giữ nguyên các khoản chi (expense_splits), công nợ (settlements) đã phát sinh và quyền đánh giá uy tín sau tour (trip_reviews).
+   - Bảng trip_members duy trì UNIQUE(trip_id, user_id). Khi thành viên cũ tham gia lại chuyến đi, backend sử dụng UPSERT:
+     ON CONFLICT (trip_id, user_id) DO UPDATE SET membership_status = 'ACTIVE', joined_at = NOW(), left_at = NULL, removed_at = NULL, removed_by = NULL.
+   - Các API truy vấn danh sách thành viên đang hoạt động hoặc phân quyền chuyến đi BẮT BUỘC lọc WHERE membership_status = 'ACTIVE'.
+
+2. Lời mời đích danh (trip_invitations):
+   - Độc lập với mã mời công khai (invite_code trong trips) và bảng notifications.
+   - Khi tạo lời mời đích danh: Thêm bản ghi vào trip_invitations (status: 'PENDING') đồng thời bắn thông báo qua notifications (type: 'INVITE').
+   - Khi phản hồi: Cập nhật status ('ACCEPTED'/'REJECTED'), ghi nhận responded_at. Nếu ACCEPTED -> UPSERT vào trip_members với status 'ACTIVE'.
+   - Chỉ duy nhất 1 lời mời PENDING được tồn tại đồng thời giữa 1 chuyến đi và 1 người dùng.
 ================================================================================

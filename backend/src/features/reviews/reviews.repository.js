@@ -5,8 +5,10 @@
 // ============================================================================
 
 /**
- * Lấy trạng thái chuyến đi và kiểm tra quyền thành viên.
+ * Lấy trạng thái chuyến đi và kiểm tra người đã từng tham gia.
  *
+ * Giữ cả ACTIVE/LEFT/REMOVED để người đã rời vẫn có thể đánh giá sau khi
+ * chuyến đi COMPLETED. Không dùng predicate này để cấp quyền sửa chuyến đi.
  * Creator được coi là thành viên kể cả khi dữ liệu cũ chưa có bản ghi
  * tương ứng trong trip_members.
  */

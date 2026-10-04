@@ -10,7 +10,7 @@ PHÂN HỆ: TRIPS (QUẢN LÝ CHUYẾN ĐI & NHÓM) - src/features/trips/
    - trips.routes.js: Định nghĩa các endpoints chuyến đi và thành viên.
    - trips.controller.js: Nhận request và kiểm tra quyền trước khi thao tác.
    - trips.service.js: Xử lý logic tạo chuyến đi, sinh mã mời, kiểm tra nợ trước khi rời nhóm.
-   - trips.repository.js: Thao tác trực tiếp với Database (viết SQL bảng 'trips', 'trip_members').
+   - trips.repository.js: Thao tác trực tiếp với Database (trips, trip_members, trip_invitations).
 
 3. CÁC FILE DÙNG CHUNG CẦN GỌI (SHARED):
    - ../../shared/middlewares/auth.middleware.js -> authenticate (bắt buộc đăng nhập)
@@ -26,4 +26,14 @@ PHÂN HỆ: TRIPS (QUẢN LÝ CHUYẾN ĐI & NHÓM) - src/features/trips/
    - POST   /api/v1/trips/:id/join     : Tham gia chuyến đi bằng mã mời (Invite code)
    - POST   /api/v1/trips/:id/leave    : Rời nhóm (kiểm tra không còn nợ tiền mới được rời)
    - DELETE /api/v1/trips/:id/members/:userId : Kick thành viên ra khỏi nhóm (chỉ Leader)
+     DELETE ở tên endpoint không có nghĩa DELETE bản ghi trip_members: cập nhật REMOVED.
+
+5. HỢP ĐỒNG DB SAU MIGRATION 006_trip_invitation_membership.sql:
+   - Đọc backend/database/HUONG_DAN_DB_PHU.md: trường dữ liệu, ví dụ SQL,
+     thứ tự khóa, chấp nhận lời mời nguyên tử, công nợ và trạng thái thành viên.
+   - Danh sách/count/quyền thao tác hiện tại lọc membership_status = 'ACTIVE'.
+   - Rời/kick giữ bản ghi LEFT/REMOVED; không xóa lịch sử tài chính/đánh giá.
+   - Lời mời đích danh dùng trip_invitations; notifications chỉ thông báo sự kiện.
+   - Hạn lời mời có thể NULL; mã nhóm vẫn NONE/ACTIVE/USED/REVOKED theo migration 003.
+   - Trips hiện là scaffold trong checkout chung; Phú triển khai API/service/repository.
 ================================================================================

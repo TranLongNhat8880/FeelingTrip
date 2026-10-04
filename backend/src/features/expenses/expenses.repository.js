@@ -8,10 +8,15 @@ const lockTrip = async (client, tripId) => {
 };
 const requireMember = async (tripId, userId, client = db, leaderOnly = false) => {
   const { rows: [row] } = await client.query(`
-    SELECT t.creator_id, tm.role FROM trips t
+    SELECT t.creator_id, tm.id AS membership_id, tm.role, tm.membership_status FROM trips t
     LEFT JOIN trip_members tm ON tm.trip_id = t.id AND tm.user_id = $2
     WHERE t.id = $1`, [tripId, userId]);
-  if (!row || (row.creator_id !== userId && (!row.role || (leaderOnly && row.role !== 'LEADER')))) {
+  // Creator fallback supports legacy trips without a membership row. A retained
+  // LEFT/REMOVED row must never regain access through creator_id or its old role.
+  const legacyCreator = row && !row.membership_id && row.creator_id === userId;
+  const activeMember = row && row.membership_status === 'ACTIVE'
+    && ['LEADER', 'MEMBER'].includes(row.role);
+  if (!legacyCreator && (!activeMember || (leaderOnly && row.role !== 'LEADER'))) {
     throw apiError(403, 'Bạn không có quyền truy cập chuyến đi này');
   }
 };
@@ -151,7 +156,7 @@ const calculateTripNetBalances = async (tripId, client = db) => {
       UNION ALL SELECT from_user_id, amount, 0, 0 FROM settlements WHERE trip_id = $1 AND status = 'PAID'
       UNION ALL SELECT to_user_id, -amount, 0, 0 FROM settlements WHERE trip_id = $1 AND status = 'PAID'
     ), people AS (
-      SELECT user_id FROM trip_members WHERE trip_id = $1
+      SELECT user_id FROM trip_members WHERE trip_id = $1 AND membership_status = 'ACTIVE'
       UNION SELECT creator_id FROM trips WHERE id = $1
       UNION SELECT user_id FROM ledger
     )
