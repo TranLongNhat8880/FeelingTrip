@@ -1,7 +1,10 @@
+import '../../../core/constants/app_assets.dart';
+import '../../../shared/layout/travel_decoration.dart';
 import '../../../shared/feedback/app_feedback.dart';
 import '../../../shared/widgets/app_status_badge.dart';
 import '../../../core/constants/app_sizes.dart';
 import '../../../shared/inputs/custom_text_field.dart';
+import '../../../shared/inputs/app_checkbox.dart';
 import '../../../shared/buttons/custom_button.dart';
 import '../models/password_policy.dart';
 import 'widgets/password_feedback.dart';
@@ -62,253 +65,203 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     final auth = AuthScope.of(context);
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: AppSizes.formMaxWidth),
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-              child: Form(
-                key: _form,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Đăng nhập',
-                      style: TextStyle(
-                        fontSize: AppSizes.fontAuthTitle,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
-                        letterSpacing: -0.5,
+    return TravelAuthLayout(
+      title: 'Chào mừng\ntrở lại',
+      welcome: true,
+      subtitle: 'Lên kế hoạch du lịch và kết nối nhóm dễ dàng',
+      footer: Wrap(
+        alignment: WrapAlignment.center,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          const Text(
+            'Chưa có tài khoản? ',
+            style: TextStyle(color: Color(0xFF5D6889), fontSize: 14),
+          ),
+          GestureDetector(
+            onTap: auth.isLoading
+                ? null
+                : () {
+                    auth.clearError();
+                    Navigator.pushNamed(context, AppRoutes.register);
+                  },
+            child: const Text(
+              'Tạo tài khoản',
+              style: TextStyle(
+                color: AppColors.primary,
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+      child: Form(
+        key: _form,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            CustomTextField(
+              controller: _email,
+              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.next,
+              enabled: !auth.isLoading,
+              label: 'Email',
+              prefixIcon: Icons.mail_outline_rounded,
+              hint: 'Nhập email của bạn',
+              validator: (value) {
+                final email = value?.trim() ?? '';
+                if (email.isEmpty) return 'Vui lòng nhập email';
+                if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email)) {
+                  return 'Email không đúng định dạng';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+
+            // Password Input
+            CustomTextField(
+              controller: _password,
+              isPassword: true,
+              textInputAction: TextInputAction.done,
+              enabled: !auth.isLoading,
+              onFieldSubmitted: (_) {
+                if (!auth.isLoading) _login();
+              },
+              label: 'Mật khẩu',
+              prefixIcon: Icons.lock_outline_rounded,
+              hint: 'Nhập mật khẩu',
+              validator: (value) => value == null || value.isEmpty
+                  ? 'Vui lòng nhập mật khẩu'
+                  : null,
+            ),
+            const SizedBox(height: 14),
+
+            // Remember Me & Forgot Password Row
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                InkWell(
+                  onTap: auth.isLoading
+                      ? null
+                      : () => setState(() => _rememberMe = !_rememberMe),
+                  borderRadius: BorderRadius.circular(6),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      AppCheckbox(
+                        value: _rememberMe,
+                        onChanged: auth.isLoading
+                            ? null
+                            : (val) => setState(() => _rememberMe = val),
                       ),
-                    ),
-                    const SizedBox(height: 36),
-
-                    // E-mail Input
-                    CustomTextField(
-                      controller: _email,
-                      keyboardType: TextInputType.emailAddress,
-                      textInputAction: TextInputAction.next,
-                      enabled: !auth.isLoading,
-                      label: 'Email',
-                      hint: 'Nhập email của bạn',
-
-                      validator: (value) {
-                        final email = value?.trim() ?? '';
-                        if (email.isEmpty) return 'Vui lòng nhập email';
-                        if (!RegExp(
-                          r'^[^\s@]+@[^\s@]+\.[^\s@]+$',
-                        ).hasMatch(email)) {
-                          return 'Email không đúng định dạng';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 18),
-
-                    // Password Input
-                    CustomTextField(
-                      controller: _password,
-                      isPassword: true,
-                      textInputAction: TextInputAction.done,
-                      enabled: !auth.isLoading,
-                      onFieldSubmitted: (_) {
-                        if (!auth.isLoading) _login();
-                      },
-                      label: 'Mật khẩu',
-                      hint: 'Nhập mật khẩu',
-
-                      validator: (value) => value == null || value.isEmpty
-                          ? 'Vui lòng nhập mật khẩu'
-                          : null,
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Remember Me & Forgot Password Row
-                    Wrap(
-                      alignment: WrapAlignment.spaceBetween,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      spacing: 16,
-                      runSpacing: 8,
-                      children: [
-                        InkWell(
-                          onTap: auth.isLoading
-                              ? null
-                              : () =>
-                                    setState(() => _rememberMe = !_rememberMe),
-                          borderRadius: BorderRadius.circular(4),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: Checkbox(
-                                  value: _rememberMe,
-                                  activeColor: AppColors.primary,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  side: const BorderSide(
-                                    color: AppColors.border,
-                                    width: 1.2,
-                                  ),
-                                  onChanged: auth.isLoading
-                                      ? null
-                                      : (val) => setState(
-                                          () => _rememberMe = val ?? false,
-                                        ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              const Flexible(
-                                child: Text(
-                                  'Ghi nhớ đăng nhập',
-                                  style: TextStyle(
-                                    color: AppColors.textSecondary,
-                                    fontSize: AppSizes.fontSmall,
-                                    fontWeight: FontWeight.w400,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'Ghi nhớ đăng nhập',
+                        style: TextStyle(
+                          color: Color(0xFF09143B),
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w500,
                         ),
-                        TextButton(
-                          onPressed: auth.isLoading
-                              ? null
-                              : _showForgotPasswordSheet,
-                          style: TextButton.styleFrom(
-                            padding: EdgeInsets.zero,
-                            minimumSize: Size.zero,
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          ),
-                          child: const Text(
-                            'Quên mật khẩu?',
-                            style: TextStyle(
-                              color: AppColors.primary,
-                              fontSize: AppSizes.fontSmall,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-
-                    // Error Message
-                    if (auth.errorMessage != null) ...[
-                      AppInlineNotice(
-                        message: auth.errorMessage!,
-                        tone: AppStatusTone.error,
                       ),
-                      const SizedBox(height: 16),
                     ],
-
-                    // Sign In Button
-                    CustomButton(
-                      text: 'Đăng nhập',
-                      onPressed: _login,
-                      isLoading: auth.isLoading,
+                  ),
+                ),
+                TextButton(
+                  onPressed: auth.isLoading ? null : _showForgotPasswordSheet,
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Text(
+                    'Quên mật khẩu?',
+                    style: TextStyle(
+                      color: AppColors.primary,
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w600,
                     ),
-                    const SizedBox(height: 32),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
 
-                    // or continue with Divider
-                    const Row(
-                      children: [
-                        Expanded(
-                          child: Divider(color: AppColors.border, thickness: 1),
-                        ),
-                        Flexible(
-                          flex: 4,
-                          child: Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 16),
-                            child: Text(
-                              'hoặc tiếp tục với',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: AppColors.textHint,
-                                fontSize: AppSizes.fontSmall,
-                                fontWeight: FontWeight.w400,
-                              ),
+            // Error Message
+            if (auth.errorMessage != null) ...[
+              AppInlineNotice(
+                message: auth.errorMessage!,
+                tone: AppStatusTone.error,
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            // Sign In Button
+            CustomButton(
+              text: 'Đăng nhập',
+              onPressed: _login,
+              isLoading: auth.isLoading,
+            ),
+            const SizedBox(height: 22),
+
+            // or continue with Divider
+            const Row(
+              children: [
+                Expanded(child: Divider(color: Color(0xFFE2E8F0), thickness: 1)),
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 14),
+                  child: Text(
+                    'hoặc tiếp tục với',
+                    style: TextStyle(
+                      color: Color(0xFF969DB3),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                ),
+                Expanded(child: Divider(color: Color(0xFFE2E8F0), thickness: 1)),
+              ],
+            ),
+            const SizedBox(height: 18),
+
+            // Google Login Button
+            Semantics(
+              button: true,
+              label: 'Đăng nhập bằng Google',
+              child: _socialCard(
+                onTap: auth.isLoading
+                    ? null
+                    : () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Đăng nhập Google chưa được kết nối. Vui lòng dùng email và mật khẩu.',
                             ),
                           ),
-                        ),
-                        Expanded(
-                          child: Divider(color: AppColors.border, thickness: 1),
-                        ),
-                      ],
+                        );
+                      },
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Image.asset(
+                      AppAssets.googleLogo,
+                      width: 22,
+                      height: 22,
                     ),
-                    const SizedBox(height: 24),
-
-                    // Chỉ Google được dự kiến hỗ trợ.
-                    Center(
-                      child: Semantics(
-                        button: true,
-                        label: 'Đăng nhập bằng Google',
-                        child: _socialCard(
-                          onTap: auth.isLoading
-                              ? null
-                              : () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Đăng nhập Google chưa được kết nối. Vui lòng dùng email và mật khẩu.',
-                                      ),
-                                    ),
-                                  );
-                                },
-                          child: Image.asset(
-                            'assets/images/google_logo.png',
-                            width: 24,
-                            height: 24,
-                          ),
-                        ),
+                    const SizedBox(width: 12),
+                    const Text(
+                      'Tiếp tục với Google',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF09143B),
                       ),
-                    ),
-                    const SizedBox(height: 36),
-
-                    // or Create account Footer
-                    Wrap(
-                      alignment: WrapAlignment.center,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        const Text(
-                          'hoặc ',
-                          style: TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: AppSizes.fontBody,
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: auth.isLoading
-                              ? null
-                              : () {
-                                  auth.clearError();
-                                  Navigator.pushNamed(
-                                    context,
-                                    AppRoutes.register,
-                                  );
-                                },
-                          child: const Text(
-                            'Tạo tài khoản',
-                            style: TextStyle(
-                              color: AppColors.primary,
-                              fontSize: AppSizes.fontBody,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
                     ),
                   ],
                 ),
               ),
             ),
-          ),
+          ],
         ),
       ),
     );
@@ -317,14 +270,14 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _socialCard({required Widget child, VoidCallback? onTap}) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(AppSizes.cardRadius),
+      borderRadius: BorderRadius.circular(16),
       child: Container(
-        width: 76,
-        height: 54,
+        width: double.infinity,
+        height: 52,
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(AppSizes.cardRadius),
-          border: Border.all(color: AppColors.border),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFDEE4EF)),
         ),
         child: Center(child: child),
       ),

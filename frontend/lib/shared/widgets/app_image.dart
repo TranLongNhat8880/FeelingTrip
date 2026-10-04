@@ -38,9 +38,28 @@ class AppImage extends StatelessWidget {
               : Image.network(
                   url!,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => placeholder,
-                  loadingBuilder: (_, child, progress) =>
-                      progress == null ? child : placeholder,
+                  errorBuilder: (_, _, _) => Container(
+                    color: AppColors.inputSurface,
+                    child: const Center(
+                      child: Icon(
+                        Icons.broken_image_outlined,
+                        color: AppColors.textHint,
+                        size: 36,
+                      ),
+                    ),
+                  ),
+                  loadingBuilder: (_, child, progress) => progress == null
+                      ? child
+                      : Container(
+                          color: AppColors.primarySurface,
+                          child: const Center(
+                            child: SizedBox(
+                              width: 28,
+                              height: 28,
+                              child: CircularProgressIndicator(strokeWidth: 3),
+                            ),
+                          ),
+                        ),
                 ),
         ),
       ),
@@ -67,8 +86,13 @@ class ImagePickerField extends StatelessWidget {
     children: [
       if (preview != null) ...[preview!, const SizedBox(height: 12)],
       OutlinedButton.icon(
+        style: OutlinedButton.styleFrom(
+          backgroundColor: AppColors.primarySurface,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          side: const BorderSide(color: AppColors.primaryBorder),
+        ),
         onPressed: enabled ? onPick : null,
-        icon: const Icon(Icons.add_photo_alternate_outlined),
+        icon: const Icon(Icons.add_photo_alternate_outlined, size: 30),
         label: Text(label),
       ),
     ],

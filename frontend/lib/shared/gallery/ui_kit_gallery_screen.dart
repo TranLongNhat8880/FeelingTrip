@@ -84,13 +84,15 @@ class _UiKitGalleryScreenState extends State<UiKitGalleryScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              const TravelBrand(width: 210),
+              const SizedBox(height: 18),
               Text(
                 'Đi cùng nhau.\nNhẹ mọi kế hoạch.',
                 style: Theme.of(context).textTheme.headlineLarge,
               ),
               const SizedBox(height: 10),
               const Text(
-                'Bộ giao diện Travel Modern: Trắng · Charcoal · Xanh Cốm (Lime)',
+                'Bộ giao diện FeelingTrip: Biển xanh · Trắng · Navy',
                 style: TextStyle(
                   color: AppColors.textSecondary,
                   fontWeight: FontWeight.w600,

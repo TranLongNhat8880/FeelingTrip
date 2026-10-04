@@ -1,3 +1,4 @@
+import '../../../shared/layout/travel_decoration.dart';
 import '../../../shared/buttons/custom_button.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../core/constants/app_sizes.dart';
@@ -133,161 +134,164 @@ FeelingTrip có thể cập nhật điều khoản để phù hợp với chức
         onPressed: () => Navigator.pop(context, false),
       ),
     ),
-    body: SafeArea(
-      bottom: false,
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(
-            maxWidth: AppSizes.documentMaxWidth,
-          ),
-          child: Scrollbar(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-              child: SelectionArea(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: AppColors.primarySurface,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                width: 42,
-                                height: 42,
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(
-                                    AppSizes.cardRadius,
-                                  ),
-                                ),
-                                child: const Icon(
-                                  Icons.description_outlined,
-                                  color: AppColors.primary,
-                                  size: 23,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              const Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'FeelingTrip',
-                                      style: TextStyle(
-                                        fontSize: 22,
-                                        fontWeight: FontWeight.w700,
-                                        height: 1.25,
-                                        color: AppColors.textPrimary,
-                                      ),
+    body: TravelBackdrop(
+      child: SafeArea(
+        bottom: false,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: AppSizes.documentMaxWidth,
+            ),
+            child: Scrollbar(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+                child: SelectionArea(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: AppColors.primarySurface,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  width: 42,
+                                  height: 42,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(
+                                      AppSizes.cardRadius,
                                     ),
-                                    SizedBox(height: 4),
-                                    Text(
-                                      'Điều khoản sử dụng',
-                                      style: TextStyle(
-                                        fontSize: AppSizes.fontSmall,
-                                        color: AppColors.primaryText,
-                                        height: 1.5,
+                                  ),
+                                  child: const Icon(
+                                    Icons.description_outlined,
+                                    color: AppColors.primary,
+                                    size: 23,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                const Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'FeelingTrip',
+                                        style: TextStyle(
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.w700,
+                                          height: 1.25,
+                                          color: AppColors.textPrimary,
+                                        ),
                                       ),
+                                      SizedBox(height: 4),
+                                      Text(
+                                        'Điều khoản sử dụng',
+                                        style: TextStyle(
+                                          fontSize: AppSizes.fontSmall,
+                                          color: AppColors.primaryText,
+                                          height: 1.5,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            const Text(
+                              'Những điều cần biết trước khi bắt đầu hành trình cùng FeelingTrip.',
+                              style: TextStyle(
+                                fontSize: AppSizes.fontBody,
+                                color: AppColors.textSecondary,
+                                height: 1.6,
+                              ),
+                            ),
+                            const SizedBox(height: 18),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 5,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: const Text(
+                                    'Phiên bản 1.0 · Dự thảo',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                      color: AppColors.primaryText,
                                     ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          const Text(
-                            'Những điều cần biết trước khi bắt đầu hành trình cùng FeelingTrip.',
-                            style: TextStyle(
-                              fontSize: AppSizes.fontBody,
-                              color: AppColors.textSecondary,
-                              height: 1.6,
-                            ),
-                          ),
-                          const SizedBox(height: 18),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 5,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: const Text(
-                                  'Phiên bản 1.0 · Dự thảo',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w500,
-                                    color: AppColors.primaryText,
                                   ),
                                 ),
-                              ),
-                              const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 5),
-                                child: Text(
-                                  '10 mục điều khoản',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: AppColors.primaryText,
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 5),
+                                  child: Text(
+                                    '10 mục điều khoản',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: AppColors.primaryText,
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          const Text(
-                            'Hiệu lực dự kiến: 09/10/2026\nĐơn vị vận hành: FeelingTrip Team',
-                            style: TextStyle(
-                              fontSize: AppSizes.fontCaption,
-                              color: AppColors.textSecondary,
-                              height: 1.7,
+                              ],
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    for (var i = 0; i < _sections.length; i++) ...[
-                      _section(i),
-                      const SizedBox(height: 12),
-                    ],
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Icon(
-                            Icons.mail_outline_rounded,
-                            size: 18,
-                            color: AppColors.textSecondary,
-                          ),
-                          const SizedBox(width: 10),
-                          const Expanded(
-                            child: Text(
-                              'Hỗ trợ và phản hồi\nfeelingtrip.official@gmail.com',
+                            const SizedBox(height: 12),
+                            const Text(
+                              'Hiệu lực dự kiến: 09/10/2026\nĐơn vị vận hành: FeelingTrip Team',
                               style: TextStyle(
                                 fontSize: AppSizes.fontCaption,
                                 color: AppColors.textSecondary,
                                 height: 1.7,
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 20),
+                      for (var i = 0; i < _sections.length; i++) ...[
+                        _section(i),
+                        const SizedBox(height: 12),
+                      ],
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(
+                              Icons.mail_outline_rounded,
+                              size: 18,
+                              color: AppColors.textSecondary,
+                            ),
+                            const SizedBox(width: 10),
+                            const Expanded(
+                              child: Text(
+                                'Hỗ trợ và phản hồi\nfeelingtrip.official@gmail.com',
+                                style: TextStyle(
+                                  fontSize: AppSizes.fontCaption,
+                                  color: AppColors.textSecondary,
+                                  height: 1.7,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

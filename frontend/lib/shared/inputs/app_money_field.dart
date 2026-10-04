@@ -66,12 +66,13 @@ class AppMoneyField extends StatelessWidget {
   @override
   Widget build(BuildContext context) => CustomTextField(
     label: label,
+    prefixIcon: Icons.account_balance_wallet_outlined,
     controller: controller,
     enabled: enabled,
     errorText: errorText,
     keyboardType: TextInputType.number,
     inputFormatters: [VndInputFormatter()],
-    suffixIcon: const Padding(padding: EdgeInsets.all(18), child: Text('đ')),
+    suffixIcon: const Padding(padding: EdgeInsets.all(18), child: Text('VND')),
     onChanged: (text) => onChanged?.call(VndInputFormatter.parse(text)),
     validator: (text) {
       final value = VndInputFormatter.parse(text ?? '');

@@ -1,3 +1,4 @@
+import 'travel_decoration.dart';
 import '../../core/constants/app_sizes.dart';
 import 'package:flutter/material.dart';
 import '../buttons/app_icon_button.dart';
@@ -59,10 +60,12 @@ class AppScaffold extends StatelessWidget {
     appBar: title == null
         ? null
         : AppTopBar(title: title!, showBack: showBack, actions: actions),
-    body: SafeArea(
-      child: scrollable
-          ? SingleChildScrollView(padding: padding, child: body)
-          : Padding(padding: padding, child: body),
+    body: TravelBackdrop(
+      child: SafeArea(
+        child: scrollable
+            ? SingleChildScrollView(padding: padding, child: body)
+            : Padding(padding: padding, child: body),
+      ),
     ),
     bottomNavigationBar: bottomAction == null
         ? bottomNavigationBar

@@ -26,10 +26,10 @@ class AppSizes {
   static const double radiusXL = 24.0;
   static const double radiusRound = 100.0;
 
-  static const double inputRadius = 12;
-  static const double cardRadius = 12;
+  static const double inputRadius = 16;
+  static const double cardRadius = 20;
   static const double sheetRadius = 24;
-  static const double buttonRadius = 12;
+  static const double buttonRadius = 16;
   static const double touchTarget = 48;
   static const double buttonHeight = 52;
   static const double screenPadding = 24;
