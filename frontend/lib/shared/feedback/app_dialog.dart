@@ -1,3 +1,4 @@
+import '../../core/constants/app_assets.dart';
 import 'package:flutter/material.dart';
 import '../buttons/custom_button.dart';
 import '../widgets/app_status_badge.dart';
@@ -40,6 +41,18 @@ class AppConfirmDialog extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          Align(
+            alignment: Alignment.centerRight,
+            child: IconButton(
+              tooltip: 'Đóng',
+              icon: const Icon(Icons.close),
+              onPressed: () => Navigator.pop(context, false),
+            ),
+          ),
+          ExcludeSemantics(
+            child: Image.asset(AppAssets.groupLuggage, height: 100),
+          ),
+          const SizedBox(height: 12),
           Text(
             title,
             textAlign: TextAlign.center,
@@ -96,11 +109,24 @@ class AppMessageDialog extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          CircleAvatar(
-            radius: 28,
-            backgroundColor: tone.background,
-            child: Icon(tone.icon, color: tone.foreground, size: 30),
+          Align(
+            alignment: Alignment.centerRight,
+            child: IconButton(
+              tooltip: 'Đóng',
+              icon: const Icon(Icons.close),
+              onPressed: () => Navigator.pop(context),
+            ),
           ),
+          if (tone == AppStatusTone.success)
+            ExcludeSemantics(
+              child: Image.asset(AppAssets.successCheck, height: 90),
+            )
+          else
+            CircleAvatar(
+              radius: 28,
+              backgroundColor: tone.background,
+              child: Icon(tone.icon, color: tone.foreground, size: 30),
+            ),
           const SizedBox(height: 20),
           Text(
             title,

@@ -1,3 +1,4 @@
+import '../../core/constants/app_assets.dart';
 import 'package:flutter/material.dart';
 import 'empty_state_widget.dart';
 
@@ -16,6 +17,9 @@ class ErrorState extends StatelessWidget {
   @override
   Widget build(BuildContext context) => EmptyStateWidget(
     icon: accessDenied ? Icons.lock_outline : Icons.wifi_off_rounded,
+    illustration: accessDenied
+        ? AppAssets.groupLuggage
+        : AppAssets.connectionError,
     title: title,
     message: message,
     buttonText: onRetry == null ? null : 'Thử lại',

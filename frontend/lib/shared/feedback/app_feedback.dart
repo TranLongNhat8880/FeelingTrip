@@ -1,3 +1,4 @@
+import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_sizes.dart';
 import 'package:flutter/material.dart';
 import '../widgets/app_status_badge.dart';
@@ -53,18 +54,38 @@ class AppFeedback {
     messenger.hideCurrentSnackBar();
     messenger.showSnackBar(
       SnackBar(
-        backgroundColor: tone.background,
+        backgroundColor:
+            tone == AppStatusTone.success || tone == AppStatusTone.info
+            ? AppColors.primary
+            : tone.background,
         content: Row(
           children: [
-            Icon(tone.icon, color: tone.foreground),
+            Icon(
+              tone.icon,
+              color: tone == AppStatusTone.success || tone == AppStatusTone.info
+                  ? Colors.white
+                  : tone.foreground,
+            ),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(message, style: TextStyle(color: tone.foreground)),
+              child: Text(
+                message,
+                style: TextStyle(
+                  color:
+                      tone == AppStatusTone.success ||
+                          tone == AppStatusTone.info
+                      ? Colors.white
+                      : tone.foreground,
+                ),
+              ),
             ),
           ],
         ),
         showCloseIcon: true,
-        closeIconColor: tone.foreground,
+        closeIconColor:
+            tone == AppStatusTone.success || tone == AppStatusTone.info
+            ? Colors.white
+            : tone.foreground,
       ),
     );
   }

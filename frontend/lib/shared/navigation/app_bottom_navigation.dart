@@ -28,6 +28,7 @@ class AppBottomNavigation extends StatelessWidget {
   Widget build(BuildContext context) => DecoratedBox(
     decoration: const BoxDecoration(
       color: AppColors.surface,
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       border: Border(top: BorderSide(color: AppColors.divider)),
     ),
     child: SafeArea(
@@ -78,7 +79,8 @@ class _Destination extends StatelessWidget {
       selected: selected,
       button: true,
       child: Material(
-        color: Colors.transparent,
+        color: selected ? AppColors.primarySurface : Colors.transparent,
+        borderRadius: BorderRadius.circular(18),
         child: InkWell(
           onTap: onTap,
           child: Padding(

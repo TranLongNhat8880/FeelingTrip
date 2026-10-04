@@ -96,7 +96,7 @@ class AppTheme {
         trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
       ),
       inputDecorationTheme: InputDecorationTheme(
-        floatingLabelBehavior: FloatingLabelBehavior.always,
+        floatingLabelBehavior: FloatingLabelBehavior.auto,
         filled: true,
         fillColor: AppColors.inputSurface,
         contentPadding: const EdgeInsets.symmetric(
@@ -135,16 +135,16 @@ class AppTheme {
       ),
       chipTheme: ChipThemeData(
         backgroundColor: Colors.white,
-        selectedColor: AppColors.primary,
+        selectedColor: AppColors.primarySurface,
         side: const BorderSide(color: AppColors.border),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppSizes.buttonRadius),
         ),
-        checkmarkColor: AppColors.textOnPrimary,
+        checkmarkColor: AppColors.primary,
         labelStyle: WidgetStateTextStyle.resolveWith(
           (states) => text.labelMedium!.copyWith(
             color: states.contains(WidgetState.selected)
-                ? AppColors.textOnPrimary
+                ? AppColors.primary
                 : AppColors.textPrimary,
           ),
         ),

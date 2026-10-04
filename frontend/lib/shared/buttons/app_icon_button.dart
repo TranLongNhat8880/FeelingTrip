@@ -23,7 +23,8 @@ class AppIconButton extends StatelessWidget {
       backgroundColor: backgroundColor,
       foregroundColor: foregroundColor,
       minimumSize: const Size(48, 48),
-      shape: const CircleBorder(),
+      side: const BorderSide(color: Color(0xFFDEE4EF)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
     ),
   );
 }

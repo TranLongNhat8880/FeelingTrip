@@ -1,3 +1,4 @@
+import '../../core/constants/app_assets.dart';
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_sizes.dart';
@@ -21,6 +22,7 @@ import '../buttons/custom_button.dart';
 
 class EmptyStateWidget extends StatelessWidget {
   final IconData icon;
+  final String? illustration;
   final String title;
   final String message;
   final String? buttonText;
@@ -32,6 +34,7 @@ class EmptyStateWidget extends StatelessWidget {
     required this.title,
     required this.message,
     this.buttonText,
+    this.illustration,
     this.onButtonPressed,
   });
 
@@ -45,10 +48,13 @@ class EmptyStateWidget extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             // Icon to, màu nhạt
-            CircleAvatar(
-              radius: 36,
-              backgroundColor: AppColors.primarySurface,
-              child: Icon(icon, size: 32, color: AppColors.primary),
+            ExcludeSemantics(
+              child: Image.asset(
+                illustration ?? AppAssets.emptyState,
+                height: 150,
+                width: 230,
+                fit: BoxFit.contain,
+              ),
             ),
             const SizedBox(height: AppSizes.spaceM),
 
@@ -75,6 +81,7 @@ class EmptyStateWidget extends StatelessWidget {
               const SizedBox(height: AppSizes.spaceL),
               CustomButton(
                 text: buttonText!,
+                trailingArrow: true,
                 onPressed: onButtonPressed,
                 width: 240,
               ),

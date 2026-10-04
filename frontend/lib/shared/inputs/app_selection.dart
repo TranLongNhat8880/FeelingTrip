@@ -115,7 +115,7 @@ class AppChoiceChips<T> extends StatelessWidget {
           onSelected: enabled ? (_) => onChanged(option.key) : null,
           labelStyle: TextStyle(
             color: selected.contains(option.key)
-                ? AppColors.textOnPrimary
+                ? AppColors.primary
                 : AppColors.textPrimary,
           ),
         ),

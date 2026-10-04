@@ -25,7 +25,16 @@ class LoadingOverlay extends StatelessWidget {
                 dismissible: false,
                 color: AppColors.loadingOverlay,
               ),
-              LoadingIndicator(message: message),
+              Center(
+                child: Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(AppSizes.cardRadius),
+                  ),
+                  child: LoadingIndicator(message: message),
+                ),
+              ),
             ],
           ),
         ),
