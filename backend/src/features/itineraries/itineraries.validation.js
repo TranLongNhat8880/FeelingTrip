@@ -1,141 +1,95 @@
 const Joi = require('joi');
 
 // ============================================================================
-// VALIDATION SCHEMAS: Itineraries & Smart Swap (src/features/itineraries/)
-// Quy tắc kiểm tra dữ liệu lịch trình ngày, địa điểm dừng chân, sắp xếp & smart swap
+// VALIDATION: Itineraries
+// Xác thực dữ liệu đầu vào cho API Itineraries
 // ============================================================================
 
-const TIME_REGEX = /^([01]\d|2[0-3]):([0-5]\d)(:([0-5]\d))?$/;
-
+const UUID = Joi.string().guid({ version: ['uuidv4', 'uuidv5'] });
+const TIME = Joi.string().pattern(/^([01]\d|2[0-3]):[0-5]\d$/);
+const VERSION = Joi.date().iso();
 /**
- * Thêm hoạt động/địa điểm vào một ngày lịch trình
+ * @description Thực thi logic nghiệp vụ cho lịch trình.
  */
-const createItineraryItemSchema = Joi.object({
-  placeId: Joi.string().guid({ version: ['uuidv4', 'uuidv5'] }).allow(null).messages({
-    'string.guid': 'Mã địa điểm (placeId) phải là UUID hợp lệ',
-  }),
-  customName: Joi.string().trim().min(1).max(255).required().messages({
-    'string.empty': 'Tên hoạt động/địa điểm không được để trống',
-    'string.max': 'Tên hoạt động không được vượt quá 255 ký tự',
-    'any.required': 'Tên hoạt động/địa điểm là bắt buộc',
-  }),
-  customAddress: Joi.string().trim().allow(null, ''),
-  startTime: Joi.string().pattern(TIME_REGEX).allow(null).messages({
-    'string.pattern.base': 'Thời gian bắt đầu phải theo định dạng HH:mm (VD: 08:30)',
-  }),
-  endTime: Joi.string().pattern(TIME_REGEX).allow(null).messages({
-    'string.pattern.base': 'Thời gian kết thúc phải theo định dạng HH:mm (VD: 10:30)',
-  }),
-  orderIndex: Joi.number().integer().min(0).default(0),
-  note: Joi.string().trim().max(1000).allow(null, '').messages({
-    'string.max': 'Ghi chú không được vượt quá 1000 ký tự',
-  }),
-  estimatedCost: Joi.number().min(0).default(0).messages({
-    'number.min': 'Chi phí ước tính không được âm',
-  }),
+const CATEGORIES = ['ATTRACTION', 'RESTAURANT', 'CAFE', 'HOTEL', 'ENTERTAINMENT', 'NATURE', 'CULTURE', 'SHOPPING', 'OTHER'];
+
+const createDaySchema = Joi.object({
+  dayNumber: Joi.number().integer().min(1).required(),
+  title: Joi.string().trim().max(255).allow(null, ''),
 });
 
-/**
- * Cập nhật một hoạt động trong lịch trình
- */
+const updateDaySchema = Joi.object({
+  title: Joi.string().trim().max(255).allow(null, '').required(),
+  expectedUpdatedAt: VERSION.required(),
+});
+
+const createItineraryItemSchema = Joi.object({
+  placeId: UUID.allow(null),
+  customName: Joi.string().trim().min(1).max(255).required(),
+  customAddress: Joi.string().trim().allow(null, ''),
+  category: Joi.string().valid(...CATEGORIES).when('placeId', { is: null, then: Joi.required(), otherwise: Joi.optional() }),
+  startTime: TIME.required(),
+  endTime: TIME.required(),
+  note: Joi.string().trim().max(1000).allow(null, ''),
+  estimatedCost: Joi.number().integer().min(0).max(Number.MAX_SAFE_INTEGER).default(0),
+  orderIndex: Joi.forbidden(),
+  isCompleted: Joi.forbidden(),
+}).custom((value, helpers) => value.startTime >= value.endTime
+  ? helpers.error('time.range') : value).messages({ 'time.range': 'Thời gian bắt đầu phải trước thời gian kết thúc' });
+
 const updateItineraryItemSchema = Joi.object({
   customName: Joi.string().trim().min(1).max(255),
   customAddress: Joi.string().trim().allow(null, ''),
-  startTime: Joi.string().pattern(TIME_REGEX).allow(null),
-  endTime: Joi.string().pattern(TIME_REGEX).allow(null),
-  orderIndex: Joi.number().integer().min(0),
+  category: Joi.string().valid(...CATEGORIES),
+  startTime: TIME,
+  endTime: TIME,
   note: Joi.string().trim().max(1000).allow(null, ''),
-  estimatedCost: Joi.number().min(0),
-  isCompleted: Joi.boolean(),
-}).min(1).messages({
-  'object.min': 'Vui lòng cung cấp ít nhất một thông tin cần cập nhật',
+  estimatedCost: Joi.number().integer().min(0).max(Number.MAX_SAFE_INTEGER),
+  expectedUpdatedAt: VERSION.required(),
+  placeId: Joi.forbidden(),
+  orderIndex: Joi.forbidden(),
+  isCompleted: Joi.forbidden(),
+}).min(2);
+
+const deleteItemSchema = Joi.object({ expectedUpdatedAt: VERSION });
+const completionSchema = Joi.object({
+  isCompleted: Joi.boolean().required(),
+  expectedUpdatedAt: VERSION.required(),
 });
 
-/**
- * Cập nhật thứ tự hiển thị các hoạt động trong ngày (Drag & Drop Reorder)
- */
-const reorderItemsSchema = Joi.object({
-  items: Joi.array()
-    .items(
-      Joi.object({
-        itemId: Joi.string().guid({ version: ['uuidv4', 'uuidv5'] }).required().messages({
-          'string.guid': 'Mã hoạt động (itemId) phải là UUID hợp lệ',
-          'any.required': 'Mã hoạt động (itemId) là bắt buộc',
-        }),
-        orderIndex: Joi.number().integer().min(0).required().messages({
-          'number.base': 'Thứ tự (orderIndex) phải là một số nguyên',
-          'any.required': 'Thứ tự sắp xếp (orderIndex) là bắt buộc',
-        }),
-      })
-    )
-    .min(1)
-    .required()
-    .messages({
-      'array.base': 'Danh sách sắp xếp phải là một mảng',
-      'array.min': 'Vui lòng cung cấp ít nhất 1 phần tử cần sắp xếp',
-      'any.required': 'Danh sách sắp xếp (items) là bắt buộc',
-    }),
+const swapQuerySchema = Joi.object({
+  radiusKm: Joi.number().min(0.5).max(20).default(3),
+  limit: Joi.number().integer().min(1).max(20).default(10),
 });
 
-/**
- * Áp dụng tính năng Smart Swap (Đổi địa điểm B sang điểm B+ tương đương lân cận)
- */
 const smartSwapApplySchema = Joi.object({
-  itemId: Joi.string().guid({ version: ['uuidv4', 'uuidv5'] }).required().messages({
-    'string.guid': 'Mã hoạt động (itemId) phải là UUID hợp lệ',
-    'any.required': 'Mã hoạt động cần đổi (itemId) là bắt buộc',
-  }),
-  newPlaceId: Joi.string().guid({ version: ['uuidv4', 'uuidv5'] }).required().messages({
-    'string.guid': 'Mã địa điểm thay thế (newPlaceId) phải là UUID hợp lệ',
-    'any.required': 'Mã địa điểm mới (newPlaceId) là bắt buộc',
-  }),
+  newPlaceId: UUID.required(),
+  candidateToken: Joi.string().min(20).max(4096).required(),
+  expectedUpdatedAt: VERSION.required(),
 });
-
 /**
- * Nhân bản lịch trình từ chuyến đi khác (Clone / Fork Plan)
+ * @description Kiểm tra tính hợp lệ của lịch trình.
+ * @param {string} { itemId: UUID.required(
  */
-const clonePlanSchema = Joi.object({
-  targetTripId: Joi.string().guid({ version: ['uuidv4', 'uuidv5'] }).required().messages({
-    'string.guid': 'Mã chuyến đi đích (targetTripId) phải là UUID hợp lệ',
-    'any.required': 'Mã chuyến đi đích (targetTripId) là bắt buộc',
-  }),
+const legacySmartSwapApplySchema = smartSwapApplySchema.keys({ itemId: UUID.required() });
+
+const clonePlanSchema = Joi.object({ targetTripId: UUID.required() });
+const publicListQuerySchema = Joi.object({
+  destination: Joi.string().trim().max(100),
+  durationDays: Joi.number().integer().min(1).max(365),
+  keyword: Joi.string().trim().max(100),
+  page: Joi.number().integer().min(1).default(1),
+  limit: Joi.number().integer().min(1).max(50).default(20),
 });
 
-/**
- * Params Schemas
- */
-const tripIdParamSchema = Joi.object({
-  tripId: Joi.string().guid({ version: ['uuidv4', 'uuidv5'] }).required().messages({
-    'string.guid': 'Mã chuyến đi (tripId) phải là UUID hợp lệ',
-  }),
-});
-
-const dayIdParamSchema = Joi.object({
-  dayId: Joi.string().guid({ version: ['uuidv4', 'uuidv5'] }).required().messages({
-    'string.guid': 'Mã ngày lịch trình (dayId) phải là UUID hợp lệ',
-  }),
-});
-
-const itemIdParamSchema = Joi.object({
-  itemId: Joi.string().guid({ version: ['uuidv4', 'uuidv5'] }).required().messages({
-    'string.guid': 'Mã hoạt động (itemId) phải là UUID hợp lệ',
-  }),
-});
-
-const placeIdParamSchema = Joi.object({
-  placeId: Joi.string().guid({ version: ['uuidv4', 'uuidv5'] }).required().messages({
-    'string.guid': 'Mã địa điểm (placeId) phải là UUID hợp lệ',
-  }),
-});
+const tripIdParamSchema = Joi.object({ tripId: UUID.required() });
+const dayIdParamSchema = Joi.object({ dayId: UUID.required() });
+const itemIdParamSchema = Joi.object({ itemId: UUID.required() });
+const sourceTripIdParamSchema = Joi.object({ sourceTripId: UUID.required() });
 
 module.exports = {
-  createItineraryItemSchema,
-  updateItineraryItemSchema,
-  reorderItemsSchema,
-  smartSwapApplySchema,
-  clonePlanSchema,
-  tripIdParamSchema,
-  dayIdParamSchema,
-  itemIdParamSchema,
-  placeIdParamSchema,
+  CATEGORIES, createDaySchema, updateDaySchema, createItineraryItemSchema,
+  updateItineraryItemSchema, deleteItemSchema, completionSchema, swapQuerySchema,
+  smartSwapApplySchema, legacySmartSwapApplySchema, clonePlanSchema, publicListQuerySchema,
+  tripIdParamSchema, dayIdParamSchema, itemIdParamSchema, sourceTripIdParamSchema,
 };
