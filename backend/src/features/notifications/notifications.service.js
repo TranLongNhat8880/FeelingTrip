@@ -1,4 +1,5 @@
 const notificationsRepository = require('./notifications.repository');
+const apiError = require('../../shared/utils/apiError.util');
 
 /**
  * Tạo thông báo mới cho người dùng (Dùng nội bộ giữa các Service)
@@ -36,9 +37,7 @@ const getNotifications = async ({ userId, limit, page, type, isRead, sortBy }) =
 const markReadNotification = async ({ notificationId, userId }) => {
   const notification = await notificationsRepository.markReadNotification({ notificationId, userId });
   if (!notification) {
-    const error = new Error('Thông báo không tồn tại');
-    error.statusCode = 404;
-    throw error;
+    throw apiError(404, 'Thông báo không tồn tại');
   }
   return notification;
 }
@@ -50,9 +49,7 @@ const markAllReadNotification = async ({ userId }) => {
 const deleteNotification = async ({ notificationId, userId }) => {
   const notification = await notificationsRepository.deleteNotification({ notificationId, userId });
   if (!notification) {
-    const error = new Error('Thông báo không tồn tại');
-    error.statusCode = 404;
-    throw error;
+    throw apiError(404, 'Thông báo không tồn tại');
   }
   return notification;
 }

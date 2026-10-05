@@ -1,21 +1,17 @@
 const Joi = require('joi');
 
-// ============================================================================
-// VALIDATION SCHEMAS: Companions Newsfeed (src/features/companions/)
-// Quy tắc kiểm tra bài đăng tìm bạn đồng hành, xin ghép đoàn & duyệt thành viên
-// ============================================================================
-
 /**
  * Lọc bảng tin bài đăng tìm bạn đồng hành (Newsfeed query)
  */
 const companionFeedQuerySchema = Joi.object({
+  page: Joi.number().integer().min(1).default(1),
+  limit: Joi.number().integer().min(1).max(50).default(10),
+  sortBy: Joi.string().valid('newest', 'oldest', 'rating', 'departure_date').default('newest'),
   destination: Joi.string().trim().allow(''),
   genderPreference: Joi.string().valid('ANY', 'MALE', 'FEMALE'),
   minAge: Joi.number().integer().min(16).max(100),
   maxAge: Joi.number().integer().min(16).max(100),
-  status: Joi.string().valid('OPEN', 'FULL', 'CLOSED'),
-  cursor: Joi.string().allow(''),
-  limit: Joi.number().integer().min(1).max(50).default(10),
+  status: Joi.string().valid('OPEN', 'FULL').default('OPEN'),
 });
 
 /**
@@ -49,54 +45,33 @@ const createCompanionPostSchema = Joi.object({
     'any.only': 'Yêu cầu giới tính phải là ANY, MALE hoặc FEMALE',
   }),
   tags: Joi.array().items(Joi.string().trim().max(30)).max(10).allow(null),
-});
+})
 
 /**
- * Gửi yêu cầu xin tham gia chuyến đi (Join Request)
+ * Cập nhật bài viết tìm bạn đồng hành
  */
-const createJoinRequestSchema = Joi.object({
+const updateCompanionPostSchema = Joi.object({
+  newCreatorId: Joi.string().guid({ version: ['uuidv4', 'uuidv5'] }).optional(),
+  title: Joi.string().trim().min(5).max(255).optional(),
+  content: Joi.string().trim().min(10).max(5000).optional(),
+  targetMembersCount: Joi.number().integer().min(1).max(50).optional(),
+  minAge: Joi.number().integer().min(16).max(100).optional().allow(null),
+  maxAge: Joi.number().integer().min(16).max(100).optional().allow(null),
+  genderPreference: Joi.string().valid('ANY', 'MALE', 'FEMALE').optional(),
+  tags: Joi.array().items(Joi.string().trim().max(30)).max(10).optional(),
+}).min(1).messages({
+  'object.min': 'Vui lòng cung cấp ít nhất một thông tin cần cập nhật',
+});
+const postIdParamSchema = Joi.object({
   postId: Joi.string().guid({ version: ['uuidv4', 'uuidv5'] }).required().messages({
     'string.guid': 'Mã bài đăng (postId) phải là UUID hợp lệ',
     'any.required': 'Mã bài đăng (postId) là bắt buộc',
-  }),
-  introduction: Joi.string().trim().min(5).max(1000).required().messages({
-    'string.empty': 'Lời giới thiệu không được để trống',
-    'string.min': 'Lời giới thiệu bản thân phải có ít nhất 5 ký tự',
-    'string.max': 'Lời giới thiệu không được vượt quá 1000 ký tự',
-    'any.required': 'Lời giới thiệu bản thân là bắt buộc',
-  }),
-});
-
-/**
- * Trưởng nhóm phản hồi yêu cầu xin tham gia (Duyệt hoặc Từ chối)
- */
-const updateJoinRequestStatusSchema = Joi.object({
-  status: Joi.string().valid('ACCEPTED', 'REJECTED').required().messages({
-    'any.only': 'Trạng thái phản hồi phải là ACCEPTED hoặc REJECTED',
-    'any.required': 'Trạng thái phản hồi là bắt buộc',
-  }),
-});
-
-/**
- * Params Schemas
- */
-const postIdParamSchema = Joi.object({
-  id: Joi.string().guid({ version: ['uuidv4', 'uuidv5'] }).required().messages({
-    'string.guid': 'Mã bài đăng (id) phải là UUID hợp lệ',
-  }),
-});
-
-const requestIdParamSchema = Joi.object({
-  id: Joi.string().guid({ version: ['uuidv4', 'uuidv5'] }).required().messages({
-    'string.guid': 'Mã yêu cầu (id) phải là UUID hợp lệ',
   }),
 });
 
 module.exports = {
   companionFeedQuerySchema,
   createCompanionPostSchema,
-  createJoinRequestSchema,
-  updateJoinRequestStatusSchema,
+  updateCompanionPostSchema,
   postIdParamSchema,
-  requestIdParamSchema,
 };

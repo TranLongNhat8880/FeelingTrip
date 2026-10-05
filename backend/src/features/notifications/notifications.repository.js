@@ -10,9 +10,7 @@ const createNotification = async ({ recipientId, title, message, type, data = {}
   return rows[0];
 }
   
-const getNotifications = async (filters) => {
-  const { userId, limit = 20, offset = 0, type, isRead, sortBy } = filters;
-
+const getNotifications = async ({ userId, limit = 20, offset = 0, type, isRead, sortBy }) => {
   const conditions = ['user_id = $1'];
   const params = [userId];
 
