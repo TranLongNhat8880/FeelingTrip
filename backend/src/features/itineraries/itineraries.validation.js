@@ -69,7 +69,6 @@ const smartSwapApplySchema = Joi.object({
 });
 /**
  * @description Kiểm tra tính hợp lệ của lịch trình.
- * @param {string} { itemId: UUID.required(
  */
 const legacySmartSwapApplySchema = smartSwapApplySchema.keys({ itemId: UUID.required() });
 

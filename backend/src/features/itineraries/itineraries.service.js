@@ -3,24 +3,112 @@ const db = require('../../config/database');
 const env = require('../../config/env');
 const apiError = require('../../shared/utils/apiError.util');
 const repo = require('./itineraries.repository');
-const serializer = require('./itineraries.serializer');
 
 // ============================================================================
 // SERVICE: Itineraries
 // Xử lý logic nghiệp vụ cho lịch trình (ngày, hoạt động, smart swap, clone)
 // ============================================================================
 
+// ----------------------------------------------------------------------------
+// Định dạng dữ liệu trả về cho Client (snake_case -> camelCase)
+// ----------------------------------------------------------------------------
+/**
+ * @description Chuyển ngày giờ sang chuỗi ISO để trả về cho Client.
+ */
+const asIso = value => value instanceof Date ? value.toISOString() : value;
+/**
+ * @description Cắt giờ về dạng HH:mm (bỏ phần giây).
+ */
+const asTime = value => typeof value === 'string' ? value.slice(0, 5) : value;
+
+/**
+ * @description Định dạng một hoạt động trong lịch trình trả về cho Client.
+ */
+const formatItem = row => ({
+  id: row.id,
+  itineraryId: row.itinerary_id,
+  placeId: row.place_id || null,
+  customName: row.custom_name,
+  customAddress: row.custom_address || null,
+  category: row.category,
+  startTime: asTime(row.start_time),
+  endTime: asTime(row.end_time),
+  note: row.note || null,
+  estimatedCost: Number(row.estimated_cost || 0),
+  isCompleted: Boolean(row.is_completed),
+  createdAt: asIso(row.created_at),
+  updatedAt: asIso(row.updated_at),
+});
+
+/**
+ * @description Định dạng một ngày trong lịch trình kèm danh sách hoạt động.
+ */
+const formatDay = (row, items = []) => ({
+  id: row.id || null,
+  tripId: row.trip_id || row.tripId,
+  dayNumber: Number(row.day_number ?? row.dayNumber),
+  title: row.title,
+  tripDate: row.trip_date || row.tripDate,
+  materialized: Boolean(row.id),
+  ...(row.id ? { createdAt: asIso(row.created_at), updatedAt: asIso(row.updated_at) } : {}),
+  items: items.map(formatItem),
+});
+
+/**
+ * @description Định dạng thông tin chuyến đi hiển thị ở đầu trang lịch trình.
+ */
+const formatTripHeader = row => ({
+  id: row.id,
+  name: row.name,
+  startDate: row.start_date,
+  endDate: row.end_date,
+  status: row.status,
+  memberRole: row.member_role,
+});
+
+/**
+ * @description Định dạng thông tin tóm tắt của lịch trình công khai.
+ */
+const formatPublicSummary = row => ({
+  sourceTripId: row.id,
+  name: row.name,
+  destination: row.destination,
+  durationDays: Number(row.duration_days),
+  coverImageUrl: row.cover_image_url || null,
+  description: row.description || null,
+  isTemplate: Boolean(row.is_template),
+  cloneCount: Number(row.clone_count || 0),
+  updatedAt: asIso(row.updated_at),
+});
+
+/**
+ * @description Định dạng hoạt động của lịch trình công khai (ẩn chi phí và trạng thái).
+ */
+const formatPublicItem = row => ({
+  customName: row.custom_name,
+  customAddress: row.custom_address || null,
+  category: row.category,
+  startTime: asTime(row.start_time),
+  endTime: asTime(row.end_time),
+  note: row.note || null,
+});
+
+/**
+ * @description Định dạng một ngày của lịch trình công khai.
+ */
+const formatPublicDay = (row, items = []) => ({
+  dayNumber: Number(row.day_number),
+  title: row.title,
+  items: items.map(formatPublicItem),
+});
+
 /**
  * @description Thực thi logic nghiệp vụ cho lịch trình.
- * @param {string} actual
- * @param {string} expected
  */
 const sameVersion = (actual, expected) =>
   new Date(actual).getTime() === new Date(expected).getTime();
 /**
  * @description Thực thi logic nghiệp vụ cho lịch trình.
- * @param {string} date
- * @param {string} days
  */
 const datePlus = (date, days) => {
   const value = new Date(`${date}T00:00:00Z`);
@@ -30,11 +118,6 @@ const datePlus = (date, days) => {
 
 /**
  * @description Xử lý thao tác thành viên đối với lịch trình.
- * @param {object} client
- * @param {string} tripId
- * @param {string} userId
- * @param {string} leaderOnly
- * @param {string} lock
  */
 const requireMember = async (client, tripId, userId, leaderOnly = false, lock = false) => {
   const membership = await repo.getMembership(client, tripId, userId, lock);
@@ -58,9 +141,6 @@ const ensureEditable = trip => {
 
 /**
  * @description Thực thi logic nghiệp vụ cho lịch trình.
- * @param {object} client
- * @param {string} tripId
- * @param {string} userId
  */
 const buildInternalItinerary = async (client, tripId, userId) => {
   const trip = await repo.findTripForMember(client, tripId, userId);
@@ -84,23 +164,18 @@ const buildInternalItinerary = async (client, tripId, userId) => {
       title: `Ngày ${dayNumber}`,
       tripDate: datePlus(trip.start_date, dayNumber - 1),
     };
-    output.push(serializer.day(row, existing ? (itemsByDay.get(existing.id) || []) : []));
+    output.push(formatDay(row, existing ? (itemsByDay.get(existing.id) || []) : []));
   }
-  return { trip: serializer.tripHeader(trip), days: output };
+  return { trip: formatTripHeader(trip), days: output };
 };
 
 /**
  * @description Lấy thông tin lịch trình.
- * @param {string} tripId
- * @param {string} userId
  */
 const getItineraries = (tripId, userId) => buildInternalItinerary(db, tripId, userId);
 
 /**
  * @description Tạo mới lịch trình.
- * @param {string} tripId
- * @param {string} userId
- * @param {object} data
  */
 const createDay = (tripId, userId, data) => db.transaction(async client => {
   const trip = await repo.findTrip(client, tripId, true);
@@ -111,7 +186,7 @@ const createDay = (tripId, userId, data) => db.transaction(async client => {
   try {
     const row = await repo.createDay(client, tripId, data.dayNumber,
       data.title || `Ngày ${data.dayNumber}`, datePlus(trip.start_date, data.dayNumber - 1));
-    return serializer.day(row);
+    return formatDay(row);
   } catch (error) {
     if (error.code === '23505') throw apiError(409, 'Ngày lịch trình đã tồn tại');
     throw error;
@@ -120,22 +195,17 @@ const createDay = (tripId, userId, data) => db.transaction(async client => {
 
 /**
  * @description Lấy thông tin lịch trình.
- * @param {string} dayId
- * @param {string} userId
  */
 const getDay = async (dayId, userId) => {
   const day = await repo.findDay(db, dayId);
   if (!day) throw apiError(404, 'Không tìm thấy ngày lịch trình');
   await requireMember(db, day.trip_id, userId);
   const items = await repo.findItemsForDays(db, [dayId]);
-  return serializer.day(day, items);
+  return formatDay(day, items);
 };
 
 /**
  * @description Cập nhật lịch trình.
- * @param {string} dayId
- * @param {string} userId
- * @param {object} data
  */
 const updateDay = (dayId, userId, data) => db.transaction(async client => {
   const initial = await repo.findDay(client, dayId);
@@ -149,25 +219,21 @@ const updateDay = (dayId, userId, data) => db.transaction(async client => {
   const updated = await repo.updateDay(client, dayId, data.title || `Ngày ${day.day_number}`);
   if (!updated) throw apiError(409, 'Ngày đã được cập nhật');
   const items = await repo.findItemsForDays(client, [dayId]);
-  return serializer.day(updated, items);
+  return formatDay(updated, items);
 });
 
 /**
  * @description Lấy thông tin lịch trình.
- * @param {string} itemId
- * @param {string} userId
  */
 const getItem = async (itemId, userId) => {
   const item = await repo.findItem(db, itemId);
   if (!item) throw apiError(404, 'Không tìm thấy hoạt động');
   await requireMember(db, item.trip_id, userId);
-  return serializer.item(item);
+  return formatItem(item);
 };
 
 /**
  * @description Thực thi logic nghiệp vụ cho lịch trình.
- * @param {object} client
- * @param {object} data
  */
 const resolveItemInput = async (client, data) => {
   if (!data.placeId) {
@@ -181,9 +247,6 @@ const resolveItemInput = async (client, data) => {
 
 /**
  * @description Tạo mới lịch trình.
- * @param {string} dayId
- * @param {string} userId
- * @param {object} data
  */
 const addItem = (dayId, userId, data) => db.transaction(async client => {
   const initial = await repo.findDay(client, dayId);
@@ -198,7 +261,7 @@ const addItem = (dayId, userId, data) => db.transaction(async client => {
   }
   const resolved = await resolveItemInput(client, data);
   resolved.orderIndex = await repo.nextOrderIndex(client, dayId);
-  try { return serializer.item(await repo.createItem(client, dayId, resolved)); }
+  try { return formatItem(await repo.createItem(client, dayId, resolved)); }
   catch (error) {
     if (error.code === '23P01') throw apiError(409, 'Thời gian hoạt động bị chồng lấn');
     throw error;
@@ -207,9 +270,6 @@ const addItem = (dayId, userId, data) => db.transaction(async client => {
 
 /**
  * @description Cập nhật lịch trình.
- * @param {string} itemId
- * @param {string} userId
- * @param {object} data
  */
 const updateItem = (itemId, userId, data) => db.transaction(async client => {
   const initial = await repo.findItem(client, itemId);
@@ -229,7 +289,7 @@ const updateItem = (itemId, userId, data) => db.transaction(async client => {
   try {
     const updated = await repo.updateItem(client, itemId, data);
     if (!updated) throw apiError(409, 'Hoạt động đã được cập nhật');
-    return serializer.item(updated);
+    return formatItem(updated);
   } catch (error) {
     if (error.code === '23P01') throw apiError(409, 'Thời gian hoạt động bị chồng lấn');
     throw error;
@@ -238,9 +298,6 @@ const updateItem = (itemId, userId, data) => db.transaction(async client => {
 
 /**
  * @description Xóa lịch trình.
- * @param {string} itemId
- * @param {string} userId
- * @param {object} data
  */
 const deleteItem = (itemId, userId, data = {}) => db.transaction(async client => {
   const initial = await repo.findItem(client, itemId);
@@ -255,14 +312,11 @@ const deleteItem = (itemId, userId, data = {}) => db.transaction(async client =>
   }
   const deleted = await repo.deleteItem(client, itemId);
   if (!deleted) throw apiError(409, 'Hoạt động đã được cập nhật');
-  return serializer.item(deleted);
+  return formatItem(deleted);
 });
 
 /**
  * @description Thực thi logic nghiệp vụ cho lịch trình.
- * @param {string} itemId
- * @param {string} userId
- * @param {object} data
  */
 const setCompletion = (itemId, userId, data) => db.transaction(async client => {
   const initial = await repo.findItem(client, itemId);
@@ -275,13 +329,11 @@ const setCompletion = (itemId, userId, data) => db.transaction(async client => {
   if (!sameVersion(item.updated_at, data.expectedUpdatedAt)) throw apiError(409, 'Hoạt động đã được cập nhật');
   const updated = await repo.setCompletion(client, itemId, data.isCompleted);
   if (!updated) throw apiError(409, 'Hoạt động đã được cập nhật');
-  return serializer.item(updated);
+  return formatItem(updated);
 });
 
 /**
  * @description Thực thi logic nghiệp vụ cho lịch trình.
- * @param {string} a
- * @param {string} b
  */
 const haversine = (a, b) => {
   if (!a || !b || [a.latitude, a.longitude, b.latitude, b.longitude].some(v => v == null)) return null;
@@ -295,9 +347,6 @@ const haversine = (a, b) => {
 
 /**
  * @description Thực thi logic nghiệp vụ cho lịch trình.
- * @param {string} a
- * @param {string} middle
- * @param {string} c
  */
 const routeThrough = (a, middle, c) => {
   let total = 0;
@@ -336,11 +385,6 @@ const verifyCandidate = token => {
 
 /**
  * @description Thực thi logic nghiệp vụ cho lịch trình.
- * @param {object} client
- * @param {string} item
- * @param {string} radiusKm
- * @param {string} limit
- * @param {string} withTokens
  */
 const candidateRows = async (client, item, radiusKm, limit, withTokens) => {
   if (!item.place_id || item.place_latitude == null || item.place_longitude == null
@@ -386,9 +430,6 @@ const candidateRows = async (client, item, radiusKm, limit, withTokens) => {
 
 /**
  * @description Lấy thông tin lịch trình.
- * @param {string} itemId
- * @param {string} userId
- * @param {object} query
  */
 const getSwapCandidates = async (itemId, userId, query) => {
   const item = await repo.findItem(db, itemId);
@@ -399,9 +440,6 @@ const getSwapCandidates = async (itemId, userId, query) => {
 
 /**
  * @description Thực thi logic nghiệp vụ cho lịch trình.
- * @param {string} itemId
- * @param {string} userId
- * @param {object} data
  */
 const applySmartSwap = (itemId, userId, data) => db.transaction(async client => {
   const initial = await repo.findItem(client, itemId);
@@ -425,7 +463,7 @@ const applySmartSwap = (itemId, userId, data) => db.transaction(async client => 
   if (!updated) throw apiError(409, 'Hoạt động đã được cập nhật');
   await repo.notifyTripMembers(client, item.trip_id, userId, 'Lịch trình đã thay đổi',
     place.name, { tripId: item.trip_id, itemId, placeId: place.id });
-  return serializer.item(updated);
+  return formatItem(updated);
 });
 
 /**
@@ -434,7 +472,7 @@ const applySmartSwap = (itemId, userId, data) => db.transaction(async client => 
 const listPublic = async query => {
   const result = await repo.listPublicTrips(db, query);
   return {
-    items: result.rows.map(serializer.publicSummary),
+    items: result.rows.map(formatPublicSummary),
     pagination: { page: query.page, limit: query.limit, total: result.total,
       totalPages: Math.ceil(result.total / query.limit) },
   };
@@ -453,15 +491,12 @@ const getPublic = async sourceTripId => {
     if (!grouped.has(item.itinerary_id)) grouped.set(item.itinerary_id, []);
     grouped.get(item.itinerary_id).push(item);
   }
-  return { ...serializer.publicSummary(trip),
-    days: days.map(day => serializer.publicDay(day, grouped.get(day.id) || [])) };
+  return { ...formatPublicSummary(trip),
+    days: days.map(day => formatPublicDay(day, grouped.get(day.id) || [])) };
 };
 
 /**
  * @description Thực thi logic nghiệp vụ cho lịch trình.
- * @param {string} sourceTripId
- * @param {string} targetTripId
- * @param {string} userId
  */
 const clonePlan = (sourceTripId, targetTripId, userId) => db.transaction(async client => {
   if (sourceTripId === targetTripId) throw apiError(400, 'Chuyến nguồn và đích phải khác nhau');
