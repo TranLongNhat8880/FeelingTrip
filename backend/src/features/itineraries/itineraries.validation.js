@@ -7,7 +7,12 @@ const Joi = require('joi');
 
 const UUID = Joi.string().guid({ version: ['uuidv4', 'uuidv5'] });
 const TIME = Joi.string().pattern(/^([01]\d|2[0-3]):[0-5]\d$/);
-const VERSION = Joi.date().iso();
+const ROW_VERSION = Joi.string().pattern(/^\d+$/);
+const DATE = Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).custom((value, helpers) => {
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value
+    ? helpers.error('date.format') : value;
+});
 /**
  * @description Thực thi logic nghiệp vụ cho lịch trình.
  */
@@ -20,7 +25,7 @@ const createDaySchema = Joi.object({
 
 const updateDaySchema = Joi.object({
   title: Joi.string().trim().max(255).allow(null, '').required(),
-  expectedUpdatedAt: VERSION.required(),
+  expectedVersion: ROW_VERSION.required(),
 });
 
 const createItineraryItemSchema = Joi.object({
@@ -45,16 +50,16 @@ const updateItineraryItemSchema = Joi.object({
   endTime: TIME,
   note: Joi.string().trim().max(1000).allow(null, ''),
   estimatedCost: Joi.number().integer().min(0).max(Number.MAX_SAFE_INTEGER),
-  expectedUpdatedAt: VERSION.required(),
+  expectedVersion: ROW_VERSION.required(),
   placeId: Joi.forbidden(),
   orderIndex: Joi.forbidden(),
   isCompleted: Joi.forbidden(),
 }).min(2);
 
-const deleteItemSchema = Joi.object({ expectedUpdatedAt: VERSION });
+const deleteItemSchema = Joi.object({ expectedVersion: ROW_VERSION.required() });
 const completionSchema = Joi.object({
   isCompleted: Joi.boolean().required(),
-  expectedUpdatedAt: VERSION.required(),
+  expectedVersion: ROW_VERSION.required(),
 });
 
 const swapQuerySchema = Joi.object({
@@ -65,14 +70,21 @@ const swapQuerySchema = Joi.object({
 const smartSwapApplySchema = Joi.object({
   newPlaceId: UUID.required(),
   candidateToken: Joi.string().min(20).max(4096).required(),
-  expectedUpdatedAt: VERSION.required(),
+  expectedVersion: ROW_VERSION.required(),
 });
 /**
  * @description Kiểm tra tính hợp lệ của lịch trình.
  */
 const legacySmartSwapApplySchema = smartSwapApplySchema.keys({ itemId: UUID.required() });
 
-const clonePlanSchema = Joi.object({ targetTripId: UUID.required() });
+const clonePlanSchema = Joi.object({
+  startDate: DATE.required(),
+  name: Joi.string().trim().min(2).max(255),
+});
+const reorderItemsSchema = Joi.object({
+  orderedItemIds: Joi.array().items(UUID.required()).min(1).unique().required(),
+  expectedVersion: ROW_VERSION.required(),
+});
 const publicListQuerySchema = Joi.object({
   destination: Joi.string().trim().max(100),
   durationDays: Joi.number().integer().min(1).max(365),
@@ -89,6 +101,7 @@ const sourceTripIdParamSchema = Joi.object({ sourceTripId: UUID.required() });
 module.exports = {
   CATEGORIES, createDaySchema, updateDaySchema, createItineraryItemSchema,
   updateItineraryItemSchema, deleteItemSchema, completionSchema, swapQuerySchema,
-  smartSwapApplySchema, legacySmartSwapApplySchema, clonePlanSchema, publicListQuerySchema,
+  smartSwapApplySchema, legacySmartSwapApplySchema, clonePlanSchema, reorderItemsSchema,
+  publicListQuerySchema,
   tripIdParamSchema, dayIdParamSchema, itemIdParamSchema, sourceTripIdParamSchema,
 };

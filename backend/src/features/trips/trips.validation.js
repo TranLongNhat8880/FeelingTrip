@@ -16,14 +16,14 @@ const page = Joi.number().integer().min(1).default(1);
 const limit = max => Joi.number().integer().min(1).max(max).default(20);
 
 const createTripSchema = Joi.object({
-  name: Joi.string().trim().min(2).max(255).required(),
+  name: Joi.string().trim().min(2).max(255),
   destination: Joi.string().trim().min(2).max(255).required(),
   startDate: date.required(),
   endDate: date.required(),
   estimatedBudget: Joi.number().integer().min(0).max(Number.MAX_SAFE_INTEGER).default(0),
   coverImageUrl: Joi.string().uri().allow(null, ''),
   description: Joi.string().trim().max(2000).allow(null, ''),
-  privacyType: Joi.forbidden(),
+  privacyType: Joi.string().valid('PRIVATE', 'PUBLIC').default('PRIVATE'),
   status: Joi.forbidden(),
   creatorId: Joi.forbidden(),
   inviteCode: Joi.forbidden(),
@@ -59,9 +59,7 @@ const joinTripSchema = Joi.object({
   inviteCode: Joi.string().trim().uppercase().length(6).pattern(/^[A-F0-9]{6}$/).required(),
 });
 
-const inviteCodeSchema = Joi.object({
-  expiresInHours: Joi.number().integer().min(1).max(168).default(72),
-});
+const inviteCodeSchema = Joi.object({});
 
 const invitationCreateSchema = Joi.object({
   inviteeUserId: uuid.required(),

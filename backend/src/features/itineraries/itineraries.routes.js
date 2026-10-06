@@ -36,6 +36,8 @@ router.patch('/days/:dayId',
 router.get('/items/:itemId', validate({ params: v.itemIdParamSchema }), controller.getItem);
 router.post('/days/:dayId/items',
   validate({ params: v.dayIdParamSchema, body: v.createItineraryItemSchema }), controller.addItem);
+router.patch('/days/:dayId/items/reorder',
+  validate({ params: v.dayIdParamSchema, body: v.reorderItemsSchema }), controller.reorderItems);
 router.patch('/items/:itemId',
   validate({ params: v.itemIdParamSchema, body: v.updateItineraryItemSchema }), controller.updateItem);
 router.delete('/items/:itemId',
@@ -51,7 +53,7 @@ router.post('/items/:itemId/swap',
 
 // ============================================================================
 // TEMPORARY COMPATIBILITY ALIASES
-// Các đường dẫn cũ (legacy), gọi cùng service gốc. Chức năng reorder đã bị bỏ.
+// Các đường dẫn cũ (legacy), gọi cùng service gốc.
 // ============================================================================
 router.get('/trip/:tripId', deprecated('GET /api/v1/itineraries/trips/:tripId'),
   validate({ params: v.tripIdParamSchema }), controller.getItineraries);

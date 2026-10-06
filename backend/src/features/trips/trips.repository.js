@@ -37,9 +37,10 @@ const createTrip = async (client, userId, data) => {
     INSERT INTO trips (
       creator_id, name, destination, start_date, end_date, estimated_budget,
       cover_image_url, description, privacy_type, status
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'PRIVATE','UPCOMING')
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'UPCOMING')
     RETURNING *`, [userId, data.name, data.destination, data.startDate, data.endDate,
-    data.estimatedBudget ?? 0, data.coverImageUrl || null, data.description || null]);
+    data.estimatedBudget ?? 0, data.coverImageUrl || null, data.description || null,
+    data.privacyType || 'PRIVATE']);
   await client.query(`
     INSERT INTO trip_members (trip_id,user_id,role,membership_status)
     VALUES ($1,$2,'LEADER','ACTIVE')`, [trip.id, userId]);
@@ -191,15 +192,6 @@ const cancelTrip = async (client, tripId) => {
 };
 
 /**
- * @description Kiểm tra user đã liên kết tài khoản ngân hàng để dùng tính năng chia tiền hay chưa.
- */
-const hasActiveBankhub = async (client, userId) => {
-  const { rowCount } = await client.query(
-    'SELECT 1 FROM bankhub_accounts WHERE user_id=$1 AND active=TRUE LIMIT 1', [userId]);
-  return rowCount > 0;
-};
-
-/**
  * @description Lấy thông tin chuyến đi qua mã mời và khóa dòng để kiểm tra.
  */
 const findTripByInviteCodeForUpdate = async (client, inviteCode) => {
@@ -207,12 +199,6 @@ const findTripByInviteCodeForUpdate = async (client, inviteCode) => {
     'SELECT * FROM trips WHERE invite_code=$1 FOR UPDATE', [inviteCode]);
   return row || null;
 };
-
-/**
- * @description Đánh dấu mã mời đã hết hạn.
- */
-const expireInviteCode = (client, tripId) => client.query(
-  "UPDATE trips SET invite_code_status='EXPIRED' WHERE id=$1 AND invite_code_status='ACTIVE'", [tripId]);
 
 /**
  * @description Thêm người mới vào chuyến đi hoặc kích hoạt lại thành viên cũ.
@@ -275,14 +261,13 @@ const transferLeader = async (client, tripId, oldLeaderId, newLeaderId) => {
 /**
  * @description Tạo và cấp mã mời mới cho chuyến đi.
  */
-const generateNewInviteCode = async (client, tripId, expiresInHours) => {
+const generateNewInviteCode = async (client, tripId) => {
   for (let attempt = 0; attempt < 8; attempt++) {
     const code = generateInviteCode();
     const { rows: [row] } = await client.query(`
-      UPDATE trips SET invite_code=$2, invite_code_status='ACTIVE',
-        invite_code_expires_at=NOW() + ($3 * INTERVAL '1 hour')
+      UPDATE trips SET invite_code=$2, invite_code_status='ACTIVE'
       WHERE id=$1 AND NOT EXISTS (SELECT 1 FROM trips WHERE invite_code=$2 AND id<>$1)
-      RETURNING *`, [tripId, code, expiresInHours]);
+      RETURNING *`, [tripId, code]);
     if (row) return row;
   }
   return null;
@@ -386,7 +371,11 @@ const listInvitations = async (client, { tripId, inviteeId, status, page, limit 
  * @description Cập nhật trạng thái của lời mời (chấp nhận, từ chối, thu hồi).
  */
 const setInvitationStatus = async (client, invitationId, status) => {
-  await client.query(`UPDATE trip_invitations SET status=$2 WHERE id=$1`, [invitationId, status]);
+  await client.query(`
+    UPDATE trip_invitations SET status=$2,
+      responded_at=CASE WHEN $2 IN ('ACCEPTED','REJECTED') THEN NOW() ELSE responded_at END,
+      revoked_at=CASE WHEN $2='REVOKED' THEN NOW() ELSE revoked_at END
+    WHERE id=$1`, [invitationId, status]);
   return findInvitation(client, invitationId);
 };
 
@@ -415,7 +404,7 @@ module.exports = {
   generateInviteCode, lockTrip, getMembership, createTrip, findMyTrips,
   findTripForMember, findSafeMembers, countMembersByStatus, findMemberProjection, updateTrip,
   hasItineraryOutsideRange, refreshItineraryDates, setTripStatus, cancelTrip,
-  hasActiveBankhub, findTripByInviteCodeForUpdate, expireInviteCode,
+  findTripByInviteCodeForUpdate,
   activateMembership, consumeInviteCode, markMembership, hasOutstandingDebts,
   transferLeader, generateNewInviteCode, revokeInviteCode, findUserForInvitation, isUserVerified,
   expireInvitations, createInvitation, findInvitation, lockInvitation,

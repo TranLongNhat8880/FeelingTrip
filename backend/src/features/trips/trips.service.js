@@ -2,26 +2,10 @@ const db = require('../../config/database');
 const apiError = require('../../shared/utils/apiError.util');
 const repo = require('./trips.repository');
 
-// ============================================================================
-// SERVICE: Trips
-// Xử lý logic nghiệp vụ cho chuyến đi (tạo, cập nhật, thành viên, lời mời)
-// ============================================================================
-
-// ----------------------------------------------------------------------------
-// Định dạng dữ liệu trả về cho Client (snake_case -> camelCase)
-// ----------------------------------------------------------------------------
-/**
- * @description Chuyển giá trị sang số, nếu rỗng thì trả về 0.
- */
 const asNumber = value => value == null ? 0 : Number(value);
-/**
- * @description Chuyển ngày giờ sang chuỗi ISO để trả về cho Client.
- */
+
 const asIso = value => value instanceof Date ? value.toISOString() : value;
 
-/**
- * @description Định dạng thông tin một thành viên chuyến đi trả về cho Client.
- */
 const formatMember = row => ({
   userId: row.user_id,
   displayName: row.display_name || row.full_name,
@@ -33,9 +17,6 @@ const formatMember = row => ({
   ...(row.removed_at ? { removedAt: asIso(row.removed_at) } : {}),
 });
 
-/**
- * @description Định dạng thông tin tóm tắt của chuyến đi (dùng cho danh sách).
- */
 const formatSummary = row => ({
   id: row.id,
   name: row.name,
@@ -57,9 +38,6 @@ const formatSummary = row => ({
   updatedAt: asIso(row.updated_at),
 });
 
-/**
- * @description Định dạng chi tiết chuyến đi kèm danh sách thành viên; chỉ trưởng nhóm mới thấy mã mời.
- */
 const formatDetail = (row, members, leader = false) => ({
   ...formatSummary(row),
   description: row.description || null,
@@ -67,13 +45,9 @@ const formatDetail = (row, members, leader = false) => ({
   ...(leader ? {
     inviteCode: row.invite_code || null,
     inviteCodeStatus: row.invite_code_status,
-    inviteCodeExpiresAt: asIso(row.invite_code_expires_at),
   } : {}),
 });
 
-/**
- * @description Định dạng thông tin lời mời tham gia chuyến đi.
- */
 const formatInvitation = (row, includeInvitee = true) => ({
   id: row.id,
   trip: { id: row.trip_id, name: row.trip_name, destination: row.trip_destination },
@@ -94,31 +68,19 @@ const formatInvitation = (row, includeInvitee = true) => ({
   revokedAt: asIso(row.revoked_at),
 });
 
-/**
- * @description Tạo thông tin phân trang: trang hiện tại, số bản ghi mỗi trang, tổng số và tổng số trang.
- */
 const formatPagination = (page, limit, total) => ({
   page, limit, total, totalPages: Math.ceil(total / limit),
 });
 
-/**
- * @description Thực thi logic nghiệp vụ cho chuyến đi.
- */
 const sameVersion = (actual, expected) =>
   new Date(actual).getTime() === new Date(expected).getTime();
 
-/**
- * @description Thực thi logic nghiệp vụ cho chuyến đi.
- */
 const durationDays = (startDate, endDate) => {
   const start = Date.parse(`${startDate}T00:00:00Z`);
   const end = Date.parse(`${endDate}T00:00:00Z`);
   return Math.round((end - start) / 86400000) + 1;
 };
 
-/**
- * @description Xử lý thao tác thành viên đối với chuyến đi.
- */
 const requireMember = async (client, tripId, userId, leaderOnly = false) => {
   const membership = await repo.getMembership(client, tripId, userId, true);
   if (!membership || membership.membership_status !== 'ACTIVE') {
@@ -130,9 +92,6 @@ const requireMember = async (client, tripId, userId, leaderOnly = false) => {
   return membership;
 };
 
-/**
- * @description Định dạng dữ liệu đầu ra cho chuyến đi.
- */
 const tripDetail = async (tripId, userId, client = db) => {
   const trip = await repo.findTripForMember(tripId, userId, client);
   if (!trip) throw apiError(404, 'Không tìm thấy chuyến đi');
@@ -140,17 +99,18 @@ const tripDetail = async (tripId, userId, client = db) => {
   return formatDetail(trip, members, trip.member_role === 'LEADER');
 };
 
-/**
- * @description Tạo mới chuyến đi.
- */
 const createTrip = (userId, data) => db.transaction(async client => {
-  const trip = await repo.createTrip(client, userId, data);
+  if (data.privacyType === 'PUBLIC' && !(await repo.isUserVerified(client, userId))) {
+    throw apiError(403, 'Người tạo phải xác minh danh tính trước khi công khai chuyến đi');
+  }
+  const normalized = {
+    ...data,
+    name: data.name || `Chuyến đi ${data.destination}`.slice(0, 255),
+  };
+  const trip = await repo.createTrip(client, userId, normalized);
   return tripDetail(trip.id, userId, client);
 });
 
-/**
- * @description Lấy thông tin chuyến đi.
- */
 const getMyTrips = async (userId, query) => {
   const result = await repo.findMyTrips(userId, query);
   return {
@@ -159,22 +119,13 @@ const getMyTrips = async (userId, query) => {
   };
 };
 
-/**
- * @description Lấy thông tin chuyến đi.
- */
 const getTripDetail = (tripId, userId) => db.transaction(async client => {
   const trip = await repo.lockTrip(client, tripId);
   if (!trip) throw apiError(404, 'Không tìm thấy chuyến đi');
   await requireMember(client, tripId, userId);
-  if (trip.invite_code_status === 'ACTIVE' && trip.invite_code_expires_at <= new Date()) {
-    await repo.expireInviteCode(client, tripId);
-  }
   return tripDetail(tripId, userId, client);
 });
 
-/**
- * @description Cập nhật chuyến đi.
- */
 const updateTrip = (tripId, userId, data) => db.transaction(async client => {
   const trip = await repo.lockTrip(client, tripId);
   if (!trip) throw apiError(404, 'Không tìm thấy chuyến đi');
@@ -203,9 +154,6 @@ const updateTrip = (tripId, userId, data) => db.transaction(async client => {
   return tripDetail(updated.id, userId, client);
 });
 
-/**
- * @description Thực thi logic nghiệp vụ cho chuyến đi.
- */
 const transitionStatus = (tripId, userId, data) => db.transaction(async client => {
   const trip = await repo.lockTrip(client, tripId);
   if (!trip) throw apiError(404, 'Không tìm thấy chuyến đi');
@@ -222,9 +170,6 @@ const transitionStatus = (tripId, userId, data) => db.transaction(async client =
   return tripDetail(tripId, userId, client);
 });
 
-/**
- * @description Xóa chuyến đi.
- */
 const deleteTrip = (tripId, userId, data = {}) => db.transaction(async client => {
   const trip = await repo.lockTrip(client, tripId);
   if (!trip) throw apiError(404, 'Không tìm thấy chuyến đi');
@@ -238,39 +183,28 @@ const deleteTrip = (tripId, userId, data = {}) => db.transaction(async client =>
   return tripDetail(tripId, userId, client);
 });
 
-/**
- * @description Thực thi logic nghiệp vụ cho chuyến đi.
- */
 const joinTrip = async (userId, inviteCode, expectedTripId = null) => {
   const result = await db.transaction(async client => {
-    if (!(await repo.hasActiveBankhub(client, userId))) {
-      throw apiError(403, 'Bạn cần liên kết tài khoản BankHub đang hoạt động');
-    }
     const trip = await repo.findTripByInviteCodeForUpdate(client, inviteCode);
     if (!trip || (expectedTripId && trip.id !== expectedTripId)) throw apiError(400, 'Mã mời không hợp lệ');
-    if (trip.invite_code_status === 'ACTIVE' && trip.invite_code_expires_at <= new Date()) {
-      await repo.expireInviteCode(client, trip.id);
-      return { expired: true, message: 'Mã mời đã hết hạn' };
-    }
     if (trip.invite_code_status !== 'ACTIVE') throw apiError(409, 'Mã mời không còn hiệu lực');
     if (trip.privacy_type !== 'PRIVATE' || !['UPCOMING', 'ONGOING'].includes(trip.status)) {
       throw apiError(409, 'Chuyến đi không cho phép tham gia bằng mã');
     }
     const current = await repo.getMembership(client, trip.id, userId, true);
     if (current && current.membership_status === 'ACTIVE') throw apiError(409, 'Bạn đã là thành viên');
+    if (current && current.membership_status === 'REMOVED') {
+      throw apiError(403, 'Bạn cần lời mời trực tiếp mới từ trưởng nhóm để tham gia lại');
+    }
     await repo.activateMembership(client, trip.id, userId);
     await repo.consumeInviteCode(client, trip.id);
     const joined = await repo.findTripForMember(trip.id, userId, client);
     const membership = await repo.findMemberProjection(client, trip.id, userId);
     return { trip: formatSummary(joined), membership: formatMember(membership) };
   });
-  if (result.expired) throw apiError(409, result.message);
   return result;
 };
 
-/**
- * @description Lấy thông tin chuyến đi.
- */
 const getMembers = (tripId, userId, query) => db.transaction(async client => {
   await requireMember(client, tripId, userId);
   const caller = await repo.getMembership(client, tripId, userId);
@@ -282,23 +216,19 @@ const getMembers = (tripId, userId, query) => db.transaction(async client => {
   return { items: rows.map(formatMember), pagination: formatPagination(query.page, query.limit, total) };
 });
 
-/**
- * @description Thực thi logic nghiệp vụ cho chuyến đi.
- */
 const leaveTrip = (tripId, userId) => db.transaction(async client => {
   const trip = await repo.lockTrip(client, tripId);
   if (!trip) throw apiError(404, 'Không tìm thấy chuyến đi');
   const membership = await requireMember(client, tripId, userId);
   if (membership.role === 'LEADER') throw apiError(409, 'Trưởng nhóm phải chuyển quyền hoặc hủy chuyến');
-  const financialAccessRequired = await repo.hasOutstandingDebts(client, tripId, userId);
+  if (await repo.hasOutstandingDebts(client, tripId, userId)) {
+    throw apiError(409, 'Bạn cần xử lý các khoản công nợ đang mở trước khi rời chuyến đi');
+  }
   await repo.markMembership(client, tripId, userId, 'LEFT');
   const changed = await repo.findMemberProjection(client, tripId, userId);
-  return { membership: formatMember(changed), financialAccessRequired };
+  return { membership: formatMember(changed), financialAccessRequired: false };
 });
 
-/**
- * @description Xóa chuyến đi.
- */
 const kickMember = (tripId, targetUserId, userId) => db.transaction(async client => {
   const trip = await repo.lockTrip(client, tripId);
   if (!trip) throw apiError(404, 'Không tìm thấy chuyến đi');
@@ -308,16 +238,15 @@ const kickMember = (tripId, targetUserId, userId) => db.transaction(async client
   if (!target || target.membership_status !== 'ACTIVE' || target.role === 'LEADER') {
     throw apiError(404, 'Không tìm thấy thành viên');
   }
-  const financialAccessRequired = await repo.hasOutstandingDebts(client, tripId, targetUserId);
+  if (await repo.hasOutstandingDebts(client, tripId, targetUserId)) {
+    throw apiError(409, 'Thành viên cần xử lý các khoản công nợ đang mở trước khi bị loại');
+  }
   await repo.markMembership(client, tripId, targetUserId, 'REMOVED', userId);
   const changed = await repo.findMemberProjection(client, tripId, targetUserId);
   await repo.notify(client, targetUserId, 'Bạn đã bị loại khỏi chuyến đi', trip.name, { tripId });
-  return { membership: formatMember(changed), financialAccessRequired };
+  return { membership: formatMember(changed), financialAccessRequired: false };
 });
 
-/**
- * @description Xử lý phân quyền Trưởng nhóm cho chuyến đi.
- */
 const transferLeader = (tripId, userId, data) => db.transaction(async client => {
   const trip = await repo.lockTrip(client, tripId);
   if (!trip) throw apiError(404, 'Không tìm thấy chuyến đi');
@@ -332,43 +261,29 @@ const transferLeader = (tripId, userId, data) => db.transaction(async client => 
   return tripDetail(tripId, data.newLeaderUserId, client);
 });
 
-/**
- * @description Xử lý lời mời tham gia chuyến đi.
- */
-const generateInviteCode = (tripId, userId, expiresInHours) => db.transaction(async client => {
+const generateInviteCode = (tripId, userId) => db.transaction(async client => {
   const trip = await repo.lockTrip(client, tripId);
   if (!trip) throw apiError(404, 'Không tìm thấy chuyến đi');
   await requireMember(client, tripId, userId, true);
   if (trip.privacy_type !== 'PRIVATE' || !['UPCOMING', 'ONGOING'].includes(trip.status)) {
     throw apiError(409, 'Chuyến đi không cho phép tạo mã mời');
   }
-  const updated = await repo.generateNewInviteCode(client, tripId, expiresInHours);
+  const updated = await repo.generateNewInviteCode(client, tripId);
   if (!updated) throw apiError(500, 'Không tạo được mã mời duy nhất');
   return {
     inviteCode: updated.invite_code,
     status: updated.invite_code_status,
-    expiresAt: updated.invite_code_expires_at,
   };
 });
 
-/**
- * @description Xử lý lời mời tham gia chuyến đi.
- */
 const revokeInviteCode = (tripId, userId) => db.transaction(async client => {
   const trip = await repo.lockTrip(client, tripId);
   if (!trip) throw apiError(404, 'Không tìm thấy chuyến đi');
   await requireMember(client, tripId, userId, true);
-  if (trip.invite_code_status === 'ACTIVE' && trip.invite_code_expires_at <= new Date()) {
-    await repo.expireInviteCode(client, tripId);
-    return { status: 'EXPIRED', expiresAt: trip.invite_code_expires_at };
-  }
   const updated = await repo.revokeInviteCode(client, tripId);
-  return { status: updated.invite_code_status, expiresAt: updated.invite_code_expires_at };
+  return { status: updated.invite_code_status };
 });
 
-/**
- * @description Thực thi logic nghiệp vụ cho chuyến đi.
- */
 const sendInvitation = (tripId, userId, data) => db.transaction(async client => {
   const trip = await repo.lockTrip(client, tripId);
   if (!trip) throw apiError(404, 'Không tìm thấy chuyến đi');
@@ -394,9 +309,6 @@ const sendInvitation = (tripId, userId, data) => db.transaction(async client => 
   return formatInvitation(await repo.findInvitation(client, created.id));
 });
 
-/**
- * @description Lấy thông tin chuyến đi.
- */
 const listTripInvitations = (tripId, userId, query) => db.transaction(async client => {
   const trip = await repo.lockTrip(client, tripId);
   if (!trip) throw apiError(404, 'Không tìm thấy chuyến đi');
@@ -407,9 +319,6 @@ const listTripInvitations = (tripId, userId, query) => db.transaction(async clie
     pagination: formatPagination(query.page, query.limit, result.total) };
 });
 
-/**
- * @description Lấy thông tin chuyến đi.
- */
 const listMyInvitations = (userId, query) => db.transaction(async client => {
   await repo.expireInvitations(client, 'invitee_id=$1', [userId]);
   const result = await repo.listInvitations(client, { inviteeId: userId, ...query });
@@ -417,9 +326,6 @@ const listMyInvitations = (userId, query) => db.transaction(async client => {
     pagination: formatPagination(query.page, query.limit, result.total) };
 });
 
-/**
- * @description Thực thi logic nghiệp vụ cho chuyến đi.
- */
 const actOnInvitation = async (invitationId, userId, action) => {
   const result = await db.transaction(async client => {
     const initial = await repo.findInvitation(client, invitationId);
@@ -439,7 +345,6 @@ const actOnInvitation = async (invitationId, userId, action) => {
         { tripId: trip.id, invitationId });
       return formatInvitation(rejected, false);
     }
-    if (!(await repo.hasActiveBankhub(client, userId))) throw apiError(403, 'Bạn cần liên kết BankHub');
     if (!['UPCOMING', 'ONGOING'].includes(trip.status) || trip.privacy_type !== 'PRIVATE') {
       throw apiError(409, 'Chuyến đi không còn nhận thành viên');
     }
@@ -454,9 +359,6 @@ const actOnInvitation = async (invitationId, userId, action) => {
   return result;
 };
 
-/**
- * @description Thực thi logic nghiệp vụ cho chuyến đi.
- */
 const revokeInvitation = async (tripId, invitationId, userId) => {
   const result = await db.transaction(async client => {
     const trip = await repo.lockTrip(client, tripId);
