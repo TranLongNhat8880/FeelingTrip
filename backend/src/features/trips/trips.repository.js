@@ -7,16 +7,12 @@ const db = require('../../config/database');
 // ============================================================================
 
 /**
- * @description Sinh ngẫu nhiên mã mời gồm 6 ký tự HEX viết hoa (ví dụ: "A1B2C3").
- * Không truy vấn DB; việc kiểm tra trùng mã nằm ở generateNewInviteCode.
+ * @description Tạo mã mời ngẫu nhiên 6 ký tự.
  */
 const generateInviteCode = () => crypto.randomBytes(3).toString('hex').toUpperCase();
 
 /**
- * @description Lấy toàn bộ thông tin một chuyến đi theo id và KHÓA dòng đó (SELECT ... FOR UPDATE).
- * Bảng: trips.
- * Dùng trong transaction để chặn request khác sửa cùng chuyến đi một lúc (tránh race condition).
- * Trả về: object chuyến đi hoặc null nếu không tồn tại.
+ * @description Lấy thông tin chuyến đi và khóa dòng để chuẩn bị update.
  */
 const lockTrip = async (client, tripId) => {
   const { rows: [row] } = await client.query('SELECT * FROM trips WHERE id = $1 FOR UPDATE', [tripId]);
@@ -24,10 +20,7 @@ const lockTrip = async (client, tripId) => {
 };
 
 /**
- * @description Lấy bản ghi thành viên của một người dùng trong một chuyến đi (mọi trạng thái).
- * Bảng: trip_members, lọc theo trip_id + user_id.
- * Nếu forUpdate = true thì khóa dòng (FOR UPDATE) để cập nhật an toàn trong transaction.
- * Trả về: bản ghi trip_members (gồm role, membership_status) hoặc null.
+ * @description Lấy trạng thái thành viên của một user trong chuyến đi.
  */
 const getMembership = async (client, tripId, userId, forUpdate = false) => {
   const { rows: [row] } = await client.query(
@@ -37,11 +30,7 @@ const getMembership = async (client, tripId, userId, forUpdate = false) => {
 };
 
 /**
- * @description Tạo chuyến đi mới và tự động thêm người tạo làm trưởng nhóm.
- * Bước 1: INSERT vào bảng trips với privacy_type = PRIVATE, status = UPCOMING.
- * Bước 2: INSERT vào bảng trip_members với role = LEADER, membership_status = ACTIVE.
- * Phải gọi trong transaction để 2 câu lệnh cùng thành công hoặc cùng bị hủy.
- * Trả về: object chuyến đi vừa tạo.
+ * @description Tạo chuyến đi mới và tự động gán quyền trưởng nhóm cho người tạo.
  */
 const createTrip = async (client, userId, data) => {
   const { rows: [trip] } = await client.query(`
@@ -58,15 +47,7 @@ const createTrip = async (client, userId, data) => {
 };
 
 /**
- * @description Lấy danh sách chuyến đi của người dùng, có lọc và phân trang.
- * Bảng: trips JOIN trip_members.
- * Mặc định chỉ lấy chuyến mà người dùng còn ACTIVE; includeHistory = true thì lấy cả chuyến đã rời/bị loại.
- * Có thể lọc theo trạng thái chuyến đi (status).
- * Câu 1: COUNT(*) để đếm tổng số bản ghi phục vụ phân trang.
- * Câu 2: lấy dữ liệu kèm vai trò của người dùng và số thành viên ACTIVE (member_count).
- * Sắp xếp: ONGOING trước, rồi UPCOMING (ngày bắt đầu gần nhất trước), cuối cùng COMPLETED/CANCELLED (kết thúc gần nhất trước).
- * Phân trang: LIMIT = limit, OFFSET = (page - 1) * limit.
- * Trả về: { rows, total }.
+ * @description Lấy danh sách chuyến đi của user (có phân trang và lọc trạng thái).
  */
 const findMyTrips = async (userId, { status, page, limit, includeHistory }) => {
   const params = [userId];
@@ -93,10 +74,7 @@ const findMyTrips = async (userId, { status, page, limit, includeHistory }) => {
 };
 
 /**
- * @description Lấy chi tiết một chuyến đi, chỉ khi người dùng đang là thành viên ACTIVE.
- * Bảng: trips JOIN trip_members.
- * Kèm theo: vai trò của người dùng (member_role) và số thành viên ACTIVE (member_count).
- * Trả về: object chuyến đi hoặc null (không tồn tại hoặc không có quyền xem).
+ * @description Lấy chi tiết chuyến đi (chỉ dành cho thành viên nhóm).
  */
 const findTripForMember = async (tripId, userId, client = db) => {
   const { rows: [trip] } = await client.query(`
@@ -109,13 +87,7 @@ const findTripForMember = async (tripId, userId, client = db) => {
 };
 
 /**
- * @description Lấy danh sách thành viên của chuyến đi theo trạng thái (mặc định ACTIVE).
- * Bảng: trip_members JOIN users.
- * Chỉ lấy thông tin an toàn để hiển thị: tên hiển thị (ưu tiên nickname, không có thì full_name), avatar,
- * vai trò, trạng thái và các mốc thời gian. KHÔNG trả về email hay số điện thoại.
- * Sắp xếp: trưởng nhóm lên đầu, sau đó theo thời gian tham gia sớm nhất.
- * Chỉ phân trang (LIMIT/OFFSET) khi có truyền page và limit.
- * Trả về: mảng thành viên.
+ * @description Lấy danh sách thành viên của chuyến đi (có phân trang).
  */
 const findSafeMembers = async (tripId, client = db, { status = 'ACTIVE', page, limit } = {}) => {
   const params = [tripId, status];
@@ -134,10 +106,7 @@ const findSafeMembers = async (tripId, client = db, { status = 'ACTIVE', page, l
 };
 
 /**
- * @description Đếm số thành viên của chuyến đi theo trạng thái (ACTIVE / LEFT / REMOVED).
- * Bảng: trip_members.
- * Dùng để tính tổng số bản ghi khi phân trang danh sách thành viên.
- * Trả về: số nguyên.
+ * @description Đếm số lượng thành viên trong chuyến đi theo trạng thái.
  */
 const countMembersByStatus = async (tripId, status, client = db) => {
   const { rows: [row] } = await client.query(
@@ -147,10 +116,7 @@ const countMembersByStatus = async (tripId, status, client = db) => {
 };
 
 /**
- * @description Lấy thông tin hiển thị của MỘT thành viên trong chuyến đi (mọi trạng thái).
- * Bảng: trip_members JOIN users.
- * Dùng để trả kết quả sau khi tham gia, rời nhóm hoặc bị loại.
- * Trả về: object thành viên hoặc null.
+ * @description Lấy thông tin hiển thị cơ bản của một thành viên.
  */
 const findMemberProjection = async (client, tripId, userId) => {
   const { rows: [row] } = await client.query(`
@@ -162,11 +128,7 @@ const findMemberProjection = async (client, tripId, userId) => {
 };
 
 /**
- * @description Cập nhật thông tin chuyến đi, chỉ cập nhật các trường được gửi lên.
- * Bảng: trips.
- * Câu UPDATE được ghép động: trường nào có trong data mới đưa vào SET. Chuỗi rỗng được lưu thành NULL.
- * Tên cột lấy từ danh sách cố định (map) nên không bị SQL injection.
- * Trả về: object chuyến đi sau khi cập nhật.
+ * @description Cập nhật các thông tin chung của chuyến đi.
  */
 const updateTrip = async (client, tripId, data) => {
   const map = {
@@ -188,10 +150,7 @@ const updateTrip = async (client, tripId, data) => {
 };
 
 /**
- * @description Kiểm tra chuyến đi có ngày lịch trình nào vượt quá số ngày mới hay không.
- * Bảng: itineraries, điều kiện day_number > durationDays.
- * Dùng khi rút ngắn chuyến đi để không làm mất các ngày đã có lịch trình.
- * Trả về: true nếu có ngày nằm ngoài khoảng mới.
+ * @description Kiểm tra xem có ngày lịch trình nào bị lố thời gian khi rút ngắn chuyến đi không.
  */
 const hasItineraryOutsideRange = async (client, tripId, durationDays) => {
   const { rowCount } = await client.query(
@@ -200,9 +159,7 @@ const hasItineraryOutsideRange = async (client, tripId, durationDays) => {
 };
 
 /**
- * @description Tính lại ngày thực tế (trip_date) cho các ngày lịch trình sau khi đổi ngày bắt đầu.
- * Bảng: itineraries (UPDATE ... FROM trips).
- * Công thức: trip_date = start_date của chuyến đi + (day_number - 1).
+ * @description Cập nhật lại ngày tháng thực tế cho lịch trình sau khi đổi ngày bắt đầu.
  */
 const refreshItineraryDates = async (client, tripId) => {
   await client.query(`
@@ -211,9 +168,7 @@ const refreshItineraryDates = async (client, tripId) => {
 };
 
 /**
- * @description Đổi trạng thái chuyến đi (UPCOMING / ONGOING / COMPLETED).
- * Bảng: trips.
- * Trả về: object chuyến đi sau khi cập nhật.
+ * @description Cập nhật trạng thái chuyến đi (sắp tới, đang diễn ra, đã kết thúc).
  */
 const setTripStatus = async (client, tripId, status) => {
   const { rows: [row] } = await client.query(
@@ -222,10 +177,7 @@ const setTripStatus = async (client, tripId, status) => {
 };
 
 /**
- * @description Hủy chuyến đi (xóa mềm, không xóa dữ liệu).
- * Bước 1: bảng trips, đổi status = CANCELLED; nếu mã mời đang ACTIVE thì chuyển sang REVOKED.
- * Bước 2: bảng trip_invitations, chuyển các lời mời đang PENDING sang EXPIRED.
- * Trả về: object chuyến đi sau khi hủy.
+ * @description Hủy chuyến đi và vô hiệu hóa tất cả các mã mời/lời mời.
  */
 const cancelTrip = async (client, tripId) => {
   const { rows: [row] } = await client.query(`
@@ -239,10 +191,7 @@ const cancelTrip = async (client, tripId) => {
 };
 
 /**
- * @description Kiểm tra người dùng đã liên kết tài khoản ngân hàng (Bank Hub) và còn hoạt động hay chưa.
- * Bảng: bankhub_accounts, điều kiện active = TRUE.
- * Dùng trước khi cho tham gia chuyến đi, vì tính năng chia tiền cần tài khoản ngân hàng.
- * Trả về: true / false.
+ * @description Kiểm tra user đã liên kết tài khoản ngân hàng để dùng tính năng chia tiền hay chưa.
  */
 const hasActiveBankhub = async (client, userId) => {
   const { rowCount } = await client.query(
@@ -251,10 +200,7 @@ const hasActiveBankhub = async (client, userId) => {
 };
 
 /**
- * @description Tìm chuyến đi theo mã mời và khóa dòng đó (FOR UPDATE).
- * Bảng: trips.
- * Khóa để 2 người không dùng cùng một mã mời cùng lúc.
- * Trả về: object chuyến đi hoặc null.
+ * @description Lấy thông tin chuyến đi qua mã mời và khóa dòng để kiểm tra.
  */
 const findTripByInviteCodeForUpdate = async (client, inviteCode) => {
   const { rows: [row] } = await client.query(
@@ -263,18 +209,13 @@ const findTripByInviteCodeForUpdate = async (client, inviteCode) => {
 };
 
 /**
- * @description Đánh dấu mã mời đã hết hạn (ACTIVE -> EXPIRED).
- * Bảng: trips. Chỉ cập nhật khi mã mời đang ACTIVE.
+ * @description Đánh dấu mã mời đã hết hạn.
  */
 const expireInviteCode = (client, tripId) => client.query(
   "UPDATE trips SET invite_code_status='EXPIRED' WHERE id=$1 AND invite_code_status='ACTIVE'", [tripId]);
 
 /**
- * @description Thêm người dùng vào chuyến đi với vai trò MEMBER, trạng thái ACTIVE.
- * Bảng: trip_members.
- * Dùng INSERT ... ON CONFLICT: nếu người này từng ở trong chuyến (đã rời hoặc bị loại) thì kích hoạt lại
- * bản ghi cũ, đặt lại joined_at và xóa left_at / removed_at / removed_by, thay vì tạo bản ghi trùng.
- * Trả về: bản ghi trip_members sau khi thêm hoặc kích hoạt lại.
+ * @description Thêm người mới vào chuyến đi hoặc kích hoạt lại thành viên cũ.
  */
 const activateMembership = async (client, tripId, userId) => {
   const { rows: [row] } = await client.query(`
@@ -288,19 +229,13 @@ const activateMembership = async (client, tripId, userId) => {
 };
 
 /**
- * @description Đánh dấu mã mời đã được sử dụng (ACTIVE -> USED). Mỗi mã chỉ dùng được 1 lần.
- * Bảng: trips.
+ * @description Đánh dấu mã mời đã được sử dụng.
  */
 const consumeInviteCode = (client, tripId) => client.query(
   "UPDATE trips SET invite_code_status='USED' WHERE id=$1 AND invite_code_status='ACTIVE'", [tripId]);
 
 /**
- * @description Chuyển trạng thái thành viên khi rời nhóm (LEFT) hoặc bị loại (REMOVED). Đây là xóa mềm.
- * Bảng: trip_members. Chỉ cập nhật thành viên đang ACTIVE.
- * LEFT    -> ghi left_at = NOW().
- * REMOVED -> ghi removed_at = NOW() và removed_by = id người thực hiện.
- * Không xóa bản ghi để giữ lại lịch sử chi tiêu, chia tiền của người đó.
- * Trả về: bản ghi sau khi cập nhật hoặc null.
+ * @description Đổi trạng thái thành viên (khi tự rời đi hoặc bị kick).
  */
 const markMembership = async (client, tripId, userId, status, removedBy = null) => {
   const { rows: [row] } = await client.query(`
@@ -314,11 +249,7 @@ const markMembership = async (client, tripId, userId, status, removedBy = null) 
 };
 
 /**
- * @description Kiểm tra người dùng còn khoản nợ chưa thanh toán xong trong chuyến đi hay không.
- * Bảng: settlements (thuộc phân hệ Expenses), trạng thái PENDING hoặc REPORTED,
- * người dùng là người nợ (from_user_id) hoặc người được trả (to_user_id).
- * Dùng khi rời nhóm / bị loại để báo người đó vẫn cần quyền truy cập phần tài chính.
- * Trả về: true nếu còn nợ chưa xong.
+ * @description Kiểm tra thành viên có khoản chia tiền nào chưa thanh toán xong không.
  */
 const hasOutstandingDebts = async (client, tripId, userId) => {
   const { rowCount } = await client.query(`
@@ -328,12 +259,7 @@ const hasOutstandingDebts = async (client, tripId, userId) => {
 };
 
 /**
- * @description Chuyển quyền trưởng nhóm từ người cũ sang người mới.
- * Bước 1: bảng trip_members, hạ trưởng nhóm cũ xuống MEMBER.
- * Bước 2: bảng trip_members, nâng người mới lên LEADER (phải đang ACTIVE).
- * Bước 3: bảng trips, cập nhật updated_at.
- * Bước 1 phải chạy trước vì DB chỉ cho phép mỗi chuyến đi có 1 LEADER đang ACTIVE.
- * Trả về: bản ghi của trưởng nhóm mới hoặc null.
+ * @description Chuyển quyền trưởng nhóm cho một thành viên khác.
  */
 const transferLeader = async (client, tripId, oldLeaderId, newLeaderId) => {
   await client.query(
@@ -347,11 +273,7 @@ const transferLeader = async (client, tripId, oldLeaderId, newLeaderId) => {
 };
 
 /**
- * @description Tạo mã mời mới cho chuyến đi và đặt thời hạn hết hạn.
- * Bảng: trips. Gán invite_code mới, invite_code_status = ACTIVE,
- * invite_code_expires_at = NOW() + số giờ hiệu lực.
- * Điều kiện NOT EXISTS đảm bảo mã không trùng với chuyến đi khác; nếu trùng thì thử lại, tối đa 8 lần.
- * Trả về: object chuyến đi sau khi cập nhật, hoặc null nếu thử 8 lần vẫn trùng.
+ * @description Tạo và cấp mã mời mới cho chuyến đi.
  */
 const generateNewInviteCode = async (client, tripId, expiresInHours) => {
   for (let attempt = 0; attempt < 8; attempt++) {
@@ -367,9 +289,7 @@ const generateNewInviteCode = async (client, tripId, expiresInHours) => {
 };
 
 /**
- * @description Thu hồi mã mời đang dùng (ACTIVE -> REVOKED); các trạng thái khác giữ nguyên.
- * Bảng: trips.
- * Trả về: object chuyến đi sau khi cập nhật.
+ * @description Thu hồi mã mời hiện tại của chuyến đi.
  */
 const revokeInviteCode = async (client, tripId) => {
   const { rows: [row] } = await client.query(`
@@ -379,10 +299,7 @@ const revokeInviteCode = async (client, tripId) => {
 };
 
 /**
- * @description Lấy id và trạng thái tài khoản (ACTIVE / BANNED) của người được mời.
- * Bảng: users.
- * Dùng để kiểm tra người được mời có tồn tại và không bị khóa.
- * Trả về: { id, status } hoặc null.
+ * @description Kiểm tra thông tin tài khoản của người được mời.
  */
 const findUserForInvitation = async (client, userId) => {
   const { rows: [row] } = await client.query(
@@ -391,9 +308,7 @@ const findUserForInvitation = async (client, userId) => {
 };
 
 /**
- * @description Kiểm tra người dùng đã xác minh tài khoản hay chưa (verification_status = VERIFIED).
- * Bảng: users.
- * Trả về: true / false.
+ * @description Kiểm tra tài khoản user đã xác minh chưa.
  */
 const isUserVerified = async (client, userId) => {
   const { rows: [row] } = await client.query(
@@ -402,21 +317,14 @@ const isUserVerified = async (client, userId) => {
 };
 
 /**
- * @description Chuyển các lời mời đang PENDING đã quá hạn (expires_at <= NOW()) sang EXPIRED.
- * Bảng: trip_invitations.
- * conditionsSql là điều kiện lọc thêm do service truyền vào (ví dụ: theo trip_id hoặc invitee_id).
- * Chạy trước khi đọc danh sách lời mời để dữ liệu luôn đúng trạng thái.
+ * @description Đánh dấu các lời mời đã hết thời gian hiệu lực.
  */
 const expireInvitations = (client, conditionsSql, params) => client.query(`
   UPDATE trip_invitations SET status='EXPIRED'
   WHERE status='PENDING' AND expires_at<=NOW() AND ${conditionsSql}`, params);
 
 /**
- * @description Tạo lời mời đích danh một người dùng vào chuyến đi.
- * Bảng: trip_invitations. Trạng thái mặc định là PENDING,
- * expires_at = NOW() + số giờ hiệu lực.
- * DB đã có unique index nên mỗi người chỉ có tối đa 1 lời mời PENDING cho một chuyến đi.
- * Trả về: { id } của lời mời vừa tạo.
+ * @description Gửi lời mời trực tiếp đến một user.
  */
 const createInvitation = async (client, tripId, inviterId, inviteeId, expiresInHours) => {
   const { rows: [row] } = await client.query(`
@@ -427,10 +335,7 @@ const createInvitation = async (client, tripId, inviterId, inviteeId, expiresInH
 };
 
 /**
- * @description Câu SELECT dùng chung để lấy lời mời kèm thông tin hiển thị.
- * Bảng: trip_invitations JOIN trips (tên, điểm đến)
- * JOIN users 2 lần: ui là người gửi lời mời, ue là người được mời (tên hiển thị + avatar).
- * Các hàm findInvitation, listInvitations sẽ nối thêm WHERE vào câu này.
+ * @description Câu query gốc để lấy thông tin chi tiết của lời mời.
  */
 const invitationSelect = `
   SELECT ti.*, t.name AS trip_name, t.destination AS trip_destination,
@@ -442,9 +347,7 @@ const invitationSelect = `
   JOIN users ue ON ue.id=ti.invitee_id`;
 
 /**
- * @description Lấy chi tiết một lời mời theo id, kèm thông tin chuyến đi, người mời và người được mời.
- * Dùng câu invitationSelect + WHERE ti.id.
- * Trả về: object lời mời hoặc null.
+ * @description Lấy thông tin chi tiết của một lời mời cụ thể.
  */
 const findInvitation = async (client, invitationId) => {
   const { rows: [row] } = await client.query(`${invitationSelect} WHERE ti.id=$1`, [invitationId]);
@@ -452,10 +355,7 @@ const findInvitation = async (client, invitationId) => {
 };
 
 /**
- * @description Khóa dòng lời mời (FOR UPDATE) rồi lấy đầy đủ thông tin của lời mời đó.
- * Bảng: trip_invitations.
- * Dùng khi chấp nhận / từ chối / thu hồi để tránh 2 thao tác xử lý cùng một lời mời.
- * Trả về: object lời mời hoặc null.
+ * @description Khóa dòng lời mời để xử lý chấp nhận/từ chối an toàn.
  */
 const lockInvitation = async (client, invitationId) => {
   const { rows: [locked] } = await client.query(
@@ -465,12 +365,7 @@ const lockInvitation = async (client, invitationId) => {
 };
 
 /**
- * @description Lấy danh sách lời mời có lọc và phân trang.
- * Lọc theo: tripId (lời mời của một chuyến đi), inviteeId (lời mời gửi tới tôi), status.
- * Câu 1: COUNT(*) để đếm tổng số bản ghi.
- * Câu 2: invitationSelect + WHERE, sắp xếp lời mời mới nhất lên đầu.
- * Phân trang: LIMIT = limit, OFFSET = (page - 1) * limit.
- * Trả về: { rows, total }.
+ * @description Lấy danh sách lời mời (có phân trang và lọc).
  */
 const listInvitations = async (client, { tripId, inviteeId, status, page, limit }) => {
   const params = [];
@@ -488,9 +383,7 @@ const listInvitations = async (client, { tripId, inviteeId, status, page, limit 
 };
 
 /**
- * @description Cập nhật trạng thái lời mời (ACCEPTED / REJECTED / REVOKED).
- * Bảng: trip_invitations.
- * Trả về: lời mời sau khi cập nhật, kèm đầy đủ thông tin hiển thị.
+ * @description Cập nhật trạng thái của lời mời (chấp nhận, từ chối, thu hồi).
  */
 const setInvitationStatus = async (client, invitationId, status) => {
   await client.query(`UPDATE trip_invitations SET status=$2 WHERE id=$1`, [invitationId, status]);
@@ -498,10 +391,7 @@ const setInvitationStatus = async (client, invitationId, status) => {
 };
 
 /**
- * @description Gửi thông báo cho MỘT người dùng.
- * Bảng: notifications (thuộc phân hệ Notifications), type = TRIP_UPDATE,
- * data là JSON chứa thông tin kèm theo (tripId, invitationId...).
- * Chạy chung transaction với thao tác chính nên nếu thao tác lỗi thì thông báo cũng không được tạo.
+ * @description Tạo thông báo mới cho một user.
  */
 const notify = async (client, userId, title, message, data) => {
   await client.query(`
@@ -511,9 +401,7 @@ const notify = async (client, userId, title, message, data) => {
 };
 
 /**
- * @description Gửi thông báo cho TẤT CẢ thành viên ACTIVE của chuyến đi, trừ người thực hiện thao tác.
- * Bảng: notifications, dùng INSERT ... SELECT từ trip_members.
- * Chỉ cần 1 câu lệnh cho cả nhóm thay vì lặp gửi từng người.
+ * @description Gửi thông báo cho tất cả các thành viên đang hoạt động trong chuyến đi.
  */
 const notifyActiveMembers = async (client, tripId, actorId, title, message, data) => {
   await client.query(`
