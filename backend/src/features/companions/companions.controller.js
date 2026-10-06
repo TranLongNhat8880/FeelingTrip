@@ -82,10 +82,64 @@ const getCompanionPostDetail = async (req, res, next) => {
   }
 };
 
+const createJoinRequest = async (req, res, next) => {
+  try {
+    const { postId, introduction } = req.body;
+    const userId = req.user.id;
+    const newRequest = await companionsService.createJoinRequest({ postId, userId, introduction });
+    return sendSuccess(res, newRequest, 'Gửi yêu cầu tham gia thành công', HTTP_STATUS.CREATED);
+  } catch (error) {
+    console.log(error);
+    next(error);
+  }
+};
+
+const deleteJoinRequest = async (req, res, next) => {
+  try {
+    const { requestId } = req.params;
+    const userId = req.user.id;
+    const result = await companionsService.deleteJoinRequest({ requestId, userId });
+    return sendSuccess(res, result, 'Hủy yêu cầu tham gia thành công', HTTP_STATUS.OK);
+  } catch (error) {
+    console.log(error);
+    next(error);
+  }
+};
+
+const reviewJoinRequest = async (req, res, next) => {
+  try {
+    const { requestId } = req.params;
+    const leaderId = req.user.id;
+    const { status } = req.body;
+    const result = await companionsService.reviewJoinRequest({ requestId, leaderId, status });
+    const message = status === 'ACCEPTED' ? 'Chấp thuận yêu cầu tham gia thành công' : 'Từ chối yêu cầu tham gia thành công';
+    return sendSuccess(res, result, message, HTTP_STATUS.OK);
+  } catch (error) {
+    console.log(error);
+    next(error);
+  }
+};
+
+const getMyReceivedRequests = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const { page, limit, status, postId } = req.query;
+    const data = await companionsService.getMyReceivedRequests({ userId, page, limit, status, postId });
+    return sendSuccess(res, data, 'Lấy danh sách yêu cầu tham gia thành công', HTTP_STATUS.OK);
+  } catch (error) {
+    console.log(error);
+    next(error);
+  }
+};
+
 module.exports = {
   createCompanionPost,
   updateCompanionPost,
   deleteCompanionPost,
   getCompanionFeed,
-  getCompanionPostDetail
+  getCompanionPostDetail,
+  createJoinRequest,
+  deleteJoinRequest,
+  reviewJoinRequest,
+  getMyReceivedRequests,
 };

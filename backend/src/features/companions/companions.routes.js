@@ -38,4 +38,45 @@ router.delete('/posts/:postId',
     companionsController.deleteCompanionPost
 );
 
+// Gửi yêu cầu xin tham gia ghép đoàn
+router.post('/join-request',
+    authenticate,
+    validate({ body: schemaValidate.createJoinRequestSchema }),
+    companionsController.createJoinRequest
+);
+
+// Trưởng nhóm xem các yêu cầu tham gia gửi tới chuyến đi của mình
+router.get('/my-requests',
+    authenticate,
+    validate({ query: schemaValidate.myRequestsQuerySchema }),
+    companionsController.getMyReceivedRequests
+);
+
+// Người gửi hủy yêu cầu tham gia (Xóa cứng khi còn PENDING)
+router.delete('/requests/:requestId',
+    authenticate,
+    validate({ params: schemaValidate.requestIdParamSchema }),
+    companionsController.deleteJoinRequest
+);
+
+// Trưởng nhóm xét duyệt yêu cầu (Accept hoặc Reject)
+router.put('/requests/:requestId',
+    authenticate,
+    validate({
+        params: schemaValidate.requestIdParamSchema,
+        body: schemaValidate.reviewJoinRequestSchema,
+    }),
+    companionsController.reviewJoinRequest
+);
+
+// Alias PATCH cho frontend
+router.patch('/requests/:requestId',
+    authenticate,
+    validate({
+        params: schemaValidate.requestIdParamSchema,
+        body: schemaValidate.reviewJoinRequestSchema,
+    }),
+    companionsController.reviewJoinRequest
+);
+
 module.exports = router;
