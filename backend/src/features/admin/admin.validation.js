@@ -41,6 +41,25 @@ const resolveReportSchema = Joi.object({
 });
 
 /**
+ * Query params khi lấy danh sách người dùng
+ */
+const getUsersQuerySchema = Joi.object({
+  page: Joi.number().integer().min(1).default(1),
+  limit: Joi.number().integer().min(1).max(100).default(20),
+  search: Joi.string().trim().max(100).allow('', null),
+  role: Joi.string().valid('USER', 'ADMIN').allow('', null),
+  status: Joi.string().valid('ACTIVE', 'BANNED').allow('', null),
+});
+
+/**
+ * Query params khi lấy danh sách eKYC chờ duyệt
+ */
+const getEkycPendingQuerySchema = Joi.object({
+  page: Joi.number().integer().min(1).default(1),
+  limit: Joi.number().integer().min(1).max(100).default(20),
+});
+
+/**
  * Params Schemas
  */
 const adminIdParamSchema = Joi.object({
@@ -55,4 +74,6 @@ module.exports = {
   rejectEkycSchema,
   resolveReportSchema,
   adminIdParamSchema,
+  getUsersQuerySchema,
+  getEkycPendingQuerySchema,
 };
