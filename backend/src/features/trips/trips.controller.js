@@ -103,7 +103,7 @@ const transferLeader = run(async (req, res) => sendSuccess(
  * Sinh mã mời mới cho chuyến đi
  */
 const generateInviteCode = run(async (req, res) => sendSuccess(
-  res, await service.generateInviteCode(req.params.tripId, req.user.id, req.body.expiresInHours),
+  res, await service.generateInviteCode(req.params.tripId, req.user.id),
   'Sinh mã mời thành công', 201));
 
 /**

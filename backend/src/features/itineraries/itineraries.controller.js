@@ -77,6 +77,10 @@ const deleteItem = run(async (req, res) => sendSuccess(res,
 const setCompletion = run(async (req, res) => sendSuccess(res,
   await service.setCompletion(req.params.itemId, req.user.id, req.body), 'Cập nhật hoàn thành thành công'));
 
+const reorderItems = run(async (req, res) => sendSuccess(res,
+  await service.reorderItems(req.params.dayId, req.user.id, req.body),
+  'Sắp xếp hoạt động thành công'));
+
 /**
  * [GET] /api/v1/itineraries/items/:itemId/swap-candidates
  * Tìm kiếm các địa điểm thay thế tương đương (Smart Swap candidates)
@@ -117,11 +121,11 @@ const getPublic = run(async (req, res) => sendSuccess(res,
  * Sao chép (clone/fork) lịch trình công khai vào chuyến đi của mình
  */
 const clonePlan = run(async (req, res) => sendSuccess(res,
-  await service.clonePlan(req.params.sourceTripId, req.body.targetTripId, req.user.id),
+  await service.clonePlan(req.params.sourceTripId, req.user.id, req.body),
   'Nhân bản lịch trình thành công', 201));
 
 module.exports = {
   getItineraries, createDay, getDay, updateDay, getItem, addItem, updateItem,
-  deleteItem, setCompletion, getSwapCandidates, applySmartSwap, legacyApplySmartSwap,
+  deleteItem, setCompletion, reorderItems, getSwapCandidates, applySmartSwap, legacyApplySmartSwap,
   listPublic, getPublic, clonePlan,
 };

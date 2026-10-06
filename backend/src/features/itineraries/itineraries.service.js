@@ -4,26 +4,10 @@ const env = require('../../config/env');
 const apiError = require('../../shared/utils/apiError.util');
 const repo = require('./itineraries.repository');
 
-// ============================================================================
-// SERVICE: Itineraries
-// Xử lý logic nghiệp vụ cho lịch trình (ngày, hoạt động, smart swap, clone)
-// ============================================================================
-
-// ----------------------------------------------------------------------------
-// Định dạng dữ liệu trả về cho Client (snake_case -> camelCase)
-// ----------------------------------------------------------------------------
-/**
- * @description Chuyển ngày giờ sang chuỗi ISO để trả về cho Client.
- */
 const asIso = value => value instanceof Date ? value.toISOString() : value;
-/**
- * @description Cắt giờ về dạng HH:mm (bỏ phần giây).
- */
+
 const asTime = value => typeof value === 'string' ? value.slice(0, 5) : value;
 
-/**
- * @description Định dạng một hoạt động trong lịch trình trả về cho Client.
- */
 const formatItem = row => ({
   id: row.id,
   itineraryId: row.itinerary_id,
@@ -37,12 +21,9 @@ const formatItem = row => ({
   estimatedCost: Number(row.estimated_cost || 0),
   isCompleted: Boolean(row.is_completed),
   createdAt: asIso(row.created_at),
-  updatedAt: asIso(row.updated_at),
+  version: String(row.row_version),
 });
 
-/**
- * @description Định dạng một ngày trong lịch trình kèm danh sách hoạt động.
- */
 const formatDay = (row, items = []) => ({
   id: row.id || null,
   tripId: row.trip_id || row.tripId,
@@ -50,13 +31,10 @@ const formatDay = (row, items = []) => ({
   title: row.title,
   tripDate: row.trip_date || row.tripDate,
   materialized: Boolean(row.id),
-  ...(row.id ? { createdAt: asIso(row.created_at), updatedAt: asIso(row.updated_at) } : {}),
+  ...(row.id ? { createdAt: asIso(row.created_at), version: String(row.row_version) } : {}),
   items: items.map(formatItem),
 });
 
-/**
- * @description Định dạng thông tin chuyến đi hiển thị ở đầu trang lịch trình.
- */
 const formatTripHeader = row => ({
   id: row.id,
   name: row.name,
@@ -66,9 +44,6 @@ const formatTripHeader = row => ({
   memberRole: row.member_role,
 });
 
-/**
- * @description Định dạng thông tin tóm tắt của lịch trình công khai.
- */
 const formatPublicSummary = row => ({
   sourceTripId: row.id,
   name: row.name,
@@ -76,14 +51,12 @@ const formatPublicSummary = row => ({
   durationDays: Number(row.duration_days),
   coverImageUrl: row.cover_image_url || null,
   description: row.description || null,
-  isTemplate: Boolean(row.is_template),
+  averageRating: Number(row.average_rating || 0),
+  reviewCount: Number(row.review_count || 0),
   cloneCount: Number(row.clone_count || 0),
   updatedAt: asIso(row.updated_at),
 });
 
-/**
- * @description Định dạng hoạt động của lịch trình công khai (ẩn chi phí và trạng thái).
- */
 const formatPublicItem = row => ({
   customName: row.custom_name,
   customAddress: row.custom_address || null,
@@ -93,32 +66,20 @@ const formatPublicItem = row => ({
   note: row.note || null,
 });
 
-/**
- * @description Định dạng một ngày của lịch trình công khai.
- */
 const formatPublicDay = (row, items = []) => ({
   dayNumber: Number(row.day_number),
   title: row.title,
   items: items.map(formatPublicItem),
 });
 
-/**
- * @description Thực thi logic nghiệp vụ cho lịch trình.
- */
-const sameVersion = (actual, expected) =>
-  new Date(actual).getTime() === new Date(expected).getTime();
-/**
- * @description Thực thi logic nghiệp vụ cho lịch trình.
- */
+const sameVersion = (actual, expected) => String(actual) === String(expected);
+
 const datePlus = (date, days) => {
   const value = new Date(`${date}T00:00:00Z`);
   value.setUTCDate(value.getUTCDate() + days);
   return value.toISOString().slice(0, 10);
 };
 
-/**
- * @description Xử lý thao tác thành viên đối với lịch trình.
- */
 const requireMember = async (client, tripId, userId, leaderOnly = false, lock = false) => {
   const membership = await repo.getMembership(client, tripId, userId, lock);
   if (!membership || membership.membership_status !== 'ACTIVE') {
@@ -130,18 +91,12 @@ const requireMember = async (client, tripId, userId, leaderOnly = false, lock = 
   return membership;
 };
 
-/**
- * @description Thực thi logic nghiệp vụ cho lịch trình.
- */
 const ensureEditable = trip => {
   if (!['UPCOMING', 'ONGOING'].includes(trip.status || trip.trip_status)) {
     throw apiError(409, 'Chuyến đi không còn cho phép chỉnh sửa');
   }
 };
 
-/**
- * @description Thực thi logic nghiệp vụ cho lịch trình.
- */
 const buildInternalItinerary = async (client, tripId, userId) => {
   const trip = await repo.findTripForMember(client, tripId, userId);
   if (!trip) throw apiError(404, 'Không tìm thấy lịch trình');
@@ -169,14 +124,8 @@ const buildInternalItinerary = async (client, tripId, userId) => {
   return { trip: formatTripHeader(trip), days: output };
 };
 
-/**
- * @description Lấy thông tin lịch trình.
- */
 const getItineraries = (tripId, userId) => buildInternalItinerary(db, tripId, userId);
 
-/**
- * @description Tạo mới lịch trình.
- */
 const createDay = (tripId, userId, data) => db.transaction(async client => {
   const trip = await repo.findTrip(client, tripId, true);
   if (!trip) throw apiError(404, 'Không tìm thấy chuyến đi');
@@ -193,9 +142,6 @@ const createDay = (tripId, userId, data) => db.transaction(async client => {
   }
 });
 
-/**
- * @description Lấy thông tin lịch trình.
- */
 const getDay = async (dayId, userId) => {
   const day = await repo.findDay(db, dayId);
   if (!day) throw apiError(404, 'Không tìm thấy ngày lịch trình');
@@ -204,9 +150,6 @@ const getDay = async (dayId, userId) => {
   return formatDay(day, items);
 };
 
-/**
- * @description Cập nhật lịch trình.
- */
 const updateDay = (dayId, userId, data) => db.transaction(async client => {
   const initial = await repo.findDay(client, dayId);
   if (!initial) throw apiError(404, 'Không tìm thấy ngày lịch trình');
@@ -215,16 +158,14 @@ const updateDay = (dayId, userId, data) => db.transaction(async client => {
   const day = await repo.findDay(client, dayId, true);
   if (!day) throw apiError(404, 'Không tìm thấy ngày lịch trình');
   ensureEditable(trip);
-  if (!sameVersion(day.updated_at, data.expectedUpdatedAt)) throw apiError(409, 'Ngày đã được cập nhật');
-  const updated = await repo.updateDay(client, dayId, data.title || `Ngày ${day.day_number}`);
+  if (!sameVersion(day.row_version, data.expectedVersion)) throw apiError(409, 'Ngày đã được cập nhật');
+  const updated = await repo.updateDay(client, dayId,
+    data.title || `Ngày ${day.day_number}`, data.expectedVersion);
   if (!updated) throw apiError(409, 'Ngày đã được cập nhật');
   const items = await repo.findItemsForDays(client, [dayId]);
   return formatDay(updated, items);
 });
 
-/**
- * @description Lấy thông tin lịch trình.
- */
 const getItem = async (itemId, userId) => {
   const item = await repo.findItem(db, itemId);
   if (!item) throw apiError(404, 'Không tìm thấy hoạt động');
@@ -232,9 +173,6 @@ const getItem = async (itemId, userId) => {
   return formatItem(item);
 };
 
-/**
- * @description Thực thi logic nghiệp vụ cho lịch trình.
- */
 const resolveItemInput = async (client, data) => {
   if (!data.placeId) {
     if (!data.category) throw apiError(400, 'Category là bắt buộc cho hoạt động tùy chỉnh');
@@ -245,9 +183,6 @@ const resolveItemInput = async (client, data) => {
   return { ...data, customName: place.name, customAddress: place.address, category: place.category };
 };
 
-/**
- * @description Tạo mới lịch trình.
- */
 const addItem = (dayId, userId, data) => db.transaction(async client => {
   const initial = await repo.findDay(client, dayId);
   if (!initial) throw apiError(404, 'Không tìm thấy ngày lịch trình');
@@ -268,26 +203,26 @@ const addItem = (dayId, userId, data) => db.transaction(async client => {
   }
 });
 
-/**
- * @description Cập nhật lịch trình.
- */
 const updateItem = (itemId, userId, data) => db.transaction(async client => {
   const initial = await repo.findItem(client, itemId);
   if (!initial) throw apiError(404, 'Không tìm thấy hoạt động');
   const trip = await repo.findTrip(client, initial.trip_id, true);
   await requireMember(client, initial.trip_id, userId, true, true);
+  const day = await repo.findDay(client, initial.itinerary_id, true);
+  if (!day) throw apiError(404, 'Không tìm thấy ngày lịch trình');
   const item = await repo.findItem(client, itemId, true);
   if (!item) throw apiError(404, 'Không tìm thấy hoạt động');
   ensureEditable(trip);
-  if (!sameVersion(item.updated_at, data.expectedUpdatedAt)) throw apiError(409, 'Hoạt động đã được cập nhật');
-  const startTime = data.startTime || String(item.start_time).slice(0, 5);
-  const endTime = data.endTime || String(item.end_time).slice(0, 5);
+  if (!sameVersion(item.row_version, data.expectedVersion)) throw apiError(409, 'Hoạt động đã được cập nhật');
+  const startTime = data.startTime || asTime(item.start_time);
+  const endTime = data.endTime || asTime(item.end_time);
+  if (!startTime || !endTime) throw apiError(400, 'Hoạt động cần đủ giờ bắt đầu và kết thúc');
   if (startTime >= endTime) throw apiError(400, 'Thời gian bắt đầu phải trước thời gian kết thúc');
   if (await repo.hasOverlap(client, item.itinerary_id, startTime, endTime, itemId)) {
     throw apiError(409, 'Thời gian hoạt động bị chồng lấn');
   }
   try {
-    const updated = await repo.updateItem(client, itemId, data);
+    const updated = await repo.updateItem(client, itemId, data, data.expectedVersion);
     if (!updated) throw apiError(409, 'Hoạt động đã được cập nhật');
     return formatItem(updated);
   } catch (error) {
@@ -296,45 +231,66 @@ const updateItem = (itemId, userId, data) => db.transaction(async client => {
   }
 });
 
-/**
- * @description Xóa lịch trình.
- */
 const deleteItem = (itemId, userId, data = {}) => db.transaction(async client => {
   const initial = await repo.findItem(client, itemId);
   if (!initial) throw apiError(404, 'Không tìm thấy hoạt động');
   const trip = await repo.findTrip(client, initial.trip_id, true);
   await requireMember(client, initial.trip_id, userId, true, true);
+  const day = await repo.findDay(client, initial.itinerary_id, true);
+  if (!day) throw apiError(404, 'Không tìm thấy ngày lịch trình');
   const item = await repo.findItem(client, itemId, true);
   if (!item) throw apiError(404, 'Không tìm thấy hoạt động');
   ensureEditable(trip);
-  if (data.expectedUpdatedAt && !sameVersion(item.updated_at, data.expectedUpdatedAt)) {
+  if (!sameVersion(item.row_version, data.expectedVersion)) {
     throw apiError(409, 'Hoạt động đã được cập nhật');
   }
-  const deleted = await repo.deleteItem(client, itemId);
+  const deleted = await repo.deleteItem(client, itemId, data.expectedVersion);
   if (!deleted) throw apiError(409, 'Hoạt động đã được cập nhật');
   return formatItem(deleted);
 });
 
-/**
- * @description Thực thi logic nghiệp vụ cho lịch trình.
- */
 const setCompletion = (itemId, userId, data) => db.transaction(async client => {
   const initial = await repo.findItem(client, itemId);
   if (!initial) throw apiError(404, 'Không tìm thấy hoạt động');
   const trip = await repo.findTrip(client, initial.trip_id, true);
   await requireMember(client, initial.trip_id, userId, true, true);
+  const day = await repo.findDay(client, initial.itinerary_id, true);
+  if (!day) throw apiError(404, 'Không tìm thấy ngày lịch trình');
   const item = await repo.findItem(client, itemId, true);
   if (!item) throw apiError(404, 'Không tìm thấy hoạt động');
   ensureEditable(trip);
-  if (!sameVersion(item.updated_at, data.expectedUpdatedAt)) throw apiError(409, 'Hoạt động đã được cập nhật');
-  const updated = await repo.setCompletion(client, itemId, data.isCompleted);
+  if (!sameVersion(item.row_version, data.expectedVersion)) throw apiError(409, 'Hoạt động đã được cập nhật');
+  const updated = await repo.setCompletion(client, itemId, data.isCompleted, data.expectedVersion);
   if (!updated) throw apiError(409, 'Hoạt động đã được cập nhật');
   return formatItem(updated);
 });
 
-/**
- * @description Thực thi logic nghiệp vụ cho lịch trình.
- */
+const reorderItems = (dayId, userId, data) => db.transaction(async client => {
+  const initial = await repo.findDay(client, dayId);
+  if (!initial) throw apiError(404, 'Không tìm thấy ngày lịch trình');
+  const trip = await repo.findTrip(client, initial.trip_id, true);
+  await requireMember(client, initial.trip_id, userId, true, true);
+  const day = await repo.findDay(client, dayId, true);
+  if (!day) throw apiError(404, 'Không tìm thấy ngày lịch trình');
+  ensureEditable(trip);
+  if (!sameVersion(day.row_version, data.expectedVersion)) {
+    throw apiError(409, 'Ngày đã được cập nhật');
+  }
+
+  const currentItems = await repo.findItemsForDays(client, [dayId]);
+  const currentIds = new Set(currentItems.map(item => item.id));
+  if (data.orderedItemIds.length !== currentIds.size
+      || data.orderedItemIds.some(id => !currentIds.has(id))) {
+    throw apiError(400, 'Danh sách sắp xếp phải chứa đúng toàn bộ hoạt động của ngày');
+  }
+
+  await repo.reorderItems(client, dayId, data.orderedItemIds);
+  const updatedDay = await repo.touchDayVersion(client, dayId, data.expectedVersion);
+  if (!updatedDay) throw apiError(409, 'Ngày đã được cập nhật');
+  const updatedItems = await repo.findItemsForDays(client, [dayId]);
+  return formatDay(updatedDay, updatedItems);
+});
+
 const haversine = (a, b) => {
   if (!a || !b || [a.latitude, a.longitude, b.latitude, b.longitude].some(v => v == null)) return null;
   const rad = value => value * Math.PI / 180;
@@ -345,9 +301,6 @@ const haversine = (a, b) => {
   return 6371 * 2 * Math.asin(Math.min(1, Math.sqrt(h)));
 };
 
-/**
- * @description Thực thi logic nghiệp vụ cho lịch trình.
- */
 const routeThrough = (a, middle, c) => {
   let total = 0;
   if (a) total += haversine(a, middle) || 0;
@@ -355,22 +308,16 @@ const routeThrough = (a, middle, c) => {
   return total;
 };
 
-/**
- * @description Thực thi logic nghiệp vụ cho lịch trình.
- */
 const signCandidate = payload => {
   const encoded = Buffer.from(JSON.stringify(payload)).toString('base64url');
-  const signature = crypto.createHmac('sha256', env.smartSwapTokenSecret).update(encoded).digest('base64url');
+  const signature = crypto.createHmac('sha256', env.jwt.secret).update(encoded).digest('base64url');
   return `${encoded}.${signature}`;
 };
 
-/**
- * @description Thực thi logic nghiệp vụ cho lịch trình.
- */
 const verifyCandidate = token => {
   const [encoded, signature, extra] = String(token).split('.');
   if (!encoded || !signature || extra) throw apiError(409, 'Candidate token không hợp lệ');
-  const expected = crypto.createHmac('sha256', env.smartSwapTokenSecret).update(encoded).digest('base64url');
+  const expected = crypto.createHmac('sha256', env.jwt.secret).update(encoded).digest('base64url');
   const actualBuffer = Buffer.from(signature);
   const expectedBuffer = Buffer.from(expected);
   if (actualBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(actualBuffer, expectedBuffer)) {
@@ -383,9 +330,6 @@ const verifyCandidate = token => {
   return payload;
 };
 
-/**
- * @description Thực thi logic nghiệp vụ cho lịch trình.
- */
 const candidateRows = async (client, item, radiusKm, limit, withTokens) => {
   if (!item.place_id || item.place_latitude == null || item.place_longitude == null
       || !item.place_active || !item.place_duration || item.place_duration <= 0) {
@@ -419,7 +363,7 @@ const candidateRows = async (client, item, radiusKm, limit, withTokens) => {
     };
     if (withTokens) result.candidateToken = signCandidate({
       itemId: item.id, candidatePlaceId: place.id,
-      itemUpdatedAt: new Date(item.updated_at).toISOString(), radiusKm,
+      itemVersion: String(item.row_version), radiusKm,
       expiresAt: Date.now() + 5 * 60 * 1000,
     });
     return result;
@@ -428,9 +372,6 @@ const candidateRows = async (client, item, radiusKm, limit, withTokens) => {
   return rows.slice(0, limit);
 };
 
-/**
- * @description Lấy thông tin lịch trình.
- */
 const getSwapCandidates = async (itemId, userId, query) => {
   const item = await repo.findItem(db, itemId);
   if (!item) throw apiError(404, 'Không tìm thấy hoạt động');
@@ -438,37 +379,33 @@ const getSwapCandidates = async (itemId, userId, query) => {
   return candidateRows(db, item, query.radiusKm, query.limit, true);
 };
 
-/**
- * @description Thực thi logic nghiệp vụ cho lịch trình.
- */
 const applySmartSwap = (itemId, userId, data) => db.transaction(async client => {
   const initial = await repo.findItem(client, itemId);
   if (!initial) throw apiError(404, 'Không tìm thấy hoạt động');
   const trip = await repo.findTrip(client, initial.trip_id, true);
   await requireMember(client, initial.trip_id, userId, true, true);
+  const day = await repo.findDay(client, initial.itinerary_id, true);
+  if (!day) throw apiError(404, 'Không tìm thấy ngày lịch trình');
   const item = await repo.findItem(client, itemId, true);
   if (!item) throw apiError(404, 'Không tìm thấy hoạt động');
   ensureEditable(trip);
-  if (!sameVersion(item.updated_at, data.expectedUpdatedAt)) throw apiError(409, 'Hoạt động đã được cập nhật');
+  if (!sameVersion(item.row_version, data.expectedVersion)) throw apiError(409, 'Hoạt động đã được cập nhật');
   const token = verifyCandidate(data.candidateToken);
-  const currentVersion = new Date(item.updated_at).toISOString();
+  const currentVersion = String(item.row_version);
   if (token.itemId !== itemId || token.candidatePlaceId !== data.newPlaceId
-      || token.itemUpdatedAt !== currentVersion) throw apiError(409, 'Candidate token đã cũ');
+      || token.itemVersion !== currentVersion) throw apiError(409, 'Candidate token đã cũ');
   const eligible = await candidateRows(client, item, token.radiusKm, 100, false);
   if (!eligible.some(row => row.placeId === data.newPlaceId)) {
     throw apiError(422, 'Địa điểm không còn đủ điều kiện thay thế');
   }
   const place = await repo.findPlace(client, data.newPlaceId);
-  const updated = await repo.applySmartSwap(client, itemId, place);
+  const updated = await repo.applySmartSwap(client, itemId, place, data.expectedVersion);
   if (!updated) throw apiError(409, 'Hoạt động đã được cập nhật');
   await repo.notifyTripMembers(client, item.trip_id, userId, 'Lịch trình đã thay đổi',
     place.name, { tripId: item.trip_id, itemId, placeId: place.id });
   return formatItem(updated);
 });
 
-/**
- * @description Lấy thông tin lịch trình.
- */
 const listPublic = async query => {
   const result = await repo.listPublicTrips(db, query);
   return {
@@ -478,9 +415,6 @@ const listPublic = async query => {
   };
 };
 
-/**
- * @description Lấy thông tin lịch trình.
- */
 const getPublic = async sourceTripId => {
   const trip = await repo.findPublicTrip(db, sourceTripId);
   if (!trip) throw apiError(404, 'Không tìm thấy lịch trình công khai');
@@ -495,40 +429,31 @@ const getPublic = async sourceTripId => {
     days: days.map(day => formatPublicDay(day, grouped.get(day.id) || [])) };
 };
 
-/**
- * @description Thực thi logic nghiệp vụ cho lịch trình.
- */
-const clonePlan = (sourceTripId, targetTripId, userId) => db.transaction(async client => {
-  if (sourceTripId === targetTripId) throw apiError(400, 'Chuyến nguồn và đích phải khác nhau');
-  const ids = [sourceTripId, targetTripId].sort();
-  const locked = new Map();
-  for (const id of ids) locked.set(id, await repo.findTrip(client, id, true));
-  const source = locked.get(sourceTripId);
-  const target = locked.get(targetTripId);
-  if (!source || source.status === 'CANCELLED' || !(source.privacy_type === 'PUBLIC'
-      || (source.is_template && source.template_status === 'ACTIVE'))) {
-    throw apiError(404, 'Không tìm thấy lịch trình nguồn');
+const clonePlan = (sourceTripId, userId, data) => db.transaction(async client => {
+  const source = await repo.findTrip(client, sourceTripId, true);
+  if (!source || source.status !== 'COMPLETED' || source.privacy_type !== 'PUBLIC') {
+    throw apiError(404, 'Không tìm thấy lịch trình công khai');
   }
-  if (!target) throw apiError(404, 'Không tìm thấy chuyến đi đích');
-  await requireMember(client, targetTripId, userId, true, true);
-  if (target.status !== 'UPCOMING') throw apiError(409, 'Chuyến đi đích phải ở trạng thái UPCOMING');
-  if (Number(source.duration_days) !== Number(target.duration_days)) {
-    throw apiError(409, 'Số ngày của chuyến nguồn và đích không khớp');
-  }
-  if (await repo.targetHasDays(client, targetTripId)) throw apiError(409, 'Chuyến đi đích đã có lịch trình');
   const sourceDays = await repo.findDays(client, sourceTripId);
   if (!sourceDays.length) throw apiError(422, 'Lịch trình nguồn không có ngày để sao chép');
+
+  const durationDays = Number(source.duration_days);
+  const target = await repo.createClonedTrip(client, userId, source, {
+    name: (data.name || `${source.name} (Bản sao)`).slice(0, 255),
+    startDate: data.startDate,
+    endDate: datePlus(data.startDate, durationDays - 1),
+  });
   for (const sourceDay of sourceDays) {
-    const targetDay = await repo.insertClonedDay(client, targetTripId, sourceDay,
-      datePlus(target.start_date, sourceDay.day_number - 1));
+    const targetDay = await repo.insertClonedDay(client, target.id, sourceDay,
+      datePlus(data.startDate, sourceDay.day_number - 1));
     await repo.insertClonedItems(client, sourceDay.id, targetDay.id);
   }
-  await repo.markClone(client, sourceTripId, targetTripId);
-  return buildInternalItinerary(client, targetTripId, userId);
+  await repo.markClone(client, sourceTripId);
+  return buildInternalItinerary(client, target.id, userId);
 });
 
 module.exports = {
   getItineraries, createDay, getDay, updateDay, getItem, addItem, updateItem,
-  deleteItem, setCompletion, getSwapCandidates, applySmartSwap,
+  deleteItem, setCompletion, reorderItems, getSwapCandidates, applySmartSwap,
   listPublic, getPublic, clonePlan,
 };
