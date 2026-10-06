@@ -71,7 +71,7 @@ const updateCompanionPost = async ({
   genderPreference,
   tags,
   status,
-}) => {
+}, client = db) => {
   const values = [];
   const params = [postId];
   if (newCreatorId !== undefined) {
@@ -128,19 +128,19 @@ const updateCompanionPost = async ({
     RETURNING *
   `;
 
-  const { rows } = await db.query(query, params);
+  const { rows } = await client.query(query, params);
   return rows[0] || null;
 };
 
 
-const getCompanionPostById = async (postId) => {
+const getCompanionPostById = async (postId, client = db) => {
   const query = `
     SELECT *
     FROM companion_posts
     WHERE id = $1
   `;
   const params = [postId];
-  const { rows } = await db.query(query, params);
+  const { rows } = await client.query(query, params);
   return rows[0] || null;
 }
 
@@ -251,7 +251,7 @@ const getCompanionFeed = async ({
   return { rows, total };
 };
 
-const deleteCompanionPost = async (postId) => {
+const deleteCompanionPost = async (postId, client = db) => {
   const query = `
     UPDATE companion_posts
     SET status = 'CLOSED', updated_at = NOW()
@@ -259,7 +259,7 @@ const deleteCompanionPost = async (postId) => {
     RETURNING *
   `;
   const params = [postId];
-  const { rows } = await db.query(query, params);
+  const { rows } = await client.query(query, params);
   return rows[0] || null;
 };
 
@@ -338,6 +338,186 @@ const isTripLeader = async (tripId, userId, client = db) => {
   return rows.length > 0;
 };
 
+const isTripMember = async (tripId, userId, client = db) => {
+  const query = `
+    SELECT 1 FROM trip_members
+    WHERE trip_id = $1 AND user_id = $2 AND membership_status = 'ACTIVE'
+    LIMIT 1
+  `;
+  const { rows } = await client.query(query, [tripId, userId]);
+  return rows.length > 0;
+};
+
+const getTripLeader = async (tripId, client = db) => {
+  const query = `
+    SELECT user_id FROM trip_members
+    WHERE trip_id = $1 AND role = 'LEADER' AND membership_status = 'ACTIVE'
+    LIMIT 1
+  `;
+  const { rows } = await client.query(query, [tripId]);
+  return rows[0] || null;
+};
+
+const createJoinRequest = async ({ postId, userId, introduction }, client = db) => {
+  const query = `
+    INSERT INTO companion_requests (post_id, user_id, introduction, status)
+    VALUES ($1, $2, $3, 'PENDING')
+    RETURNING *
+  `;
+  const { rows } = await client.query(query, [postId, userId, introduction || null]);
+  return rows[0];
+};
+
+const getExistingRequest = async (postId, userId, client = db) => {
+  const query = `
+    SELECT * FROM companion_requests
+    WHERE post_id = $1 AND user_id = $2
+    LIMIT 1
+  `;
+  const { rows } = await client.query(query, [postId, userId]);
+  return rows[0] || null;
+};
+
+const getJoinRequestById = async (requestId, client = db, forUpdate = false) => {
+  const query = `
+    SELECT
+      cr.id,
+      cr.post_id,
+      cr.user_id,
+      cr.introduction,
+      cr.status,
+      cr.created_at,
+      cp.trip_id,
+      cp.creator_id AS post_creator_id,
+      cp.target_members_count,
+      cp.current_members_count,
+      cp.status AS post_status,
+      t.name AS trip_name,
+      u.full_name AS requester_name,
+      u.nickname AS requester_nickname,
+      u.avatar_url AS requester_avatar_url,
+      u.phone AS requester_phone,
+      u.is_verified AS requester_is_verified
+    FROM companion_requests cr
+    JOIN companion_posts cp ON cp.id = cr.post_id
+    JOIN trips t ON t.id = cp.trip_id
+    JOIN users u ON u.id = cr.user_id
+    WHERE cr.id = $1
+    LIMIT 1
+    ${forUpdate ? 'FOR UPDATE OF cr' : ''}
+  `;
+  const { rows } = await client.query(query, [requestId]);
+  return rows[0] || null;
+};
+
+const deleteJoinRequest = async (requestId, client = db) => {
+  const query = `
+    DELETE FROM companion_requests
+    WHERE id = $1 AND status = 'PENDING'
+    RETURNING *
+  `;
+  const { rows } = await client.query(query, [requestId]);
+  return rows[0] || null;
+};
+
+const updateJoinRequestStatus = async (requestId, status, client = db) => {
+  const query = `
+    UPDATE companion_requests
+    SET status = $2
+    WHERE id = $1 AND status = 'PENDING'
+    RETURNING *
+  `;
+  const { rows } = await client.query(query, [requestId, status]);
+  return rows[0] || null;
+};
+
+const addTripMember = async (tripId, userId, role = 'MEMBER', client = db) => {
+  const query = `
+    INSERT INTO trip_members (trip_id, user_id, role, membership_status)
+    VALUES ($1, $2, $3, 'ACTIVE')
+    ON CONFLICT (trip_id, user_id) DO UPDATE
+    SET membership_status = 'ACTIVE', role = EXCLUDED.role, joined_at = NOW(), left_at = NULL, removed_at = NULL, removed_by = NULL
+    WHERE trip_members.membership_status <> 'ACTIVE'
+    RETURNING *
+  `;
+  const { rows } = await client.query(query, [tripId, userId, role]);
+  return rows[0];
+};
+
+const getMyReceivedRequests = async ({ userId, limit = 20, offset = 0, status, postId }, client = db) => {
+  const conditions = [
+    `(tm.user_id = $1 AND tm.role = 'LEADER' AND tm.membership_status = 'ACTIVE')`
+  ];
+  const params = [userId];
+
+  if (status) {
+    params.push(status);
+    conditions.push(`cr.status = $${params.length}`);
+  }
+
+  if (postId) {
+    params.push(postId);
+    conditions.push(`cr.post_id = $${params.length}`);
+  }
+
+  const whereClause = conditions.join(' AND ');
+
+  const dataQuery = `
+    SELECT
+      cr.id,
+      cr.post_id,
+      cr.user_id AS requester_id,
+      cr.introduction,
+      cr.status,
+      cr.created_at,
+      cp.title AS post_title,
+      cp.target_members_count,
+      cp.current_members_count,
+      cp.status AS post_status,
+      t.id AS trip_id,
+      t.name AS trip_name,
+      t.destination AS trip_destination,
+      t.start_date AS trip_start_date,
+      t.end_date AS trip_end_date,
+      u.full_name AS requester_name,
+      u.nickname AS requester_nickname,
+      u.avatar_url AS requester_avatar_url,
+      u.phone AS requester_phone,
+      u.is_verified AS requester_is_verified,
+      COALESCE(ROUND(AVG(tr.rating)::NUMERIC, 1), 0)::FLOAT AS requester_trust_score,
+      COUNT(tr.id)::INT AS requester_review_count
+    FROM companion_requests cr
+    JOIN companion_posts cp ON cp.id = cr.post_id
+    JOIN trips t ON t.id = cp.trip_id
+    JOIN trip_members tm ON tm.trip_id = t.id
+    JOIN users u ON u.id = cr.user_id
+    LEFT JOIN trip_reviews tr ON tr.reviewee_id = cr.user_id
+    WHERE ${whereClause}
+    GROUP BY cr.id, cp.id, t.id, u.id
+    ORDER BY cr.created_at DESC
+    LIMIT $${params.length + 1} OFFSET $${params.length + 2}
+  `;
+
+  const countQuery = `
+    SELECT COUNT(DISTINCT cr.id)::int AS total
+    FROM companion_requests cr
+    JOIN companion_posts cp ON cp.id = cr.post_id
+    JOIN trips t ON t.id = cp.trip_id
+    JOIN trip_members tm ON tm.trip_id = t.id
+    WHERE ${whereClause}
+  `;
+
+  const [dataRes, countRes] = await Promise.all([
+    client.query(dataQuery, [...params, limit, offset]),
+    client.query(countQuery, params)
+  ]);
+
+  return {
+    rows: dataRes.rows,
+    total: countRes.rows[0]?.total || 0,
+  };
+};
+
 module.exports = {
     createCompanionPost,
     checkExistsPostByTripId,
@@ -349,5 +529,14 @@ module.exports = {
     getTripById,
     getTripByIdForUpdate,
     getTripMembersCount,
-    isTripLeader
+    isTripLeader,
+    isTripMember,
+    getTripLeader,
+    createJoinRequest,
+    getExistingRequest,
+    getJoinRequestById,
+    deleteJoinRequest,
+    updateJoinRequestStatus,
+    addTripMember,
+    getMyReceivedRequests
 };

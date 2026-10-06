@@ -69,9 +69,57 @@ const postIdParamSchema = Joi.object({
   }),
 });
 
+/**
+ * Gửi yêu cầu xin tham gia chuyến đi
+ */
+const createJoinRequestSchema = Joi.object({
+  postId: Joi.string().guid({ version: ['uuidv4', 'uuidv5'] }).required().messages({
+    'string.guid': 'Mã bài đăng (postId) phải là UUID hợp lệ',
+    'any.required': 'Mã bài đăng (postId) là bắt buộc',
+  }),
+  introduction: Joi.string().trim().max(1000).required().messages({
+    'string.max': 'Lời giới thiệu không được vượt quá 1000 ký tự',
+    'any.required': 'Lời giới thiệu là bắt buộc'
+  }),
+});
+
+/**
+ * Tham số ID của yêu cầu tham gia (requestId)
+ */
+const requestIdParamSchema = Joi.object({
+  requestId: Joi.string().guid({ version: ['uuidv4', 'uuidv5'] }).required().messages({
+    'string.guid': 'Mã yêu cầu (requestId) phải là UUID hợp lệ',
+    'any.required': 'Mã yêu cầu (requestId) là bắt buộc',
+  }),
+});
+
+/**
+ * Trưởng nhóm xét duyệt yêu cầu (Accept hoặc Reject)
+ */
+const reviewJoinRequestSchema = Joi.object({
+  status: Joi.string().valid('ACCEPTED', 'REJECTED').required().messages({
+    'any.only': 'Trạng thái xét duyệt phải là ACCEPTED hoặc REJECTED',
+    'any.required': 'Trạng thái xét duyệt là bắt buộc',
+  }),
+});
+
+/**
+ * Danh sách yêu cầu gửi tới bài đăng của mình (my-requests)
+ */
+const myRequestsQuerySchema = Joi.object({
+  page: Joi.number().integer().min(1).default(1),
+  limit: Joi.number().integer().min(1).max(50).default(20),
+  status: Joi.string().valid('PENDING', 'ACCEPTED', 'REJECTED').optional(),
+  postId: Joi.string().guid({ version: ['uuidv4', 'uuidv5'] }).optional(),
+});
+
 module.exports = {
   companionFeedQuerySchema,
   createCompanionPostSchema,
   updateCompanionPostSchema,
   postIdParamSchema,
+  createJoinRequestSchema,
+  requestIdParamSchema,
+  reviewJoinRequestSchema,
+  myRequestsQuerySchema,
 };
