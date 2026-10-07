@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../features/admin/views/admin_screen.dart';
 import '../features/auth/views/auth_gate.dart';
 import '../features/auth/views/register_screen.dart';
 import '../features/auth/views/terms_screen.dart';
@@ -19,6 +20,7 @@ import '../features/trip/views/trip_form_screen.dart';
 import '../features/trip/views/trip_invitations_screen.dart';
 import '../features/trip/views/trip_list_screen.dart';
 import '../shared/gallery/ui_kit_gallery_screen.dart';
+import '../shared/widgets/feature_placeholder_screen.dart';
 
 // ================================================================================
 // QUẢN LÝ ROUTES TẬP TRUNG
@@ -39,11 +41,17 @@ class AppRoutes {
   static const String uiKit = '/ui-kit';
   static const String places = '/places';
   static const String adminPlaces = '/admin/places';
+  static const String admin = '/admin';
 
   // Companion routes
   static const String companionFeed = '/companions';
+  static const String companions = '/companions';
   static const String companionRequests = '/companions/requests';
   static const String createCompanionPost = '/companions/create';
+
+  // Smart utilities
+  static const String aiPlanner = '/ai-planner';
+  static const String expenses = '/expenses';
 
   // Static routes (không cần truyền arguments)
   static Map<String, WidgetBuilder> get routes => {
@@ -55,6 +63,23 @@ class AppRoutes {
     companionFeed: (context) => const CompanionFeedScreen(),
     companionRequests: (context) => const CompanionRequestsScreen(),
     places: (context) => const PlaceListScreen(),
+    aiPlanner: (context) => const FeaturePlaceholderScreen(
+      title: 'AI Travel Planner',
+      featureName: 'Lên lịch trình thông minh cùng AI',
+      description:
+          'Hệ thống gợi ý lộ trình, dự toán ngân sách và tối ưu điểm đến du lịch cá nhân hóa bằng Google Gemini AI.',
+      owner: 'Nhóm AI',
+      icon: Icons.auto_awesome_rounded,
+    ),
+    expenses: (context) => const FeaturePlaceholderScreen(
+      title: 'Sổ quỹ & Chia tiền',
+      featureName: 'Quản lý chi tiêu & Split Bill',
+      description:
+          'Tự động tối ưu hóa công nợ nhóm (Min Cash Flow) và tạo mã VietQR thanh toán tức thì.',
+      owner: 'Long Nhật',
+      icon: Icons.account_balance_wallet_rounded,
+    ),
+    if (kDebugMode) admin: (context) => const AdminScreen(),
     if (kDebugMode)
       adminPlaces: (context) => const AdminPlaceManagementScreen(),
     if (kDebugMode) uiKit: (context) => const UiKitGalleryScreen(),

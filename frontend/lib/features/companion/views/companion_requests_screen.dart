@@ -60,7 +60,7 @@ class _CompanionRequestsScreenState extends State<CompanionRequestsScreen> {
   Widget build(BuildContext context) {
     final requests = _vm.visibleRequests;
     return Scaffold(
-      backgroundColor: AppColors.surface,
+      backgroundColor: AppColors.background,
       appBar: const AppTopBar(title: 'Yêu cầu tham gia'),
       body: SafeArea(
         child: Center(
@@ -71,43 +71,71 @@ class _CompanionRequestsScreenState extends State<CompanionRequestsScreen> {
             child: Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                  child: TextField(
-                    onChanged: (value) => _vm.filterLocal(query: value),
-                    decoration: const InputDecoration(
-                      hintText: 'Tên người gửi yêu cầu',
-                      prefixIcon: Icon(Icons.search, size: 20),
-                      isDense: true,
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.border),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: .03),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: TextField(
+                      onChanged: (value) => _vm.filterLocal(query: value),
+                      decoration: const InputDecoration(
+                        hintText: 'Tên người gửi yêu cầu',
+                        prefixIcon: Icon(Icons.search, size: 20, color: AppColors.primary),
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        isDense: true,
+                      ),
                     ),
                   ),
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
-                    vertical: 6,
+                    vertical: 4,
                   ),
-                  child: DropdownButton<String>(
-                    value: _vm.selectedPostId,
-                    isExpanded: true,
-                    underline: const SizedBox(),
-                    items: [
-                      const DropdownMenuItem(
-                        value: '',
-                        child: Text('Tất cả chuyến đi'),
-                      ),
-                      for (final post in _posts.entries)
-                        DropdownMenuItem(
-                          value: post.key,
-                          child: Text(
-                            post.value,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: DropdownButton<String>(
+                      value: _vm.selectedPostId,
+                      isExpanded: true,
+                      underline: const SizedBox(),
+                      icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.textSecondary),
+                      items: [
+                        const DropdownMenuItem(
+                          value: '',
+                          child: Text('Tất cả chuyến đi'),
                         ),
-                    ],
-                    onChanged: (value) => _vm.filterLocal(postId: value),
+                        for (final post in _posts.entries)
+                          DropdownMenuItem(
+                            value: post.key,
+                            child: Text(
+                              post.value,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                      ],
+                      onChanged: (value) => _vm.filterLocal(postId: value),
+                    ),
                   ),
                 ),
+                const SizedBox(height: 6),
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -124,6 +152,25 @@ class _CompanionRequestsScreenState extends State<CompanionRequestsScreen> {
                           child: ChoiceChip(
                             label: Text(tab.value),
                             selected: _vm.filterStatus == tab.key,
+                            selectedColor: AppColors.primary,
+                            labelStyle: TextStyle(
+                              color: _vm.filterStatus == tab.key
+                                  ? Colors.white
+                                  : AppColors.textSecondary,
+                              fontWeight: _vm.filterStatus == tab.key
+                                  ? FontWeight.w600
+                                  : FontWeight.w500,
+                              fontSize: 13,
+                            ),
+                            backgroundColor: Colors.white,
+                            side: BorderSide(
+                              color: _vm.filterStatus == tab.key
+                                  ? AppColors.primary
+                                  : AppColors.border,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
                             onSelected: (_) => _vm.setFilter(tab.key),
                           ),
                         ),
@@ -141,16 +188,13 @@ class _CompanionRequestsScreenState extends State<CompanionRequestsScreen> {
                           message: 'Thử thay đổi trạng thái hoặc chuyến đi.',
                         )
                       : RefreshIndicator(
+                          color: AppColors.primary,
                           onRefresh: () => _vm.load(refresh: true),
                           child: ListView.separated(
                             physics: const AlwaysScrollableScrollPhysics(),
-                            padding: const EdgeInsets.only(bottom: 16),
+                            padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
                             itemCount: requests.length,
-                            separatorBuilder: (_, _) => const Divider(
-                              height: 1,
-                              indent: 16,
-                              endIndent: 16,
-                            ),
+                            separatorBuilder: (_, _) => const SizedBox(height: 10),
                             itemBuilder: (context, index) =>
                                 _requestRow(requests[index]),
                           ),
@@ -167,7 +211,19 @@ class _CompanionRequestsScreenState extends State<CompanionRequestsScreen> {
   Widget _requestRow(CompanionRequest request) {
     final user = request.requester;
     final text = Theme.of(context).textTheme;
-    return Padding(
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: .03),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -191,40 +247,74 @@ class _CompanionRequestsScreenState extends State<CompanionRequestsScreen> {
                             user.displayName,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: text.titleSmall,
+                            style: text.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF09143B),
+                            ),
                           ),
                         ),
                         if (user.isVerified) ...[
                           const SizedBox(width: 4),
                           const Icon(
                             Icons.verified_rounded,
-                            size: 14,
+                            size: 15,
                             color: AppColors.primary,
                           ),
                         ],
                       ],
                     ),
-                    Text(
-                      '${user.trustScore.toStringAsFixed(1)} ★ · ${user.reviewCount} đánh giá',
-                      style: text.bodySmall?.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        const Icon(Icons.star_rounded, size: 14, color: AppColors.star),
+                        const SizedBox(width: 2),
+                        Text(
+                          '${user.trustScore.toStringAsFixed(1)} · ${user.reviewCount} đánh giá',
+                          style: text.bodySmall?.copyWith(
+                            color: AppColors.textSecondary,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
-              Text(
-                DateFormat('dd/MM').format(request.createdAt),
-                style: text.labelSmall?.copyWith(color: AppColors.textHint),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.background,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  DateFormat('dd/MM').format(request.createdAt),
+                  style: text.labelSmall?.copyWith(
+                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          Text(
-            request.introduction ?? 'Chưa có lời giới thiệu.',
-            style: text.bodySmall,
-          ),
-          const SizedBox(height: 12),
+          if (request.introduction?.isNotEmpty == true) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFD),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.border.withValues(alpha: .5)),
+              ),
+              child: Text(
+                request.introduction!,
+                style: text.bodySmall?.copyWith(
+                  color: const Color(0xFF2C3E50),
+                  height: 1.35,
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 14),
           if (request.isPending)
             Row(
               children: [
@@ -249,9 +339,15 @@ class _CompanionRequestsScreenState extends State<CompanionRequestsScreen> {
               ],
             )
           else
-            Text(
-              request.isAccepted ? 'Đã chấp nhận' : 'Đã từ chối',
-              style: text.bodySmall?.copyWith(color: AppColors.textSecondary),
+            Row(
+              children: [
+                AppStatusBadge(
+                  label: request.isAccepted ? 'Đã chấp nhận' : 'Đã từ chối',
+                  tone: request.isAccepted
+                      ? AppStatusTone.success
+                      : AppStatusTone.error,
+                ),
+              ],
             ),
         ],
       ),

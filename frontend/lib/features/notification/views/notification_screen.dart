@@ -54,6 +54,10 @@ class NotificationScreen extends StatelessWidget {
     final action = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (context) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -124,7 +128,7 @@ class NotificationScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ColoredBox(
-    color: AppColors.surface,
+    color: AppColors.background,
     child: SafeArea(
       bottom: false,
       child: AnimatedBuilder(
@@ -135,13 +139,16 @@ class NotificationScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 6, 8, 0),
+                padding: const EdgeInsets.fromLTRB(20, 8, 8, 4),
                 child: Row(
                   children: [
                     Expanded(
                       child: Text(
                         'Thông báo',
-                        style: Theme.of(context).textTheme.titleLarge,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF09143B),
+                            ),
                       ),
                     ),
                     IconButton(
@@ -149,13 +156,13 @@ class NotificationScreen extends StatelessWidget {
                       onPressed: viewModel.isLoading || viewModel.isUpdating
                           ? null
                           : () => _actions(context),
-                      icon: const Icon(Icons.more_vert),
+                      icon: const Icon(Icons.more_vert, color: Color(0xFF09143B)),
                     ),
                   ],
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
                 child: Row(
                   children: [
                     Expanded(
@@ -166,7 +173,7 @@ class NotificationScreen extends StatelessWidget {
                         () => viewModel.filter(true),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: _tab(
                         context,
@@ -178,7 +185,6 @@ class NotificationScreen extends StatelessWidget {
                   ],
                 ),
               ),
-              const Divider(height: 1, color: AppColors.divider),
               Expanded(
                 child: viewModel.isLoading
                     ? const Center(child: LoadingIndicator())
@@ -196,163 +202,219 @@ class NotificationScreen extends StatelessWidget {
                         message: 'Những cập nhật mới sẽ xuất hiện tại đây.',
                       )
                     : RefreshIndicator(
+                        color: AppColors.primary,
                         onRefresh: viewModel.load,
                         child: ListView.builder(
                           physics: const AlwaysScrollableScrollPhysics(),
-                          padding: const EdgeInsets.only(bottom: 16),
+                          padding: const EdgeInsets.only(top: 4, bottom: 24),
                           itemCount: items.length,
                           itemBuilder: (context, index) {
                             final item = items[index];
+                            final showDateHeader = index == 0 ||
+                                _day(items[index - 1].createdAt) !=
+                                    _day(item.createdAt);
+
                             return Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                if (index == 0 ||
-                                    _day(items[index - 1].createdAt) !=
-                                        _day(item.createdAt))
+                                if (showDateHeader)
                                   Padding(
                                     padding: const EdgeInsets.fromLTRB(
-                                      16,
+                                      20,
                                       14,
-                                      16,
+                                      20,
                                       8,
                                     ),
                                     child: Text(
                                       _day(item.createdAt),
-                                      style: Theme.of(
-                                        context,
-                                      ).textTheme.titleSmall,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleSmall
+                                          ?.copyWith(
+                                            color: AppColors.textSecondary,
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 13,
+                                          ),
                                     ),
                                   ),
-                                Dismissible(
-                                  key: ValueKey(item.id),
-                                  direction: DismissDirection.endToStart,
-                                  confirmDismiss: (_) async {
-                                    final deleted = await viewModel.delete(
-                                      item,
-                                    );
-                                    if (!deleted && context.mounted) {
-                                      _showError(context);
-                                    }
-                                    return deleted;
-                                  },
-                                  background: Container(
-                                    color: AppColors.error,
-                                    alignment: Alignment.centerRight,
-                                    padding: const EdgeInsets.only(right: 20),
-                                    child: const Icon(
-                                      Icons.delete_outline,
-                                      color: Colors.white,
-                                    ),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 4,
                                   ),
-                                  child: InkWell(
-                                    onTap: () => _open(context, item),
-                                    onLongPress: () async {
-                                      final confirmed =
-                                          await AppConfirmDialog.show(
-                                            context,
-                                            title: 'Xoá thông báo?',
-                                            message: item.title,
-                                            confirmLabel: 'Xoá',
-                                          );
-                                      if (context.mounted && confirmed) {
-                                        if (!await viewModel.delete(item) &&
-                                            context.mounted) {
-                                          _showError(context);
-                                        }
+                                  child: Dismissible(
+                                    key: ValueKey(item.id),
+                                    direction: DismissDirection.endToStart,
+                                    confirmDismiss: (_) async {
+                                      final deleted = await viewModel.delete(
+                                        item,
+                                      );
+                                      if (!deleted && context.mounted) {
+                                        _showError(context);
                                       }
+                                      return deleted;
                                     },
-                                    child: Container(
-                                      color: item.isRead
-                                          ? AppColors.surface
-                                          : AppColors.primarySurface.withValues(
-                                              alpha: .3,
+                                    background: Container(
+                                      decoration: BoxDecoration(
+                                        color: AppColors.error,
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      alignment: Alignment.centerRight,
+                                      padding: const EdgeInsets.only(right: 20),
+                                      child: const Icon(
+                                        Icons.delete_outline,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                    child: Material(
+                                      color: Colors.transparent,
+                                      child: InkWell(
+                                        borderRadius: BorderRadius.circular(16),
+                                        onTap: () => _open(context, item),
+                                        onLongPress: () async {
+                                          final confirmed =
+                                              await AppConfirmDialog.show(
+                                                context,
+                                                title: 'Xoá thông báo?',
+                                                message: item.title,
+                                                confirmLabel: 'Xoá',
+                                              );
+                                          if (context.mounted && confirmed) {
+                                            if (!await viewModel.delete(item) &&
+                                                context.mounted) {
+                                              _showError(context);
+                                            }
+                                          }
+                                        },
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            color: item.isRead
+                                                ? Colors.white
+                                                : const Color(0xFFF2F9FF),
+                                            borderRadius:
+                                                BorderRadius.circular(16),
+                                            border: Border.all(
+                                              color: item.isRead
+                                                  ? AppColors.border
+                                                  : AppColors.primary
+                                                      .withValues(alpha: .3),
+                                              width: 1,
                                             ),
-                                      padding: const EdgeInsets.all(16),
-                                      child: Row(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          CircleAvatar(
-                                            radius: 18,
-                                            backgroundColor:
-                                                AppColors.inputSurface,
-                                            child: Icon(
-                                              item.type == 'REQUEST'
-                                                  ? Icons.group_add_outlined
-                                                  : item.type == 'SYSTEM'
-                                                  ? Icons.verified_outlined
-                                                  : Icons.luggage_outlined,
-                                              size: 20,
-                                              color: AppColors.textSecondary,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  item.title,
-                                                  style: Theme.of(context)
-                                                      .textTheme
-                                                      .titleSmall
-                                                      ?.copyWith(
-                                                        fontWeight: item.isRead
-                                                            ? FontWeight.w500
-                                                            : FontWeight.w600,
-                                                      ),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: Colors.black.withValues(
+                                                  alpha: item.isRead
+                                                      ? .02
+                                                      : .04,
                                                 ),
-                                                const SizedBox(height: 4),
-                                                Text(
-                                                  item.message,
-                                                  maxLines: 2,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                  style: Theme.of(context)
-                                                      .textTheme
-                                                      .bodySmall
-                                                      ?.copyWith(
-                                                        color: AppColors
-                                                            .textSecondary,
-                                                      ),
-                                                ),
-                                                const SizedBox(height: 6),
-                                                Text(
-                                                  DateFormat(
-                                                    'HH:mm · dd/MM',
-                                                  ).format(item.createdAt),
-                                                  style: Theme.of(context)
-                                                      .textTheme
-                                                      .labelSmall
-                                                      ?.copyWith(
-                                                        color:
-                                                            AppColors.textHint,
-                                                      ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                          if (!item.isRead)
-                                            const Padding(
-                                              padding: EdgeInsets.only(
-                                                left: 8,
-                                                top: 5,
+                                                blurRadius: 8,
+                                                offset: const Offset(0, 2),
                                               ),
-                                              child: Icon(
-                                                Icons.circle,
-                                                size: 7,
-                                                color: AppColors.primary,
+                                            ],
+                                          ),
+                                          padding: const EdgeInsets.all(14),
+                                          child: Row(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Container(
+                                                width: 40,
+                                                height: 40,
+                                                decoration: BoxDecoration(
+                                                  color: item.type == 'REQUEST'
+                                                      ? const Color(0xFFE0F2FE)
+                                                      : item.type == 'SYSTEM'
+                                                          ? const Color(0xFFECFDF5)
+                                                          : const Color(0xFFFEF3C7),
+                                                  shape: BoxShape.circle,
+                                                ),
+                                                child: Icon(
+                                                  item.type == 'REQUEST'
+                                                      ? Icons.group_add_rounded
+                                                      : item.type == 'SYSTEM'
+                                                          ? Icons.verified_rounded
+                                                          : Icons.luggage_rounded,
+                                                  size: 20,
+                                                  color: item.type == 'REQUEST'
+                                                      ? const Color(0xFF0284C7)
+                                                      : item.type == 'SYSTEM'
+                                                          ? const Color(0xFF059669)
+                                                          : const Color(0xFFD97706),
+                                                ),
                                               ),
-                                            ),
-                                        ],
+                                              const SizedBox(width: 12),
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      item.title,
+                                                      style: Theme.of(context)
+                                                          .textTheme
+                                                          .titleSmall
+                                                          ?.copyWith(
+                                                            fontWeight: item.isRead
+                                                                ? FontWeight.w500
+                                                                : FontWeight.w700,
+                                                            color: const Color(
+                                                              0xFF09143B,
+                                                            ),
+                                                          ),
+                                                    ),
+                                                    const SizedBox(height: 4),
+                                                    Text(
+                                                      item.message,
+                                                      maxLines: 2,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                      style: Theme.of(context)
+                                                          .textTheme
+                                                          .bodySmall
+                                                          ?.copyWith(
+                                                            color: AppColors
+                                                                .textSecondary,
+                                                            height: 1.35,
+                                                          ),
+                                                    ),
+                                                    const SizedBox(height: 6),
+                                                    Text(
+                                                      DateFormat(
+                                                        'HH:mm · dd/MM',
+                                                      ).format(item.createdAt),
+                                                      style: Theme.of(context)
+                                                          .textTheme
+                                                          .labelSmall
+                                                          ?.copyWith(
+                                                            color: AppColors
+                                                                .textHint,
+                                                          ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                              if (!item.isRead)
+                                                Padding(
+                                                  padding:
+                                                      const EdgeInsets.only(
+                                                    left: 8,
+                                                    top: 4,
+                                                  ),
+                                                  child: Container(
+                                                    width: 8,
+                                                    height: 8,
+                                                    decoration: const BoxDecoration(
+                                                      color: AppColors.primary,
+                                                      shape: BoxShape.circle,
+                                                    ),
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   ),
-                                ),
-                                const Divider(
-                                  height: 1,
-                                  color: AppColors.divider,
                                 ),
                               ],
                             );
@@ -366,21 +428,44 @@ class NotificationScreen extends StatelessWidget {
       ),
     ),
   );
+
   Widget _tab(
     BuildContext context,
     String label,
     bool selected,
     VoidCallback onTap,
-  ) => TextButton(
-    onPressed: onTap,
-    style: TextButton.styleFrom(
-      backgroundColor: selected
-          ? AppColors.primarySurface
-          : AppColors.inputSurface,
-      foregroundColor: selected ? AppColors.primary : AppColors.textSecondary,
-      minimumSize: const Size(0, 44),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+  ) => InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(12),
+    child: AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      alignment: Alignment.center,
+      height: 42,
+      decoration: BoxDecoration(
+        color: selected ? AppColors.primary : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: selected
+              ? AppColors.primary
+              : AppColors.border,
+        ),
+        boxShadow: [
+          if (selected)
+            BoxShadow(
+              color: AppColors.primary.withValues(alpha: .25),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+        ],
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: selected ? Colors.white : AppColors.textSecondary,
+          fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+          fontSize: 14,
+        ),
+      ),
     ),
-    child: Text(label),
   );
 }

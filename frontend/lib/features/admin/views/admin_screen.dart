@@ -168,39 +168,52 @@ class _AdminScreenState extends State<AdminScreen> {
       context,
       MaterialPageRoute(
         builder: (profileContext) => Scaffold(
-          backgroundColor: AppColors.surface,
+          backgroundColor: AppColors.background,
           appBar: const AppTopBar(title: 'Chi tiết hồ sơ'),
-          bottomNavigationBar: SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: CustomButton(
-                      text: 'Từ chối',
-                      variant: AppButtonVariant.secondary,
-                      onPressed: () async {
-                        if (await _review(user, false) &&
-                            profileContext.mounted) {
-                          Navigator.pop(profileContext);
-                        }
-                      },
+          bottomNavigationBar: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border(top: BorderSide(color: AppColors.border)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: .04),
+                  offset: const Offset(0, -3),
+                  blurRadius: 10,
+                ),
+              ],
+            ),
+            child: SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: CustomButton(
+                        text: 'Từ chối',
+                        variant: AppButtonVariant.secondary,
+                        onPressed: () async {
+                          if (await _review(user, false) &&
+                              profileContext.mounted) {
+                            Navigator.pop(profileContext);
+                          }
+                        },
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: CustomButton(
-                      text: 'Duyệt hồ sơ',
-                      onPressed: () async {
-                        if (await _review(user, true) &&
-                            profileContext.mounted) {
-                          Navigator.pop(profileContext);
-                        }
-                      },
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: CustomButton(
+                        text: 'Duyệt hồ sơ',
+                        onPressed: () async {
+                          if (await _review(user, true) &&
+                              profileContext.mounted) {
+                            Navigator.pop(profileContext);
+                          }
+                        },
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -212,71 +225,142 @@ class _AdminScreenState extends State<AdminScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: AvatarPlaceholder(name: user.name, radius: 26),
-                    title: Text(
-                      user.name,
-                      style: Theme.of(context).textTheme.titleMedium,
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.border),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: .03),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
-                    subtitle: Text(user.email),
-                  ),
-                  const SizedBox(height: 8),
-                  const AppStatusBadge(
-                    label: 'Chờ duyệt',
-                    tone: AppStatusTone.warning,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Nộp hồ sơ: ${(user.submittedAt == null ? 'Chưa có thời gian' : DateFormat('dd/MM/yyyy · HH:mm').format(user.submittedAt!))}',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  for (final label in [
-                    'CCCD mặt trước',
-                    'CCCD mặt sau',
-                    'Ảnh chân dung',
-                  ]) ...[
-                    Text(label, style: Theme.of(context).textTheme.titleSmall),
-                    const SizedBox(height: 8),
-                    InkWell(
-                      onTap: () => showDialog<void>(
-                        context: profileContext,
-                        builder: (context) => AlertDialog(
-                          title: Text(label),
-                          content: SizedBox(
-                            height: 300,
-                            width: double.maxFinite,
-                            child: InteractiveViewer(
-                              child: _document(user.document(label)),
-                            ),
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              child: const Text('Đóng'),
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            AvatarPlaceholder(name: user.name, radius: 26),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    user.name,
+                                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                          fontWeight: FontWeight.w700,
+                                          color: const Color(0xFF09143B),
+                                        ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    user.email,
+                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                          color: AppColors.textSecondary,
+                                        ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
                         ),
-                      ),
-                      child: Container(
-                        height: label == 'Ảnh chân dung' ? 110 : 140,
-                        decoration: BoxDecoration(
-                          color: AppColors.inputSurface,
-                          border: Border.all(color: AppColors.border),
-                          borderRadius: BorderRadius.circular(10),
+                        const SizedBox(height: 8),
+                        const AppStatusBadge(
+                          label: 'Chờ duyệt',
+                          tone: AppStatusTone.warning,
                         ),
-                        child: _document(user.document(label)),
-                      ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Nộp hồ sơ: ${(user.submittedAt == null ? 'Chưa có thời gian' : DateFormat('dd/MM/yyyy · HH:mm').format(user.submittedAt!))}',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: AppColors.textSecondary,
+                              ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 16),
-                  ],
-                  Text(
-                    'Chạm ảnh để phóng to',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.textSecondary,
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.border),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: .03),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        for (final label in [
+                          'CCCD mặt trước',
+                          'CCCD mặt sau',
+                          'Ảnh chân dung',
+                        ]) ...[
+                          Text(
+                            label,
+                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: const Color(0xFF09143B),
+                                ),
+                          ),
+                          const SizedBox(height: 8),
+                          InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () => showDialog<void>(
+                              context: profileContext,
+                              builder: (context) => AlertDialog(
+                                title: Text(label),
+                                content: SizedBox(
+                                  height: 300,
+                                  width: double.maxFinite,
+                                  child: InteractiveViewer(
+                                    child: _document(user.document(label)),
+                                  ),
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context),
+                                    child: const Text('Đóng'),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            child: Container(
+                              height: label == 'Ảnh chân dung' ? 120 : 150,
+                              decoration: BoxDecoration(
+                                color: AppColors.inputSurface,
+                                border: Border.all(color: AppColors.border),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: _document(user.document(label)),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                        Center(
+                          child: Text(
+                            'Chạm ảnh để phóng to',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: AppColors.textSecondary,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -321,7 +405,7 @@ class _AdminScreenState extends State<AdminScreen> {
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: _vm,
     builder: (context, _) => Scaffold(
-      backgroundColor: AppColors.surface,
+      backgroundColor: AppColors.background,
       appBar: AppTopBar(
         title: _sectionTitle,
         showBack: false,
@@ -357,16 +441,32 @@ class _AdminScreenState extends State<AdminScreen> {
       ),
     ),
   );
+
   Widget _pendingList() => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
       Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-        child: Text(
-          '${_vm.pending.length} hồ sơ cần xem xét',
-          style: Theme.of(
-            context,
-          ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: AppColors.primarySurface,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppColors.primaryBorder),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.info_outline, size: 18, color: AppColors.primary),
+              const SizedBox(width: 8),
+              Text(
+                '${_vm.pending.length} hồ sơ cần xem xét',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.primaryDark,
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+            ],
+          ),
         ),
       ),
       Expanded(
@@ -378,61 +478,112 @@ class _AdminScreenState extends State<AdminScreen> {
                 title: 'Đã xử lý hết hồ sơ',
                 message: 'Hồ sơ mới sẽ xuất hiện ở đây.',
               )
-            : ListView.separated(
-                physics: const AlwaysScrollableScrollPhysics(),
-                itemCount: _vm.pending.length,
-                separatorBuilder: (_, _) =>
-                    const Divider(height: 1, indent: 16, endIndent: 16),
-                itemBuilder: (context, index) {
-                  final user = _vm.pending[index];
-                  return ListTile(
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 10,
-                    ),
-                    leading: AvatarPlaceholder(name: user.name, radius: 22),
-                    title: Text(
-                      user.name,
-                      style: Theme.of(context).textTheme.titleSmall,
-                    ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          user.email,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+            : RefreshIndicator(
+                color: AppColors.primary,
+                onRefresh: _vm.load,
+                child: ListView.separated(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                  itemCount: _vm.pending.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 8),
+                  itemBuilder: (context, index) {
+                    final user = _vm.pending[index];
+                    return Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: .03),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Material(
+                        color: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          side: const BorderSide(color: AppColors.border),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Nộp ${(user.submittedAt == null ? 'Chưa có thời gian' : DateFormat('dd/MM · HH:mm').format(user.submittedAt!))}',
-                          style: Theme.of(context).textTheme.labelSmall,
+                        child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
                         ),
-                      ],
+                        leading: AvatarPlaceholder(name: user.name, radius: 22),
+                        title: Text(
+                          user.name,
+                          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: const Color(0xFF09143B),
+                              ),
+                        ),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 2),
+                            Text(
+                              user.email,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: AppColors.textSecondary,
+                                  ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Nộp ${(user.submittedAt == null ? 'Chưa có thời gian' : DateFormat('dd/MM · HH:mm').format(user.submittedAt!))}',
+                              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                    color: AppColors.textHint,
+                                  ),
+                            ),
+                          ],
+                        ),
+                        trailing: const Icon(Icons.chevron_right, color: AppColors.textHint),
+                        onTap: () => _openProfile(user),
+                      ),
                     ),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => _openProfile(user),
                   );
-                },
+                  },
+                ),
               ),
       ),
     ],
   );
+
   Widget _userList() => Column(
     children: [
       Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-        child: TextField(
-          onChanged: (value) => _vm.filter(query: value),
-          decoration: const InputDecoration(
-            prefixIcon: Icon(Icons.search, size: 20),
-            hintText: 'Tên hoặc email',
-            isDense: true,
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.border),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: .03),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: TextField(
+            onChanged: (value) => _vm.filter(query: value),
+            decoration: const InputDecoration(
+              prefixIcon: Icon(Icons.search, size: 20, color: AppColors.primary),
+              hintText: 'Tên hoặc email',
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              isDense: true,
+            ),
           ),
         ),
       ),
       Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
         child: Wrap(
           spacing: 8,
           runSpacing: 6,
@@ -445,6 +596,25 @@ class _AdminScreenState extends State<AdminScreen> {
               ChoiceChip(
                 label: Text(item.value),
                 selected: _vm.status == item.key,
+                selectedColor: AppColors.primary,
+                labelStyle: TextStyle(
+                  color: _vm.status == item.key
+                      ? Colors.white
+                      : AppColors.textSecondary,
+                  fontWeight: _vm.status == item.key
+                      ? FontWeight.w600
+                      : FontWeight.w500,
+                  fontSize: 13,
+                ),
+                backgroundColor: Colors.white,
+                side: BorderSide(
+                  color: _vm.status == item.key
+                      ? AppColors.primary
+                      : AppColors.border,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
                 onSelected: (_) => _vm.filter(userStatus: item.key),
               ),
           ],
@@ -459,71 +629,104 @@ class _AdminScreenState extends State<AdminScreen> {
                 title: 'Không tìm thấy tài khoản',
                 message: 'Thử tên khác hoặc bỏ bộ lọc.',
               )
-            : ListView.separated(
-                physics: const AlwaysScrollableScrollPhysics(),
-                itemCount: _vm.filteredUsers.length,
-                separatorBuilder: (_, _) =>
-                    const Divider(height: 1, indent: 16, endIndent: 16),
-                itemBuilder: (context, index) {
-                  final user = _vm.filteredUsers[index];
-                  return ListTile(
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 6,
-                    ),
-                    leading: AvatarPlaceholder(name: user.name, radius: 20),
-                    title: Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            user.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.titleSmall,
-                          ),
-                        ),
-                        if (user.verification == 'VERIFIED') ...[
-                          const SizedBox(width: 4),
-                          const Icon(
-                            Icons.verified_rounded,
-                            size: 14,
-                            color: AppColors.primary,
+            : RefreshIndicator(
+                color: AppColors.primary,
+                onRefresh: _vm.load,
+                child: ListView.separated(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                  itemCount: _vm.filteredUsers.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 8),
+                  itemBuilder: (context, index) {
+                    final user = _vm.filteredUsers[index];
+                    return Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: .03),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
                           ),
                         ],
-                      ],
-                    ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          user.email,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                      ),
+                      child: Material(
+                        color: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          side: const BorderSide(color: AppColors.border),
                         ),
-                        Text(
-                          user.role == 'ADMIN'
-                              ? 'Quản trị viên'
-                              : user.status == 'BANNED'
-                              ? 'Đã khóa'
-                              : 'Hoạt động',
-                          style: Theme.of(context).textTheme.labelSmall
-                              ?.copyWith(
-                                color: user.status == 'BANNED'
-                                    ? AppColors.error
-                                    : AppColors.textSecondary,
+                        child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 6,
+                        ),
+                        leading: AvatarPlaceholder(name: user.name, radius: 20),
+                        title: Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                user.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                      color: const Color(0xFF09143B),
+                                    ),
                               ),
+                            ),
+                            if (user.verification == 'VERIFIED') ...[
+                              const SizedBox(width: 4),
+                              const Icon(
+                                Icons.verified_rounded,
+                                size: 14,
+                                color: AppColors.primary,
+                              ),
+                            ],
+                          ],
                         ),
-                      ],
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              user.email,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: AppColors.textSecondary,
+                                  ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              user.role == 'ADMIN'
+                                  ? 'Quản trị viên'
+                                  : user.status == 'BANNED'
+                                  ? 'Đã khóa'
+                                  : 'Hoạt động',
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    color: user.status == 'BANNED'
+                                        ? AppColors.error
+                                        : user.role == 'ADMIN'
+                                        ? AppColors.primaryDark
+                                        : AppColors.success,
+                                  ),
+                            ),
+                          ],
+                        ),
+                        trailing: user.role == 'ADMIN'
+                            ? null
+                            : IconButton(
+                                tooltip: 'Thao tác tài khoản',
+                                icon: const Icon(Icons.more_vert),
+                                onPressed: () => _userActions(user),
+                              ),
+                      ),
                     ),
-                    trailing: user.role == 'ADMIN'
-                        ? null
-                        : IconButton(
-                            tooltip: 'Thao tác tài khoản',
-                            icon: const Icon(Icons.more_vert),
-                            onPressed: () => _userActions(user),
-                          ),
                   );
-                },
+                  },
+                ),
               ),
       ),
     ],
