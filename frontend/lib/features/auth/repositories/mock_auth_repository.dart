@@ -1,4 +1,5 @@
 import '../models/user_model.dart';
+import '../../../core/network/api_client.dart';
 import 'auth_repository.dart';
 
 // ================================================================================
@@ -14,30 +15,78 @@ import 'auth_repository.dart';
 // ================================================================================
 
 class MockAuthRepository implements AuthRepository {
+  /// 1. Tài khoản Quản trị viên (Admin)
+  static final adminUser = UserModel(
+    id: 'usr-admin-001',
+    email: 'admin@feelingtrip.com',
+    fullName: 'Quản Trị Viên (Admin)',
+    phone: '0988888888',
+    avatarUrl:
+        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+    role: 'ADMIN',
+    isVerified: true,
+    verificationStatus: 'VERIFIED',
+  );
+
+  /// 2. Tài khoản User ĐÃ eKYC (Có tích xanh)
+  static final verifiedUser = UserModel(
+    id: 'usr-verified-002',
+    email: 'user.ekyc@feelingtrip.com',
+    fullName: 'Lê Hoàng Long (Đã eKYC)',
+    phone: '0901234567',
+    avatarUrl:
+        'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
+    role: 'USER',
+    isVerified: true,
+    verificationStatus: 'VERIFIED',
+  );
+
+  /// 3. Tài khoản User CHƯA eKYC
+  static final unverifiedUser = UserModel(
+    id: 'usr-unverified-003',
+    email: 'user.noekyc@feelingtrip.com',
+    fullName: 'Phạm Thu Hà (Chưa eKYC)',
+    phone: '0912345678',
+    avatarUrl:
+        'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150',
+    role: 'USER',
+    isVerified: false,
+    verificationStatus: 'UNVERIFIED',
+  );
+
   @override
   Future<({UserModel user, String token})> login(
     String email,
     String password,
   ) async {
-    // Giả lập thời gian chờ API (1 giây)
-    await Future.delayed(const Duration(seconds: 1));
+    // Giả lập thời gian chờ API (0.5 giây)
+    await Future.delayed(const Duration(milliseconds: 500));
 
-    // Giả lập check thông tin
-    if (email == 'error@test.com') {
-      throw Exception('Email hoặc mật khẩu không đúng');
+    final normalizedEmail = email.trim().toLowerCase();
+
+    if (normalizedEmail == 'user.banned@feelingtrip.com') {
+      throw ApiException(
+        statusCode: 403,
+        message: 'Tài khoản đã bị khóa',
+        code: 'ACCOUNT_BANNED',
+      );
     }
 
-    // Trả về data giả
-    return (
-      user: UserModel(
-        id: '1',
-        email: email,
-        fullName: 'Nguyễn Văn Test',
-        phone: '0901234567',
-        role: 'USER',
-      ),
-      token: 'mock_jwt_token_abc123',
-    );
+    UserModel selectedUser;
+
+    if (normalizedEmail == 'admin@feelingtrip.com') {
+      selectedUser = adminUser;
+    } else if (normalizedEmail == 'user.ekyc@feelingtrip.com') {
+      selectedUser = verifiedUser;
+    } else if (normalizedEmail == 'user.noekyc@feelingtrip.com') {
+      selectedUser = unverifiedUser;
+    } else {
+      throw Exception(
+        'Email hoặc mật khẩu không đúng. Vui lòng chọn 1 trong 3 tài khoản mẫu.',
+      );
+    }
+
+    return (user: selectedUser, token: 'mock_jwt_token_${selectedUser.id}');
   }
 
   @override

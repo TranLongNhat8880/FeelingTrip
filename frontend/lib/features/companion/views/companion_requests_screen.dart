@@ -1,0 +1,260 @@
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_sizes.dart';
+import '../../../shared/ui_kit.dart';
+import '../models/companion_request_model.dart';
+import '../viewmodels/companion_requests_viewmodel.dart';
+
+class CompanionRequestsScreen extends StatefulWidget {
+  const CompanionRequestsScreen({super.key});
+  @override
+  State<CompanionRequestsScreen> createState() =>
+      _CompanionRequestsScreenState();
+}
+
+class _CompanionRequestsScreenState extends State<CompanionRequestsScreen> {
+  final _vm = CompanionRequestsViewModel();
+  final Map<String, String> _posts = {};
+  @override
+  void initState() {
+    super.initState();
+    _vm.addListener(_onChanged);
+    _vm.load();
+  }
+
+  @override
+  void dispose() {
+    _vm.removeListener(_onChanged);
+    _vm.dispose();
+    super.dispose();
+  }
+
+  void _onChanged() {
+    if (!mounted) return;
+    setState(() {
+      for (final request in _vm.requests) {
+        _posts[request.postId] = request.tripName ?? 'Chuyến đi';
+      }
+    });
+    final message = _vm.successMessage ?? _vm.errorMessage;
+    if (message != null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+      _vm.clearMessages();
+    }
+  }
+
+  Future<void> _review(CompanionRequest request, String status) async {
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: status == 'ACCEPTED' ? 'Chấp nhận yêu cầu?' : 'Từ chối yêu cầu?',
+      message: request.requester.displayName,
+      confirmLabel: status == 'ACCEPTED' ? 'Chấp nhận' : 'Từ chối',
+    );
+    if (mounted && confirmed) await _vm.reviewRequest(request.id, status);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final requests = _vm.visibleRequests;
+    return Scaffold(
+      backgroundColor: AppColors.surface,
+      appBar: const AppTopBar(title: 'Yêu cầu tham gia'),
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: AppSizes.documentMaxWidth,
+            ),
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  child: TextField(
+                    onChanged: (value) => _vm.filterLocal(query: value),
+                    decoration: const InputDecoration(
+                      hintText: 'Tên người gửi yêu cầu',
+                      prefixIcon: Icon(Icons.search, size: 20),
+                      isDense: true,
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 6,
+                  ),
+                  child: DropdownButton<String>(
+                    value: _vm.selectedPostId,
+                    isExpanded: true,
+                    underline: const SizedBox(),
+                    items: [
+                      const DropdownMenuItem(
+                        value: '',
+                        child: Text('Tất cả chuyến đi'),
+                      ),
+                      for (final post in _posts.entries)
+                        DropdownMenuItem(
+                          value: post.key,
+                          child: Text(
+                            post.value,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                    ],
+                    onChanged: (value) => _vm.filterLocal(postId: value),
+                  ),
+                ),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: [
+                      for (final tab in const {
+                        'PENDING': 'Chờ duyệt',
+                        'ACCEPTED': 'Đã duyệt',
+                        'REJECTED': 'Từ chối',
+                        '': 'Tất cả',
+                      }.entries)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: ChoiceChip(
+                            label: Text(tab.value),
+                            selected: _vm.filterStatus == tab.key,
+                            onSelected: (_) => _vm.setFilter(tab.key),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: _vm.isLoading
+                      ? const Center(child: LoadingIndicator())
+                      : requests.isEmpty
+                      ? const EmptyStateWidget(
+                          icon: Icons.inbox_outlined,
+                          title: 'Chưa có yêu cầu nào',
+                          message: 'Thử thay đổi trạng thái hoặc chuyến đi.',
+                        )
+                      : RefreshIndicator(
+                          onRefresh: () => _vm.load(refresh: true),
+                          child: ListView.separated(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: const EdgeInsets.only(bottom: 16),
+                            itemCount: requests.length,
+                            separatorBuilder: (_, _) => const Divider(
+                              height: 1,
+                              indent: 16,
+                              endIndent: 16,
+                            ),
+                            itemBuilder: (context, index) =>
+                                _requestRow(requests[index]),
+                          ),
+                        ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _requestRow(CompanionRequest request) {
+    final user = request.requester;
+    final text = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              AvatarPlaceholder(
+                name: user.displayName,
+                imageUrl: user.avatarUrl,
+                radius: 22,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            user.displayName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: text.titleSmall,
+                          ),
+                        ),
+                        if (user.isVerified) ...[
+                          const SizedBox(width: 4),
+                          const Icon(
+                            Icons.verified_rounded,
+                            size: 14,
+                            color: AppColors.primary,
+                          ),
+                        ],
+                      ],
+                    ),
+                    Text(
+                      '${user.trustScore.toStringAsFixed(1)} ★ · ${user.reviewCount} đánh giá',
+                      style: text.bodySmall?.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                DateFormat('dd/MM').format(request.createdAt),
+                style: text.labelSmall?.copyWith(color: AppColors.textHint),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            request.introduction ?? 'Chưa có lời giới thiệu.',
+            style: text.bodySmall,
+          ),
+          const SizedBox(height: 12),
+          if (request.isPending)
+            Row(
+              children: [
+                Expanded(
+                  child: CustomButton(
+                    text: 'Từ chối',
+                    variant: AppButtonVariant.secondary,
+                    onPressed: _vm.isReviewing
+                        ? null
+                        : () => _review(request, 'REJECTED'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: CustomButton(
+                    text: 'Chấp nhận',
+                    onPressed: _vm.isReviewing
+                        ? null
+                        : () => _review(request, 'ACCEPTED'),
+                  ),
+                ),
+              ],
+            )
+          else
+            Text(
+              request.isAccepted ? 'Đã chấp nhận' : 'Đã từ chối',
+              style: text.bodySmall?.copyWith(color: AppColors.textSecondary),
+            ),
+        ],
+      ),
+    );
+  }
+}

@@ -207,7 +207,9 @@ class _LoginScreenState extends State<LoginScreen> {
             // or continue with Divider
             const Row(
               children: [
-                Expanded(child: Divider(color: Color(0xFFE2E8F0), thickness: 1)),
+                Expanded(
+                  child: Divider(color: Color(0xFFE2E8F0), thickness: 1),
+                ),
                 Padding(
                   padding: EdgeInsets.symmetric(horizontal: 14),
                   child: Text(
@@ -219,7 +221,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                 ),
-                Expanded(child: Divider(color: Color(0xFFE2E8F0), thickness: 1)),
+                Expanded(
+                  child: Divider(color: Color(0xFFE2E8F0), thickness: 1),
+                ),
               ],
             ),
             const SizedBox(height: 18),
@@ -243,11 +247,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Image.asset(
-                      AppAssets.googleLogo,
-                      width: 22,
-                      height: 22,
-                    ),
+                    Image.asset(AppAssets.googleLogo, width: 22, height: 22),
                     const SizedBox(width: 12),
                     const Text(
                       'Tiếp tục với Google',
@@ -261,6 +261,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
             ),
+            const SizedBox(height: 24),
           ],
         ),
       ),

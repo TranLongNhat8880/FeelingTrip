@@ -40,8 +40,8 @@ dependencies:
   shared_preferences: ^2.5.0     # Lưu token, user info vào bộ nhớ local
   intl: ^0.20.0                  # Format ngày, tiền theo locale Việt Nam
   showcaseview: ^5.1.0
-  url_launcher: ^6.3.3
-  image_picker: ^1.2.4
+  url_launcher: ^6.3.2
+  image_picker: ^1.2.0
 
 dev_dependencies:
   flutter_test:
