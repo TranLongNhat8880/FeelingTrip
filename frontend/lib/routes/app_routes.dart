@@ -1,9 +1,12 @@
-import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
-import '../shared/gallery/ui_kit_gallery_screen.dart';
+import 'package:flutter/material.dart';
+
 import '../features/auth/views/auth_gate.dart';
 import '../features/auth/views/register_screen.dart';
 import '../features/auth/views/terms_screen.dart';
+import '../features/map/views/admin_place_management_screen.dart';
+import '../features/map/views/place_list_screen.dart';
+import '../shared/gallery/ui_kit_gallery_screen.dart';
 
 // import '../features/trip/views/trip_detail_screen.dart';
 // import '../features/trip/views/create_trip_screen.dart';
@@ -30,6 +33,8 @@ class AppRoutes {
   static const String createTrip = '/trips/create';
   static const String profile = '/profile';
   static const String uiKit = '/ui-kit';
+  static const String places = '/places';
+  static const String adminPlaces = '/admin/places';
 
   // Mapping route → screen
   static Map<String, WidgetBuilder> get routes => {
@@ -38,6 +43,9 @@ class AppRoutes {
     register: (context) => const RegisterScreen(),
     terms: (context) => const TermsScreen(),
     tripList: (context) => const AuthGate(),
+    places: (context) => const PlaceListScreen(),
+    if (kDebugMode)
+      adminPlaces: (context) => const AdminPlaceManagementScreen(),
     if (kDebugMode) uiKit: (context) => const UiKitGalleryScreen(),
     // tripList: (context) => const TripListScreen(),
     // tripDetail: (context) => const TripDetailScreen(),
