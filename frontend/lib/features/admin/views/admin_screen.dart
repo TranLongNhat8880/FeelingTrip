@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_sizes.dart';
 import '../../../shared/ui_kit.dart';
 import '../../auth/viewmodels/auth_viewmodel.dart';
+import '../../map/views/admin_place_management_content.dart';
 import '../viewmodels/admin_viewmodel.dart';
 
 class AdminScreen extends StatefulWidget {
@@ -286,13 +288,42 @@ class _AdminScreenState extends State<AdminScreen> {
     );
   }
 
+  String get _sectionTitle {
+    return switch (_section) {
+      0 => 'Hồ sơ chờ duyệt',
+      1 => 'Người dùng',
+      2 => 'Quản lý địa điểm',
+      _ => 'Quản trị',
+    };
+  }
+
+  Widget _buildSection() {
+    if (_section == 2) {
+      return const Padding(
+        padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
+        child: AdminPlaceManagementContent(),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _vm.load,
+      child: _vm.isLoading
+          ? const LoadingIndicator()
+          : _vm.errorMessage != null
+          ? ErrorState(message: _vm.errorMessage!, onRetry: _vm.load)
+          : _section == 0
+          ? _pendingList()
+          : _userList(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: _vm,
     builder: (context, _) => Scaffold(
       backgroundColor: AppColors.surface,
       appBar: AppTopBar(
-        title: _section == 0 ? 'Hồ sơ chờ duyệt' : 'Người dùng',
+        title: _sectionTitle,
         showBack: false,
         actions: [
           IconButton(
@@ -311,6 +342,7 @@ class _AdminScreenState extends State<AdminScreen> {
             icon: Icons.fact_check_outlined,
           ),
           AppNavigationItem(label: 'Người dùng', icon: Icons.people_outline),
+          AppNavigationItem(label: 'Địa điểm', icon: Icons.place_outlined),
         ],
       ),
       body: SafeArea(
@@ -319,16 +351,7 @@ class _AdminScreenState extends State<AdminScreen> {
             constraints: const BoxConstraints(
               maxWidth: AppSizes.documentMaxWidth,
             ),
-            child: RefreshIndicator(
-              onRefresh: _vm.load,
-              child: _vm.isLoading
-                  ? const LoadingIndicator()
-                  : _vm.errorMessage != null
-                  ? ErrorState(message: _vm.errorMessage!, onRetry: _vm.load)
-                  : _section == 0
-                  ? _pendingList()
-                  : _userList(),
-            ),
+            child: _buildSection(),
           ),
         ),
       ),
