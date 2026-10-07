@@ -1,20 +1,22 @@
-import '../../../core/constants/api_endpoints.dart';
-import '../../companion/repositories/companion_trip_repository.dart';
-import '../../../core/constants/app_assets.dart';
 import 'package:flutter/material.dart';
+
+import '../../../core/constants/api_endpoints.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_sizes.dart';
 import '../../../routes/app_routes.dart';
 import '../../../shared/ui_kit.dart';
+import '../../auth/models/user_model.dart';
 import '../../auth/viewmodels/auth_viewmodel.dart';
-import '../../companion/views/create_companion_post_screen.dart';
+import '../../companion/repositories/companion_trip_repository.dart';
 import '../../companion/views/companion_feed_screen.dart';
 import '../../companion/views/companion_requests_screen.dart';
-import '../../notification/views/notification_screen.dart';
+import '../../companion/views/create_companion_post_screen.dart';
 import '../../notification/viewmodels/notification_viewmodel.dart';
+import '../../notification/views/notification_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
@@ -22,6 +24,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _tab = 0;
   final _notifications = NotificationViewModel();
+
   @override
   void initState() {
     super.initState();
@@ -44,6 +47,7 @@ class _HomeScreenState extends State<HomeScreen> {
   static const _titles = ['Trang chủ', 'Chuyến đi', 'Thông báo', 'Cá nhân'];
   final _scaffold = GlobalKey<ScaffoldState>();
   bool _logoutPromptOpen = false;
+
   void _select(int index) {
     setState(() => _tab = index);
     if (index == 1) _loadTrips();
@@ -131,457 +135,389 @@ class _HomeScreenState extends State<HomeScreen> {
         ? user.fullName!.trim()
         : user.email.split('@').first;
     final text = Theme.of(context).textTheme;
-    final legacyTabs = Scaffold(
-      key: _scaffold,
-      drawer: Drawer(
-        backgroundColor: AppColors.surface,
-        child: SafeArea(
-          child: ListView(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(24),
-                child: const TravelBrand(width: 210),
-              ),
-              for (var i = 0; i < _titles.length; i++)
-                ListTile(
-                  title: Text(_titles[i]),
-                  selected: i == _tab,
-                  selectedColor: AppColors.primary,
-                  onTap: () {
-                    Navigator.pop(context);
-                    _select(i);
-                  },
-                ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(
-                  Icons.group_outlined,
-                  color: AppColors.primary,
-                ),
-                title: const Text('Tìm bạn đồng hành'),
-                trailing: const Icon(Icons.chevron_right, size: 20),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.pushNamed(context, AppRoutes.companionFeed);
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-      body: TravelBackdrop(
-        child: SafeArea(
-          bottom: false,
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(
-                maxWidth: AppSizes.documentMaxWidth,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
-                    child: Row(
-                      children: [
-                        IconButton(
-                          tooltip: 'Mở menu',
-                          onPressed: () => _scaffold.currentState!.openDrawer(),
-                          icon: const Icon(
-                            Icons.menu_rounded,
-                            size: 24,
-                            color: Color(0xFF09143B),
-                          ),
+
+    final legacyTabs = TravelBackdrop(
+      child: SafeArea(
+        bottom: false,
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: AppSizes.documentMaxWidth,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        tooltip: 'Mở menu',
+                        onPressed: () => _scaffold.currentState?.openDrawer(),
+                        icon: const Icon(
+                          Icons.menu_rounded,
+                          size: 24,
+                          color: Color(0xFF09143B),
                         ),
-                        const SizedBox(width: 4),
-                        const Expanded(
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: TravelBrand(width: 160),
-                          ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Expanded(
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: TravelBrand(width: 160),
                         ),
-                        IconButton(
-                          tooltip: 'Mở trang cá nhân',
-                          onPressed: () => _select(3),
-                          icon: AvatarPlaceholder(
-                            name: name,
-                            imageUrl: user.avatarUrl,
-                            radius: 18,
-                          ),
+                      ),
+                      IconButton(
+                        tooltip: 'Mở trang cá nhân',
+                        onPressed: () => _select(3),
+                        icon: AvatarPlaceholder(
+                          name: name,
+                          imageUrl: user.avatarUrl,
+                          radius: 18,
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      physics: const BouncingScrollPhysics(),
-                      padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Text(
-                            _tab == 0 ? 'Cùng nhau khám phá' : _titles[_tab],
-                            style: text.headlineMedium,
+                ),
+                Expanded(
+                  child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          _titles[_tab],
+                          style: text.headlineMedium,
+                        ),
+                        const SizedBox(height: 8),
+                        if (_tab == 1) ...[
+                          // ── TAB 1: KẾ HOẠCH & CHUYẾN ĐI CỦA TÔI ──
+                          const SizedBox(height: 12),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Kế hoạch của tôi',
+                                style: text.titleMedium,
+                              ),
+                              Row(
+                                children: [
+                                  Text(
+                                    '${_myTrips.length} chuyến đi',
+                                    style: text.bodySmall?.copyWith(
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  IconButton(
+                                    tooltip: 'Khám phá địa điểm du lịch',
+                                    icon: const Icon(
+                                      Icons.explore_outlined,
+                                      color: AppColors.primary,
+                                      size: 20,
+                                    ),
+                                    onPressed: () => Navigator.pushNamed(
+                                      context,
+                                      AppRoutes.places,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 8),
-                          if (_tab == 0) ...[
-                            Text(
-                              'Xin chào, $name!',
-                              style: text.bodyMedium?.copyWith(
-                                color: AppColors.textSecondary,
-                              ),
+                          const SizedBox(height: 14),
+                          if (_loadingTrips) const LoadingIndicator(),
+                          if (_tripError != null)
+                            ErrorState(
+                              message: _tripError!,
+                              onRetry: _loadTrips,
                             ),
-                            const SizedBox(height: 26),
-                            Text(
-                              'Cảm hứng cho hành trình',
-                              style: text.titleSmall,
-                            ),
-                            const SizedBox(height: 12),
-                            const SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: Row(
-                                children: [
-                                  _Category(
-                                    label: 'Thiên nhiên',
-                                    url:
-                                        'https://images.unsplash.com/photo-1470770841072-f978cf4d019e?w=240&q=80',
-                                  ),
-                                  SizedBox(width: 14),
-                                  _Category(
-                                    label: 'Biển đảo',
-                                    url:
-                                        'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=240&q=80',
-                                  ),
-                                  SizedBox(width: 14),
-                                  _Category(
-                                    label: 'Núi rừng',
-                                    url:
-                                        'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=240&q=80',
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 24),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(
-                                AppSizes.cardRadius,
-                              ),
-                              child: Stack(
-                                children: [
-                                  Positioned.fill(
-                                    child: Image.asset(
-                                      AppAssets.coastalBackground,
-                                      fit: BoxFit.cover,
-                                    ),
-                                  ),
-                                  Positioned.fill(
-                                    child: DecoratedBox(
-                                      decoration: BoxDecoration(
-                                        gradient: LinearGradient(
-                                          begin: Alignment.topCenter,
-                                          end: Alignment.bottomCenter,
-                                          colors: [
-                                            Colors.transparent,
-                                            Colors.black.withValues(alpha: .65),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  Padding(
-                                    padding: const EdgeInsets.fromLTRB(
-                                      18,
-                                      112,
-                                      18,
-                                      18,
-                                    ),
-                                    child: SizedBox(
-                                      width: double.infinity,
-                                      child: Text(
-                                        'Mỗi chuyến đi,\nmột câu chuyện mới.',
-                                        style: text.titleLarge?.copyWith(
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 14),
-                            AppCard(
-                              softShadow: true,
-                              onTap: () => _select(1),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(12),
-                                    decoration: const BoxDecoration(
-                                      color: AppColors.primarySurface,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(
-                                      Icons.luggage_outlined,
-                                      color: AppColors.primary,
-                                      size: 22,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Chuyến đi của tôi',
-                                          style: text.titleSmall,
-                                        ),
-                                        const SizedBox(height: 5),
-                                        Text(
-                                          'Lịch trình và những người đồng hành',
-                                          style: text.bodySmall?.copyWith(
-                                            color: AppColors.textSecondary,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const Icon(
-                                    Icons.chevron_right,
-                                    size: 20,
-                                    color: AppColors.textSecondary,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 14),
-                            AppCard(
-                              softShadow: true,
-                              onTap: () => Navigator.pushNamed(
-                                context,
-                                AppRoutes.companionFeed,
-                              ),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(12),
-                                    decoration: const BoxDecoration(
-                                      color: AppColors.primarySurface,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(
-                                      Icons.group_outlined,
-                                      color: AppColors.primary,
-                                      size: 22,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            Text(
-                                              'Tìm bạn đồng hành',
-                                              style: text.titleSmall,
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 6,
-                                                    vertical: 2,
-                                                  ),
-                                              decoration: BoxDecoration(
-                                                color: AppColors.primary,
-                                                borderRadius:
-                                                    BorderRadius.circular(4),
-                                              ),
-                                              child: const Text(
-                                                'MỚI',
-                                                style: TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 10,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 5),
-                                        Text(
-                                          'Kết nối nhóm, cùng chia sẻ chuyến đi & chi phí',
-                                          style: text.bodySmall?.copyWith(
-                                            color: AppColors.textSecondary,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const Icon(
-                                    Icons.chevron_right,
-                                    size: 20,
-                                    color: AppColors.textSecondary,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 28),
-                            Text(
-                              'Lên kế hoạch cùng FeelingTrip',
-                              style: text.titleSmall,
-                            ),
-                            const SizedBox(height: 12),
+                          if (!_loadingTrips &&
+                              _tripError == null &&
+                              _myTrips.isEmpty)
                             AppCard(
                               outlined: true,
                               child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    'Sẵn sàng cho hành trình tiếp theo?',
-                                    style: text.bodyMedium,
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    'Lưu lịch trình, kết nối bạn đồng hành và quản lý chi tiêu trong chuyến đi.',
-                                    style: text.bodySmall?.copyWith(
-                                      color: AppColors.textSecondary,
-                                      height: 1.6,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 18),
-                                  CustomButton(
-                                    text: 'Xem chuyến đi',
-                                    variant: AppButtonVariant.secondary,
-                                    onPressed: () => _select(1),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ] else if (_tab == 3) ...[
-                            const SizedBox(height: 20),
-                            AppCard(
-                              softShadow: true,
-                              child: Column(
-                                children: [
-                                  AvatarPlaceholder(
-                                    name: name,
-                                    imageUrl: user.avatarUrl,
-                                    radius: 36,
-                                  ),
-                                  const SizedBox(height: 16),
-                                  Text(name, style: text.titleLarge),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    user.email,
+                                  const Text(
+                                    'Chưa có chuyến đi đang hoạt động do bạn làm trưởng nhóm.',
                                     textAlign: TextAlign.center,
-                                    style: text.bodyMedium?.copyWith(
-                                      color: AppColors.textSecondary,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  CustomButton(
+                                    text: 'Khám phá kho địa điểm',
+                                    variant: AppButtonVariant.secondary,
+                                    icon: Icons.explore_rounded,
+                                    onPressed: () => Navigator.pushNamed(
+                                      context,
+                                      AppRoutes.places,
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                            const SizedBox(height: 24),
-                            if (auth.errorMessage != null)
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 12),
-                                child: Text(
-                                  auth.errorMessage!,
-                                  style: const TextStyle(
-                                    color: AppColors.error,
+                          ..._myTrips.map(
+                            (trip) => _buildTripCard(context, trip, text),
+                          ),
+                          const SizedBox(height: 20),
+                          Text(
+                            'Tiện ích cho chuyến đi',
+                            style: text.titleSmall,
+                          ),
+                          const SizedBox(height: 12),
+                          AppCard(
+                            outlined: true,
+                            onTap: () => Navigator.pushNamed(
+                              context,
+                              AppRoutes.places,
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.explore_outlined,
+                                  color: AppColors.primary,
+                                  size: 24,
+                                ),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Khám phá kho địa điểm du lịch',
+                                        style: text.titleSmall,
+                                      ),
+                                      const SizedBox(height: 3),
+                                      Text(
+                                        'Tra cứu danh lam, di tích và tính khoảng cách',
+                                        style: text.bodySmall?.copyWith(
+                                          color: AppColors.textSecondary,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                              ),
-                            CustomButton(
-                              text: 'Đăng xuất',
-                              isLoading: auth.isLoading,
-                              variant: AppButtonVariant.secondary,
-                              onPressed: _confirmLogout,
-                            ),
-                            const SizedBox(height: 12),
-                            TextButton.icon(
-                              icon: const Icon(Icons.inbox_outlined),
-                              label: const Text('Yêu cầu tham gia chuyến đi'),
-                              onPressed: () => Navigator.push<void>(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) =>
-                                      const CompanionRequestsScreen(),
+                                const Icon(
+                                  Icons.chevron_right,
+                                  color: AppColors.textSecondary,
+                                  size: 20,
                                 ),
-                              ),
+                              ],
                             ),
-                          ] else if (_tab == 1) ...[
-                            // ── Tab Chuyến đi của tôi ──
-                            const SizedBox(height: 12),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          ),
+                          const SizedBox(height: 12),
+                          AppCard(
+                            outlined: true,
+                            onTap: () => Navigator.pushNamed(
+                              context,
+                              AppRoutes.expenses,
+                            ),
+                            child: Row(
                               children: [
-                                Text(
-                                  'Kế hoạch của tôi',
-                                  style: text.titleMedium,
+                                const Icon(
+                                  Icons.account_balance_wallet_outlined,
+                                  color: Color(0xFF16A34A),
+                                  size: 24,
                                 ),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Sổ quỹ & Chia tiền nhóm (Split Bill)',
+                                        style: text.titleSmall,
+                                      ),
+                                      const SizedBox(height: 3),
+                                      Text(
+                                        'Tự động tính nợ và thanh toán mã VietQR ngân hàng',
+                                        style: text.bodySmall?.copyWith(
+                                          color: AppColors.textSecondary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const Icon(
+                                  Icons.chevron_right,
+                                  color: AppColors.textSecondary,
+                                  size: 20,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ] else if (_tab == 3) ...[
+                          // ── TAB 3: TRANG CÁ NHÂN & TRUY CẬP NHANH ──
+                          const SizedBox(height: 16),
+                          AppCard(
+                            softShadow: true,
+                            child: Column(
+                              children: [
+                                AvatarPlaceholder(
+                                  name: name,
+                                  imageUrl: user.avatarUrl,
+                                  radius: 36,
+                                ),
+                                const SizedBox(height: 16),
+                                Text(name, style: text.titleLarge),
+                                const SizedBox(height: 8),
                                 Text(
-                                  '${_myTrips.length} chuyến đi',
-                                  style: text.bodySmall?.copyWith(
+                                  user.email,
+                                  textAlign: TextAlign.center,
+                                  style: text.bodyMedium?.copyWith(
                                     color: AppColors.textSecondary,
                                   ),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 14),
-                            if (_loadingTrips) const LoadingIndicator(),
-                            if (_tripError != null)
-                              ErrorState(
-                                message: _tripError!,
-                                onRetry: _loadTrips,
-                              ),
-                            if (!_loadingTrips &&
-                                _tripError == null &&
-                                _myTrips.isEmpty)
-                              const Text(
-                                'Chưa có chuyến đi đang hoạt động do bạn làm trưởng nhóm.',
-                              ),
-                            ..._myTrips.map(
-                              (trip) => _buildTripCard(context, trip, text),
+                          ),
+                          const SizedBox(height: 20),
+                          Text('Truy cập nhanh', style: text.titleSmall),
+                          const SizedBox(height: 12),
+                          AppCard(
+                            outlined: true,
+                            padding: EdgeInsets.zero,
+                            child: Column(
+                              children: [
+                                ListTile(
+                                  leading: const Icon(
+                                    Icons.explore_outlined,
+                                    color: AppColors.primary,
+                                  ),
+                                  title: const Text('Kho địa điểm du lịch'),
+                                  subtitle: const Text(
+                                    'Khám phá danh lam thắng cảnh',
+                                  ),
+                                  trailing: const Icon(
+                                    Icons.chevron_right,
+                                    size: 20,
+                                  ),
+                                  onTap: () => Navigator.pushNamed(
+                                    context,
+                                    AppRoutes.places,
+                                  ),
+                                ),
+                                const Divider(height: 1, indent: 56),
+                                ListTile(
+                                  leading: const Icon(
+                                    Icons.inbox_outlined,
+                                    color: Color(0xFFD97706),
+                                  ),
+                                  title: const Text(
+                                    'Yêu cầu tham gia chuyến đi',
+                                  ),
+                                  subtitle: const Text(
+                                    'Duyệt đơn ghép đoàn bạn đồng hành',
+                                  ),
+                                  trailing: const Icon(
+                                    Icons.chevron_right,
+                                    size: 20,
+                                  ),
+                                  onTap: () => Navigator.push<void>(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          const CompanionRequestsScreen(),
+                                    ),
+                                  ),
+                                ),
+                                if (user.isAdmin) ...[
+                                  const Divider(height: 1, indent: 56),
+                                  ListTile(
+                                    leading: const Icon(
+                                      Icons.admin_panel_settings_outlined,
+                                      color: Color(0xFF0284C7),
+                                    ),
+                                    title: const Text(
+                                      'Bảng điều khiển Admin',
+                                    ),
+                                    subtitle: const Text(
+                                      'Quản trị người dùng & địa điểm',
+                                    ),
+                                    trailing: const Icon(
+                                      Icons.chevron_right,
+                                      size: 20,
+                                    ),
+                                    onTap: () => Navigator.pushNamed(
+                                      context,
+                                      AppRoutes.admin,
+                                    ),
+                                  ),
+                                  const Divider(height: 1, indent: 56),
+                                  ListTile(
+                                    leading: const Icon(
+                                      Icons.palette_outlined,
+                                      color: Color(0xFF9333EA),
+                                    ),
+                                    title: const Text(
+                                      'Thư viện UI Kit (Debug)',
+                                    ),
+                                    subtitle: const Text(
+                                      'Xem toàn bộ component mẫu',
+                                    ),
+                                    trailing: const Icon(
+                                      Icons.chevron_right,
+                                      size: 20,
+                                    ),
+                                    onTap: () => Navigator.pushNamed(
+                                      context,
+                                      AppRoutes.uiKit,
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
-                          ] else ...[
-                            const SizedBox(height: 40),
-                            const EmptyStateWidget(
-                              icon: Icons.notifications_none_rounded,
-                              title: 'Thông báo của bạn',
-                              message:
-                                  'Tính năng thông báo đang được phát triển.',
+                          ),
+                          const SizedBox(height: 24),
+                          if (auth.errorMessage != null)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: Text(
+                                auth.errorMessage!,
+                                style: const TextStyle(
+                                  color: AppColors.error,
+                                ),
+                              ),
                             ),
-                          ],
+                          CustomButton(
+                            text: 'Đăng xuất',
+                            isLoading: auth.isLoading,
+                            variant: AppButtonVariant.secondary,
+                            icon: Icons.logout_rounded,
+                            onPressed: _confirmLogout,
+                          ),
                         ],
-                      ),
+                      ],
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
       ),
     );
+
     return Scaffold(
+      key: _scaffold,
       backgroundColor: AppColors.surface,
+      drawer: _buildDrawer(context, user, name, text),
       bottomNavigationBar: AppBottomNavigation(
         selectedIndex: _tab,
         onSelected: _select,
         items: [
-          AppNavigationItem(label: 'Trang chủ', icon: Icons.home_outlined),
-          AppNavigationItem(label: 'Chuyến đi', icon: Icons.luggage_outlined),
+          const AppNavigationItem(label: 'Trang chủ', icon: Icons.home_outlined),
+          const AppNavigationItem(label: 'Chuyến đi', icon: Icons.luggage_outlined),
           AppNavigationItem(
             label: 'Thông báo',
             icon: Icons.notifications_none_rounded,
             unreadCount: _notifications.unreadCount,
           ),
-          AppNavigationItem(label: 'Cá nhân', icon: Icons.person_outline),
+          const AppNavigationItem(label: 'Cá nhân', icon: Icons.person_outline),
         ],
       ),
       body: IndexedStack(
@@ -606,6 +542,244 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           if (_tab == 1 || _tab == 3) legacyTabs else const SizedBox.shrink(),
         ],
+      ),
+    );
+  }
+
+  Widget _buildDrawer(
+    BuildContext context,
+    UserModel user,
+    String name,
+    TextTheme text,
+  ) {
+    return Drawer(
+      backgroundColor: AppColors.surface,
+      child: SafeArea(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const TravelBrand(width: 190),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      AvatarPlaceholder(
+                        name: name,
+                        imageUrl: user.avatarUrl,
+                        radius: 22,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              name,
+                              style: text.titleSmall?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Text(
+                              user.email,
+                              style: text.bodySmall?.copyWith(
+                                color: AppColors.textSecondary,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 16, 20, 8),
+              child: Text(
+                'KHÁM PHÁ & DU LỊCH',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textSecondary,
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.people_alt_outlined),
+              title: const Text('Bảng tin ghép đoàn'),
+              selected: _tab == 0,
+              selectedColor: AppColors.primary,
+              onTap: () {
+                Navigator.pop(context);
+                _select(0);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.luggage_outlined),
+              title: const Text('Chuyến đi của tôi'),
+              selected: _tab == 1,
+              selectedColor: AppColors.primary,
+              onTap: () {
+                Navigator.pop(context);
+                _select(1);
+              },
+            ),
+            ListTile(
+              leading: const Icon(
+                Icons.explore_outlined,
+                color: AppColors.primary,
+              ),
+              title: const Text('Kho địa điểm du lịch'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, AppRoutes.places);
+              },
+            ),
+            ListTile(
+              leading: const Icon(
+                Icons.inbox_outlined,
+                color: Color(0xFFD97706),
+              ),
+              title: const Text('Yêu cầu ghép đoàn'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push<void>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const CompanionRequestsScreen(),
+                  ),
+                );
+              },
+            ),
+            const Divider(height: 20),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 8, 20, 8),
+              child: Text(
+                'CÔNG CỤ THÔNG MINH',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textSecondary,
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(
+                Icons.auto_awesome_rounded,
+                color: Color(0xFF9333EA),
+              ),
+              title: const Text('Lên lịch trình AI'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, AppRoutes.aiPlanner);
+              },
+            ),
+            ListTile(
+              leading: const Icon(
+                Icons.account_balance_wallet_outlined,
+                color: Color(0xFF16A34A),
+              ),
+              title: const Text('Sổ quỹ & Chia tiền'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, AppRoutes.expenses);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.notifications_none_rounded),
+              title: const Text('Thông báo'),
+              selected: _tab == 2,
+              selectedColor: AppColors.primary,
+              trailing: _notifications.unreadCount > 0
+                  ? Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        '${_notifications.unreadCount}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    )
+                  : null,
+              onTap: () {
+                Navigator.pop(context);
+                _select(2);
+              },
+            ),
+            if (user.isAdmin) ...[
+              const Divider(height: 20),
+              const Padding(
+                padding: EdgeInsets.fromLTRB(20, 8, 20, 8),
+                child: Text(
+                  'HỆ THỐNG & QUẢN TRỊ',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textSecondary,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+              ),
+              ListTile(
+                leading: const Icon(
+                  Icons.admin_panel_settings_outlined,
+                  color: Color(0xFF0284C7),
+                ),
+                title: const Text('Bảng điều khiển Admin'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, AppRoutes.admin);
+                },
+              ),
+              ListTile(
+                leading: const Icon(
+                  Icons.map_outlined,
+                  color: Color(0xFF0284C7),
+                ),
+                title: const Text('Quản lý địa điểm (Admin)'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, AppRoutes.adminPlaces);
+                },
+              ),
+            ],
+            const Divider(height: 24),
+            ListTile(
+              leading: const Icon(
+                Icons.logout_rounded,
+                color: AppColors.error,
+              ),
+              title: const Text(
+                'Đăng xuất',
+                style: TextStyle(color: AppColors.error),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _confirmLogout();
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -736,7 +910,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                   onPressed: () async {
-                    if (AuthScope.of(context).user?.hasVerifiedEkyc != true) {
+                    if (AuthScope.of(context).user?.isVerified != true) {
                       await showDialog<void>(
                         context: context,
                         builder: (context) => AlertDialog(
@@ -774,54 +948,4 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-}
-
-class _Category extends StatelessWidget {
-  const _Category({required this.label, required this.url});
-  final String label;
-  final String url;
-  @override
-  Widget build(BuildContext context) => SizedBox(
-    width: 90,
-    child: Column(
-      children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(AppSizes.cardRadius),
-          child: SizedBox(height: 78, width: 90, child: _TravelImage(url: url)),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          label,
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-      ],
-    ),
-  );
-}
-
-class _TravelImage extends StatelessWidget {
-  const _TravelImage({required this.url});
-  final String url;
-  @override
-  Widget build(BuildContext context) => Image.network(
-    url,
-    fit: BoxFit.cover,
-    excludeFromSemantics: true,
-    frameBuilder: (context, child, frame, synchronous) =>
-        frame != null || synchronous
-        ? child
-        : const ColoredBox(
-            color: AppColors.primarySurface,
-            child: Center(
-              child: Icon(Icons.landscape_outlined, color: AppColors.primary),
-            ),
-          ),
-    errorBuilder: (_, _, _) => const ColoredBox(
-      color: AppColors.primarySurface,
-      child: Center(
-        child: Icon(Icons.landscape_outlined, color: AppColors.primary),
-      ),
-    ),
-  );
 }

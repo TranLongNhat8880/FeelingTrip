@@ -94,7 +94,7 @@ class _CompanionFeedScreenState extends State<CompanionFeedScreen> {
         _vm.status != 'OPEN' ||
         _vm.genderPreference.isNotEmpty;
     final body = ColoredBox(
-      color: AppColors.surface,
+      color: AppColors.background,
       child: SafeArea(
         bottom: false,
         child: Center(
@@ -105,7 +105,7 @@ class _CompanionFeedScreenState extends State<CompanionFeedScreen> {
             child: Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
+                  padding: const EdgeInsets.fromLTRB(12, 6, 12, 8),
                   child: Row(
                     children: [
                       if (!widget.embedded && Navigator.canPop(context))
@@ -121,57 +121,89 @@ class _CompanionFeedScreenState extends State<CompanionFeedScreen> {
                           icon: AvatarPlaceholder(
                             name: user?.fullName ?? 'Bạn',
                             imageUrl: user?.avatarUrl,
-                            radius: 16,
+                            radius: 18,
                           ),
                         ),
-                      const SizedBox(width: 4),
+                      const SizedBox(width: 8),
                       Expanded(
-                        child: TextField(
-                          controller: _searchController,
-                          textInputAction: TextInputAction.search,
-                          style: Theme.of(context).textTheme.bodyMedium,
-                          decoration: InputDecoration(
-                            hintText: 'Tìm điểm đến...',
-                            prefixIcon: const Icon(
-                              Icons.search_rounded,
-                              size: 20,
-                            ),
-                            isDense: true,
-                            contentPadding: const EdgeInsets.symmetric(
-                              vertical: 10,
-                              horizontal: 12,
-                            ),
-                            suffixIcon: _vm.destination.isEmpty
-                                ? null
-                                : IconButton(
-                                    tooltip: 'Xóa tìm kiếm',
-                                    icon: const Icon(Icons.close, size: 18),
-                                    onPressed: () {
-                                      _searchController.clear();
-                                      _vm.applyFilter(destination: '');
-                                    },
-                                  ),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(AppSizes.inputRadius),
+                            border: Border.all(color: AppColors.border),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.primary.withValues(alpha: 0.04),
+                                blurRadius: 10,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
                           ),
-                          onSubmitted: (value) =>
-                              _vm.applyFilter(destination: value.trim()),
+                          child: TextField(
+                            controller: _searchController,
+                            textInputAction: TextInputAction.search,
+                            style: Theme.of(context).textTheme.bodyMedium,
+                            decoration: InputDecoration(
+                              hintText: 'Tìm điểm đến du lịch...',
+                              hintStyle: const TextStyle(
+                                color: AppColors.textHint,
+                                fontSize: 14,
+                              ),
+                              prefixIcon: const Icon(
+                                Icons.search_rounded,
+                                size: 20,
+                                color: AppColors.primary,
+                              ),
+                              isDense: true,
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(
+                                vertical: 10,
+                                horizontal: 12,
+                              ),
+                              suffixIcon: _vm.destination.isEmpty
+                                  ? null
+                                  : IconButton(
+                                      tooltip: 'Xóa tìm kiếm',
+                                      icon: const Icon(Icons.close, size: 18),
+                                      onPressed: () {
+                                        _searchController.clear();
+                                        _vm.applyFilter(destination: '');
+                                      },
+                                    ),
+                            ),
+                            onSubmitted: (value) =>
+                                _vm.applyFilter(destination: value.trim()),
+                          ),
                         ),
                       ),
-                      IconButton(
-                        tooltip: 'Bộ lọc',
-                        onPressed: _openFilter,
-                        icon: Badge(
-                          isLabelVisible: filtered,
-                          smallSize: 6,
-                          child: const Icon(
-                            Icons.tune_rounded,
-                            color: AppColors.primary,
+                      const SizedBox(width: 8),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: filtered ? AppColors.primarySurface : Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: filtered ? AppColors.primary : AppColors.border,
+                          ),
+                        ),
+                        child: IconButton(
+                          tooltip: 'Bộ lọc',
+                          onPressed: _openFilter,
+                          icon: Badge(
+                            isLabelVisible: filtered,
+                            smallSize: 8,
+                            child: const Icon(
+                              Icons.tune_rounded,
+                              color: AppColors.primary,
+                              size: 20,
+                            ),
                           ),
                         ),
                       ),
                     ],
                   ),
                 ),
-                const Divider(height: 1, color: AppColors.divider),
                 Expanded(child: _buildBody()),
               ],
             ),
@@ -214,14 +246,9 @@ class _CompanionFeedScreenState extends State<CompanionFeedScreen> {
       child: ListView.separated(
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.fromLTRB(0, 4, 0, 16),
         itemCount: _vm.posts.length + (_vm.isLoadingMore ? 1 : 0),
-        separatorBuilder: (_, _) => const Divider(
-          height: 1,
-          indent: 16,
-          endIndent: 16,
-          color: AppColors.divider,
-        ),
+        separatorBuilder: (_, _) => const SizedBox(height: 4),
         itemBuilder: (context, index) {
           if (index == _vm.posts.length) {
             return const Padding(

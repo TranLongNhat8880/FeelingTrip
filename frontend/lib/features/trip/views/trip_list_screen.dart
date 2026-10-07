@@ -14,7 +14,7 @@ class TripListScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Phải bọc màn hình trong ShowCaseWidget để quản lý lớp màn xám
+    // ignore: deprecated_member_use
     return ShowCaseWidget(
       builder: (context) => const _TripListView(),
     );
@@ -29,29 +29,46 @@ class _TripListView extends StatefulWidget {
 }
 
 class _TripListViewState extends State<_TripListView> {
-  // Tạo các "Chìa khóa" (Key) để đánh dấu những chỗ cần linh vật chỉ vào
   final GlobalKey _createTripKey = GlobalKey();
   final GlobalKey _profileKey = GlobalKey();
 
   @override
   void initState() {
     super.initState();
-    // Tự động bật hướng dẫn ngay khi vừa vào màn hình lần đầu
-    // (Thực tế sau này: Check local storage xem user đã xem bao giờ chưa, chưa thì mới bật)
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // ignore: deprecated_member_use
       ShowCaseWidget.of(context).startShowCase([_createTripKey, _profileKey]);
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    final canPop = Navigator.canPop(context);
+
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Chuyến đi của tôi'),
-        // Tắt nút back vì đây là trang chủ (giả lập)
-        automaticallyImplyLeading: false, 
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF09143B),
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        shadowColor: Colors.black.withValues(alpha: .04),
+        automaticallyImplyLeading: false,
+        leading: canPop
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF09143B)),
+                onPressed: () => Navigator.pop(context),
+              )
+            : null,
+        title: const Text(
+          'Chuyến đi của tôi',
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF09143B),
+            fontSize: 18,
+          ),
+        ),
         actions: [
-          // === HƯỚNG DẪN SỐ 2: Nút Hồ sơ ===
           Showcase.withWidget(
             key: _profileKey,
             targetPadding: const EdgeInsets.all(8),
@@ -60,7 +77,7 @@ class _TripListViewState extends State<_TripListView> {
               isArrowTop: false,
             ),
             child: IconButton(
-              icon: const Icon(Icons.person_outline),
+              icon: const Icon(Icons.person_outline, color: Color(0xFF09143B)),
               onPressed: () {},
             ),
           ),
@@ -72,22 +89,21 @@ class _TripListViewState extends State<_TripListView> {
         title: 'Chưa có chuyến đi nào',
         message: 'Hãy bắt đầu lên kế hoạch cho chuyến đi đầu tiên của bạn!',
       ),
-      floatingActionButton: 
-        // === HƯỚNG DẪN SỐ 1: Nút Dấu Cộng ===
-        Showcase.withWidget(
-          key: _createTripKey,
-          targetPadding: const EdgeInsets.all(8),
-          container: const MascotTooltip(
-            message: 'Chào bạn! Mình là Cún Du Lịch. Bấm vào dấu + này để tạo chuyến đi mới nha!',
-            isArrowTop: true,
-          ),
-          child: FloatingActionButton(
-            onPressed: () {},
-            // Màu nút lấy theo màu Accent (Cam san hô) cho nổi bật
-            backgroundColor: AppColors.accent,
-            foregroundColor: Colors.white,
-            child: const Icon(Icons.add, size: 28),
-          ),
+      floatingActionButton: Showcase.withWidget(
+        key: _createTripKey,
+        targetPadding: const EdgeInsets.all(8),
+        container: const MascotTooltip(
+          message: 'Chào bạn! Mình là Cún Du Lịch. Bấm vào dấu + này để tạo chuyến đi mới nha!',
+          isArrowTop: true,
+        ),
+        child: FloatingActionButton(
+          onPressed: () {},
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+          elevation: 4,
+          shape: const CircleBorder(),
+          child: const Icon(Icons.add, size: 28),
+        ),
       ),
     );
   }
