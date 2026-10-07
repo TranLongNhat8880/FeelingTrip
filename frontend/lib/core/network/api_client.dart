@@ -1,5 +1,7 @@
 import 'dart:convert';
+
 import 'package:http/http.dart' as http;
+
 import '../constants/api_endpoints.dart';
 import 'storage_helper.dart';
 
@@ -13,6 +15,18 @@ import 'storage_helper.dart';
 //   final response = await ApiClient.post(ApiEndpoints.login, body: {...});
 //   final data = response['data'];
 // ================================================================================
+
+class MultipartFileData {
+  const MultipartFileData({
+    required this.fieldName,
+    required this.fileName,
+    required this.bytes,
+  });
+
+  final String fieldName;
+  final String fileName;
+  final List<int> bytes;
+}
 
 class ApiClient {
   static http.Client client = http.Client();
@@ -53,6 +67,58 @@ class ApiClient {
           body: body != null ? jsonEncode(body) : null,
         )
         .timeout(const Duration(seconds: 15));
+    return _handleResponse(response);
+  }
+
+  /// PATCH request
+  static Future<Map<String, dynamic>> patch(
+    String endpoint, {
+    Map<String, dynamic>? body,
+  }) async {
+    final url = Uri.parse('${ApiEndpoints.baseUrl}$endpoint');
+    final headers = await _getHeaders();
+
+    final response = await http.patch(
+      url,
+      headers: headers,
+      body: body != null ? jsonEncode(body) : null,
+    );
+
+    return _handleResponse(response);
+  }
+
+  /// Gửi multipart/form-data kèm một hoặc nhiều file.
+  static Future<Map<String, dynamic>> multipart(
+    String method,
+    String endpoint, {
+    Map<String, String> fields = const {},
+    List<MultipartFileData> files = const [],
+  }) async {
+    final url = Uri.parse('${ApiEndpoints.baseUrl}$endpoint');
+
+    final headers = await _getHeaders();
+
+    // MultipartRequest tự tạo Content-Type kèm boundary.
+    headers.remove('Content-Type');
+
+    final request = http.MultipartRequest(method.toUpperCase(), url);
+
+    request.headers.addAll(headers);
+    request.fields.addAll(fields);
+
+    for (final file in files) {
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          file.fieldName,
+          file.bytes,
+          filename: file.fileName,
+        ),
+      );
+    }
+
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+
     return _handleResponse(response);
   }
 

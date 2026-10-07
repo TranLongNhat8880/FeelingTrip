@@ -53,4 +53,7 @@ class ApiEndpoints {
 
   // === Reviews ===
   static const String reviews = '/reviews';
+
+  // === Places ===
+  static const String places = '/places';
 }
