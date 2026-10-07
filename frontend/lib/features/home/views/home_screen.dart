@@ -7,7 +7,6 @@ import '../../../core/constants/app_sizes.dart';
 import '../../../routes/app_routes.dart';
 import '../../../shared/ui_kit.dart';
 import '../../auth/viewmodels/auth_viewmodel.dart';
-import '../../companion/views/create_companion_post_screen.dart';
 import '../../companion/views/companion_feed_screen.dart';
 import '../../companion/views/companion_requests_screen.dart';
 import '../../notification/views/notification_screen.dart';
@@ -45,8 +44,11 @@ class _HomeScreenState extends State<HomeScreen> {
   final _scaffold = GlobalKey<ScaffoldState>();
   bool _logoutPromptOpen = false;
   void _select(int index) {
+    if (index == 1) {
+      Navigator.pushNamed(context, AppRoutes.tripList);
+      return;
+    }
     setState(() => _tab = index);
-    if (index == 1) _loadTrips();
     if (index == 2) _notifications.load();
   }
 
@@ -524,11 +526,24 @@ class _HomeScreenState extends State<HomeScreen> {
                                   'Kế hoạch của tôi',
                                   style: text.titleMedium,
                                 ),
-                                Text(
-                                  '${_myTrips.length} chuyến đi',
-                                  style: text.bodySmall?.copyWith(
-                                    color: AppColors.textSecondary,
-                                  ),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      '${_myTrips.length} chuyến đi',
+                                      style: text.bodySmall?.copyWith(
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    TextButton(
+                                      onPressed: () => Navigator.pushNamed(
+                                        context,
+                                        AppRoutes.tripList,
+                                      ),
+                                      child: const Text('Quản lý'),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
@@ -619,6 +634,16 @@ class _HomeScreenState extends State<HomeScreen> {
       padding: const EdgeInsets.only(bottom: 14),
       child: AppCard(
         softShadow: true,
+        onTap: () {
+          final tripId = trip['id'];
+          if (tripId != null && tripId.isNotEmpty) {
+            Navigator.pushNamed(
+              context,
+              AppRoutes.tripDetail,
+              arguments: tripId,
+            );
+          }
+        },
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -755,15 +780,14 @@ class _HomeScreenState extends State<HomeScreen> {
                       return;
                     }
                     if (!context.mounted) return;
-                    Navigator.push(
+                    Navigator.pushNamed(
                       context,
-                      MaterialPageRoute(
-                        builder: (_) => CreateCompanionPostScreen(
-                          tripId: trip['id'],
-                          tripName: trip['name'],
-                          tripDestination: trip['destination'],
-                        ),
-                      ),
+                      AppRoutes.createCompanionPost,
+                      arguments: {
+                        'tripId': trip['id'],
+                        'tripName': trip['name'],
+                        'tripDestination': trip['destination'],
+                      },
                     );
                   },
                 ),

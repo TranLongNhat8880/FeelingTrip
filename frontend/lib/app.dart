@@ -44,6 +44,7 @@ class _FeelingTripAppState extends State<FeelingTripApp> {
             ? AppRoutes.uiKit
             : AppRoutes.home,
         routes: AppRoutes.routes,
+        onGenerateRoute: AppRoutes.onGenerateRoute,
       ),
     );
   }
