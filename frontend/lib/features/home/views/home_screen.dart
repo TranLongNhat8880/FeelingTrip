@@ -50,7 +50,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _select(int index) {
     setState(() => _tab = index);
-    if (index == 1) _loadTrips();
     if (index == 2) _notifications.load();
   }
 
@@ -793,6 +792,16 @@ class _HomeScreenState extends State<HomeScreen> {
       padding: const EdgeInsets.only(bottom: 14),
       child: AppCard(
         softShadow: true,
+        onTap: () {
+          final tripId = trip['id'];
+          if (tripId != null && tripId.isNotEmpty) {
+            Navigator.pushNamed(
+              context,
+              AppRoutes.tripDetail,
+              arguments: tripId,
+            );
+          }
+        },
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -929,9 +938,17 @@ class _HomeScreenState extends State<HomeScreen> {
                       return;
                     }
                     if (!context.mounted) return;
-                    Navigator.push(
+                    Navigator.push<void>(
                       context,
                       MaterialPageRoute(
+                        settings: RouteSettings(
+                          name: AppRoutes.createCompanionPost,
+                          arguments: {
+                            'tripId': trip['id'],
+                            'tripName': trip['name'],
+                            'tripDestination': trip['destination'],
+                          },
+                        ),
                         builder: (_) => CreateCompanionPostScreen(
                           tripId: trip['id'],
                           tripName: trip['name'],

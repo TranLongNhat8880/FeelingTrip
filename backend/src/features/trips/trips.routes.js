@@ -2,6 +2,7 @@ const express = require('express');
 const controller = require('./trips.controller');
 const authenticate = require('../../shared/middlewares/auth.middleware');
 const validate = require('../../shared/middlewares/validate.middleware');
+const upload = require('../../shared/middlewares/upload.middleware');
 const v = require('./trips.validation');
 
 const router = express.Router();
@@ -12,13 +13,21 @@ const deprecated = replacement => (req, res, next) => {
   next();
 };
 
+// CloudinaryStorage places the uploaded URL in req.file.path. Put that trusted
+// URL into the validated Trip payload so users never need to enter it manually.
+const attachCoverImageUrl = (req, res, next) => {
+  if (req.file?.path) req.body.coverImageUrl = req.file.path;
+  next();
+};
+
 // ============================================================================
 // ROUTES: Trips (/api/v1/trips)
 // Quản lý chuyến đi, thành viên, lời mời và mã tham gia
 // ============================================================================
 
 // Tạo mới chuyến đi và lấy danh sách chuyến đi của tôi
-router.post('/', validate(v.createTripSchema), controller.createTrip);
+router.post('/', upload.single('coverImage'), attachCoverImageUrl,
+  validate(v.createTripSchema), controller.createTrip);
 router.get('/my-trips', validate({ query: v.myTripsQuerySchema }), controller.getMyTrips);
 
 // Static invitation routes must stay above /:tripId.
@@ -29,10 +38,12 @@ router.post('/invitations/:invitationId/accept',
 router.post('/invitations/:invitationId/reject',
   validate({ params: v.invitationParamSchema }), controller.rejectInvitation);
 router.post('/join-by-code', validate(v.joinTripSchema), controller.joinByCode);
+router.post('/join', validate(v.joinTripSchema), controller.joinByCode);
 
 // Chi tiết, Cập nhật, Thay đổi trạng thái, và Hủy chuyến đi
 router.get('/:tripId', validate({ params: v.tripIdParamSchema }), controller.getTripDetail);
-router.patch('/:tripId', validate({ params: v.tripIdParamSchema, body: v.updateTripSchema }), controller.updateTrip);
+router.patch('/:tripId', upload.single('coverImage'), attachCoverImageUrl,
+  validate({ params: v.tripIdParamSchema, body: v.updateTripSchema }), controller.updateTrip);
 router.patch('/:tripId/status',
   validate({ params: v.tripIdParamSchema, body: v.updateStatusSchema }), controller.transitionStatus);
 router.delete('/:tripId',
@@ -66,6 +77,7 @@ router.delete('/:tripId/invitations/:invitationId',
 // Các đường dẫn cũ (legacy), gọi cùng service gốc
 // ============================================================================
 router.put('/:tripId', deprecated('PATCH /api/v1/trips/:tripId'),
+  upload.single('coverImage'), attachCoverImageUrl,
   validate({ params: v.tripIdParamSchema, body: v.updateTripSchema }), controller.updateTrip);
 router.post('/:id/join', deprecated('POST /api/v1/trips/join-by-code'),
   validate({ params: v.legacyTripIdParamSchema, body: v.joinTripSchema }), controller.legacyJoin);
