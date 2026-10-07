@@ -4,16 +4,42 @@ import '../../../core/network/api_client.dart';
 import '../../../core/network/storage_helper.dart';
 import '../models/user_model.dart';
 import '../repositories/auth_repository.dart';
+import '../repositories/mock_auth_repository.dart';
 import '../repositories/api_auth_repository.dart';
+import '../../../core/constants/api_endpoints.dart';
 
 class AuthViewModel extends ChangeNotifier {
   AuthViewModel({AuthRepository? repository})
-    : _repo = repository ?? ApiAuthRepository();
+    : _repo =
+          repository ??
+          (ApiEndpoints.useMockData
+              ? MockAuthRepository()
+              : ApiAuthRepository()) {
+    if (!ApiEndpoints.useMockData) ApiClient.onAuthError = _sessionError;
+  }
+  void _sessionError(ApiException error) {
+    if (_user == null) return;
+    if (error.statusCode == 403 &&
+        error.message == 'Tài khoản bị khóa hoặc chưa xác thực email') {
+      _blockedEmail = _user!.email;
+    } else if (error.statusCode != 401) {
+      return;
+    }
+    _user = null;
+    _sessionInvalidated = true;
+    unawaited(StorageHelper.clearAll());
+    notifyListeners();
+  }
+
   final AuthRepository _repo;
   UserModel? _user;
   bool _isLoading = false;
   bool _initialized = false;
   String? _errorMessage;
+  String? _blockedEmail;
+  bool _sessionInvalidated = false;
+  bool get sessionInvalidated => _sessionInvalidated;
+  String? get blockedEmail => _blockedEmail;
   String? _pendingVerificationEmail;
   String? get pendingVerificationEmail => _pendingVerificationEmail;
   UserModel? get user => _user;
@@ -24,7 +50,19 @@ class AuthViewModel extends ChangeNotifier {
 
   Future<void> restoreSession() async {
     try {
-      _user = (await StorageHelper.getSession())?.user;
+      final session = await StorageHelper.getSession();
+      if (session != null) {
+        _user = session.user;
+        if (!ApiEndpoints.useMockData) {
+          final response = await ApiClient.get(ApiEndpoints.profile);
+          if (_user != null) {
+            _user = UserModel.fromJson(
+              response['data'] as Map<String, dynamic>,
+            );
+            await StorageHelper.saveSession(session.token, _user!);
+          }
+        }
+      }
     } catch (_) {
       _user = null;
     } finally {
@@ -38,15 +76,21 @@ class AuthViewModel extends ChangeNotifier {
     _isLoading = true;
     _errorMessage = null;
     _pendingVerificationEmail = null;
+    _blockedEmail = null;
+    _sessionInvalidated = false;
     notifyListeners();
     try {
       final result = await _repo
           .login(email.trim(), password)
-          .timeout(const Duration(seconds: 20));
+          .timeout(const Duration(seconds: 10));
       await StorageHelper.saveSession(result.token, result.user);
       _user = result.user;
       return true;
     } on ApiException catch (e) {
+      if (e.statusCode == 403 &&
+          (e.code == 'ACCOUNT_BANNED' || e.message == 'Tài khoản đã bị khóa')) {
+        _blockedEmail = email.trim().toLowerCase();
+      }
       if (e.statusCode == 403 && e.code == 'EMAIL_NOT_VERIFIED') {
         _pendingVerificationEmail = email.trim().toLowerCase();
       }
@@ -56,7 +100,7 @@ class AuthViewModel extends ChangeNotifier {
       _errorMessage = 'Kết nối quá lâu. Vui lòng thử lại.';
       return false;
     } catch (_) {
-      _errorMessage = 'Không thể đăng nhập. Kiểm tra kết nối và thử lại nhé.';
+      _errorMessage = 'Không kết nối được backend. Kiểm tra server và thử lại.';
       return false;
     } finally {
       _isLoading = false;
@@ -161,6 +205,7 @@ class AuthViewModel extends ChangeNotifier {
     try {
       await StorageHelper.clearAll();
       _user = null;
+      _blockedEmail = null;
       _errorMessage = null;
     } catch (_) {
       _errorMessage = 'Chưa đăng xuất được. Vui lòng thử lại.';
@@ -168,6 +213,12 @@ class AuthViewModel extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  @override
+  void dispose() {
+    if (ApiClient.onAuthError == _sessionError) ApiClient.onAuthError = null;
+    super.dispose();
   }
 
   void clearError() {

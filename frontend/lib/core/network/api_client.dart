@@ -15,6 +15,9 @@ import 'storage_helper.dart';
 // ================================================================================
 
 class ApiClient {
+  static http.Client client = http.Client();
+  static void Function(ApiException)? onAuthError;
+
   /// Headers mặc định, tự gắn token nếu có
   static Future<Map<String, String>> _getHeaders() async {
     final token = await StorageHelper.getToken();
@@ -29,7 +32,9 @@ class ApiClient {
     final url = Uri.parse('${ApiEndpoints.baseUrl}$endpoint');
     final headers = await _getHeaders();
 
-    final response = await http.get(url, headers: headers);
+    final response = await client
+        .get(url, headers: headers)
+        .timeout(const Duration(seconds: 15));
     return _handleResponse(response);
   }
 
@@ -41,11 +46,13 @@ class ApiClient {
     final url = Uri.parse('${ApiEndpoints.baseUrl}$endpoint');
     final headers = await _getHeaders();
 
-    final response = await http.post(
-      url,
-      headers: headers,
-      body: body != null ? jsonEncode(body) : null,
-    );
+    final response = await client
+        .post(
+          url,
+          headers: headers,
+          body: body != null ? jsonEncode(body) : null,
+        )
+        .timeout(const Duration(seconds: 15));
     return _handleResponse(response);
   }
 
@@ -57,11 +64,13 @@ class ApiClient {
     final url = Uri.parse('${ApiEndpoints.baseUrl}$endpoint');
     final headers = await _getHeaders();
 
-    final response = await http.put(
-      url,
-      headers: headers,
-      body: body != null ? jsonEncode(body) : null,
-    );
+    final response = await client
+        .put(
+          url,
+          headers: headers,
+          body: body != null ? jsonEncode(body) : null,
+        )
+        .timeout(const Duration(seconds: 15));
     return _handleResponse(response);
   }
 
@@ -70,22 +79,38 @@ class ApiClient {
     final url = Uri.parse('${ApiEndpoints.baseUrl}$endpoint');
     final headers = await _getHeaders();
 
-    final response = await http.delete(url, headers: headers);
+    final response = await client
+        .delete(url, headers: headers)
+        .timeout(const Duration(seconds: 15));
     return _handleResponse(response);
   }
 
   /// Xử lý response chung
   static Map<String, dynamic> _handleResponse(http.Response response) {
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    Map<String, dynamic> body;
+    try {
+      body = response.body.isEmpty
+          ? {}
+          : jsonDecode(response.body) as Map<String, dynamic>;
+    } catch (_) {
+      throw ApiException(
+        statusCode: response.statusCode,
+        message: 'Backend trả dữ liệu không hợp lệ. Kiểm tra địa chỉ API.',
+      );
+    }
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return body;
     } else {
-      throw ApiException(
+      final error = ApiException(
         statusCode: response.statusCode,
         message: body['message'] ?? 'Đã xảy ra lỗi',
         code: body['code'] as String?,
       );
+      if (response.statusCode == 401 || response.statusCode == 403) {
+        onAuthError?.call(error);
+      }
+      throw error;
     }
   }
 }

@@ -9,6 +9,10 @@ import '../features/auth/views/terms_screen.dart';
 // import '../features/trip/views/create_trip_screen.dart';
 // import '../features/profile/views/profile_screen.dart';
 
+import '../features/companion/views/companion_feed_screen.dart';
+import '../features/companion/views/companion_requests_screen.dart';
+import '../features/companion/views/create_companion_post_screen.dart';
+
 // ================================================================================
 // QUẢN LÝ ROUTES TẬP TRUNG
 // ================================================================================
@@ -31,6 +35,11 @@ class AppRoutes {
   static const String profile = '/profile';
   static const String uiKit = '/ui-kit';
 
+  // Companion routes
+  static const String companionFeed = '/companions';
+  static const String companionRequests = '/companions/requests';
+  static const String createCompanionPost = '/companions/create';
+
   // Mapping route → screen
   static Map<String, WidgetBuilder> get routes => {
     home: (context) => const AuthGate(),
@@ -38,10 +47,9 @@ class AppRoutes {
     register: (context) => const RegisterScreen(),
     terms: (context) => const TermsScreen(),
     tripList: (context) => const AuthGate(),
+    companionFeed: (context) => const CompanionFeedScreen(),
+    companionRequests: (context) => const CompanionRequestsScreen(),
+    createCompanionPost: (context) => const CreateCompanionPostScreen(),
     if (kDebugMode) uiKit: (context) => const UiKitGalleryScreen(),
-    // tripList: (context) => const TripListScreen(),
-    // tripDetail: (context) => const TripDetailScreen(),
-    // createTrip: (context) => const CreateTripScreen(),
-    // profile: (context) => const ProfileScreen(),
   };
 }

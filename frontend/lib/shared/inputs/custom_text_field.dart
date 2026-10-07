@@ -52,12 +52,31 @@ class _CustomTextFieldState extends State<CustomTextField> {
   bool _obscure = true;
   late final FocusNode _focusNode;
   bool _isFocused = false;
+  FormFieldState<String>? _fieldState;
 
   @override
   void initState() {
     super.initState();
     _focusNode = FocusNode();
     _focusNode.addListener(_onFocusChange);
+    widget.controller?.addListener(_onControllerChange);
+  }
+
+  @override
+  void didUpdateWidget(CustomTextField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller?.removeListener(_onControllerChange);
+      widget.controller?.addListener(_onControllerChange);
+    }
+  }
+
+  void _onControllerChange() {
+    if (_fieldState != null && widget.controller != null) {
+      if (_fieldState!.value != widget.controller!.text) {
+        _fieldState!.didChange(widget.controller!.text);
+      }
+    }
   }
 
   void _onFocusChange() {
@@ -68,6 +87,7 @@ class _CustomTextFieldState extends State<CustomTextField> {
 
   @override
   void dispose() {
+    widget.controller?.removeListener(_onControllerChange);
     _focusNode.removeListener(_onFocusChange);
     _focusNode.dispose();
     super.dispose();
@@ -90,9 +110,13 @@ class _CustomTextFieldState extends State<CustomTextField> {
     final prefix = _resolvePrefixIcon();
 
     return FormField<String>(
-      validator: widget.validator,
+      validator: (val) {
+        final text = widget.controller != null ? widget.controller!.text : val;
+        return widget.validator?.call(text);
+      },
       initialValue: widget.controller?.text,
       builder: (fieldState) {
+        _fieldState = fieldState;
         final hasError = fieldState.hasError || widget.errorText != null;
         final errorMessage = fieldState.errorText ?? widget.errorText;
 
