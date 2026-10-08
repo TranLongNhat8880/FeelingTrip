@@ -161,9 +161,9 @@ class AppPickers {
     required DateTime first,
     required DateTime last,
   }) {
-    final candidate = DateUtils.dateOnly(initial ?? DateTime.now());
     final start = DateUtils.dateOnly(first);
     final end = DateUtils.dateOnly(last);
+    final candidate = DateUtils.dateOnly(initial ?? DateTime.now());
     return showDatePicker(
       context: context,
       initialDate: candidate.isBefore(start)
@@ -171,8 +171,8 @@ class AppPickers {
           : candidate.isAfter(end)
           ? end
           : candidate,
-      firstDate: first,
-      lastDate: last,
+      firstDate: start,
+      lastDate: end,
       helpText: 'Chọn ngày',
       cancelText: 'Hủy',
       confirmText: 'Chọn',
@@ -187,8 +187,8 @@ class AppPickers {
   }) => showDateRangePicker(
     context: context,
     initialDateRange: initial,
-    firstDate: first,
-    lastDate: last,
+    firstDate: DateUtils.dateOnly(first),
+    lastDate: DateUtils.dateOnly(last),
     helpText: 'Chọn khoảng ngày',
     cancelText: 'Hủy',
     saveText: 'Chọn',
