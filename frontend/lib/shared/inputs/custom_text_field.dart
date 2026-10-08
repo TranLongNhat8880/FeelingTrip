@@ -128,111 +128,119 @@ class _CustomTextFieldState extends State<CustomTextField> {
             ? AppColors.error
             : (_isFocused ? AppColors.primary : const Color(0xFF8A97AB));
 
+        final inputField = Container(
+          decoration: BoxDecoration(
+            color: widget.enabled
+                ? (_isFocused ? Colors.white : const Color(0xFFFAFCFE))
+                : const Color(0xFFF1F5F9),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: borderColor,
+              width: (_isFocused || hasError) ? 1.5 : 1.1,
+            ),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              if (prefix != null) ...[
+                Icon(prefix, size: 22, color: iconColor),
+                const SizedBox(width: 13),
+              ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      widget.label,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: hasError
+                            ? AppColors.error
+                            : (_isFocused
+                                ? AppColors.primary
+                                : const Color(0xFF5D6889)),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    TextFormField(
+                      controller: widget.controller,
+                      focusNode: _focusNode,
+                      style: const TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF09143B),
+                      ),
+                      obscureText: widget.isPassword && _obscure,
+                      enableSuggestions: !widget.isPassword,
+                      autocorrect: !widget.isPassword,
+                      keyboardType: widget.keyboardType,
+                      maxLines: widget.isPassword ? 1 : widget.maxLines,
+                      enabled: widget.enabled,
+                      readOnly: widget.readOnly,
+                      onChanged: (val) {
+                        fieldState.didChange(val);
+                        widget.onChanged?.call(val);
+                      },
+                      inputFormatters: widget.inputFormatters,
+                      onTap: widget.onTap,
+                      textInputAction: widget.textInputAction,
+                      onFieldSubmitted: widget.onFieldSubmitted,
+                      decoration: InputDecoration(
+                        isDense: true,
+                        contentPadding: EdgeInsets.zero,
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        errorBorder: InputBorder.none,
+                        focusedErrorBorder: InputBorder.none,
+                        disabledBorder: InputBorder.none,
+                        hintText: widget.hint,
+                        hintStyle: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w400,
+                          color: Color(0xFF969DB3),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (widget.isPassword)
+                IconButton(
+                  iconSize: 20,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  tooltip: _obscure ? 'Hiện mật khẩu' : 'Ẩn mật khẩu',
+                  onPressed: widget.enabled
+                      ? () => setState(() => _obscure = !_obscure)
+                      : null,
+                  icon: Icon(
+                    _obscure
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                    color: const Color(0xFF8A97AB),
+                  ),
+                )
+              else if (widget.suffixIcon != null)
+                widget.suffixIcon!,
+            ],
+          ),
+        );
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              decoration: BoxDecoration(
-                color: widget.enabled
-                    ? (_isFocused ? Colors.white : const Color(0xFFFAFCFE))
-                    : const Color(0xFFF1F5F9),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: borderColor,
-                  width: (_isFocused || hasError) ? 1.5 : 1.1,
-                ),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  if (prefix != null) ...[
-                    Icon(prefix, size: 22, color: iconColor),
-                    const SizedBox(width: 13),
-                  ],
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          widget.label,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: hasError
-                                ? AppColors.error
-                                : (_isFocused
-                                    ? AppColors.primary
-                                    : const Color(0xFF5D6889)),
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        TextFormField(
-                          controller: widget.controller,
-                          focusNode: _focusNode,
-                          style: const TextStyle(
-                            fontSize: 14.5,
-                            fontWeight: FontWeight.w500,
-                            color: Color(0xFF09143B),
-                          ),
-                          obscureText: widget.isPassword && _obscure,
-                          enableSuggestions: !widget.isPassword,
-                          autocorrect: !widget.isPassword,
-                          keyboardType: widget.keyboardType,
-                          maxLines: widget.isPassword ? 1 : widget.maxLines,
-                          enabled: widget.enabled,
-                          readOnly: widget.readOnly,
-                          onChanged: (val) {
-                            fieldState.didChange(val);
-                            widget.onChanged?.call(val);
-                          },
-                          inputFormatters: widget.inputFormatters,
-                          onTap: widget.onTap,
-                          textInputAction: widget.textInputAction,
-                          onFieldSubmitted: widget.onFieldSubmitted,
-                          decoration: InputDecoration(
-                            isDense: true,
-                            contentPadding: EdgeInsets.zero,
-                            border: InputBorder.none,
-                            enabledBorder: InputBorder.none,
-                            focusedBorder: InputBorder.none,
-                            errorBorder: InputBorder.none,
-                            focusedErrorBorder: InputBorder.none,
-                            disabledBorder: InputBorder.none,
-                            hintText: widget.hint,
-                            hintStyle: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w400,
-                              color: Color(0xFF969DB3),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (widget.isPassword)
-                    IconButton(
-                      iconSize: 20,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      tooltip: _obscure ? 'Hiện mật khẩu' : 'Ẩn mật khẩu',
-                      onPressed: widget.enabled
-                          ? () => setState(() => _obscure = !_obscure)
-                          : null,
-                      icon: Icon(
-                        _obscure
-                            ? Icons.visibility_off_outlined
-                            : Icons.visibility_outlined,
-                        color: const Color(0xFF8A97AB),
-                      ),
-                    )
-                  else if (widget.suffixIcon != null)
-                    widget.suffixIcon!,
-                ],
-              ),
-            ),
+            widget.readOnly && widget.onTap != null
+                ? GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: widget.enabled ? widget.onTap : null,
+                    child: inputField,
+                  )
+                : inputField,
             if (hasError)
               Padding(
                 padding: const EdgeInsets.only(left: 16, top: 4),

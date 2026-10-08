@@ -8,6 +8,8 @@ import 'package:feeling_trip/features/trip/models/trip_model.dart';
 import 'package:feeling_trip/features/trip/repositories/mock_trip_repository.dart';
 import 'package:feeling_trip/features/trip/viewmodels/trip_viewmodel.dart';
 import 'package:feeling_trip/routes/app_routes.dart';
+import 'package:feeling_trip/features/trip/views/trip_form_screen.dart';
+
 
 void main() {
   group('TripModel & MockTripRepository Tests', () {
@@ -159,6 +161,52 @@ void main() {
         const RouteSettings(name: AppRoutes.tripDetail, arguments: null),
       );
       expect(route, isA<MaterialPageRoute>());
+    });
+
+  });
+
+  group('TripFormScreen Date Selection Tests', () {
+    testWidgets('TripFormScreen initializes dates starting from future and does not allow selecting yesterday', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: TripFormScreen(
+            repository: MockTripRepository(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Ngày đi'), findsOneWidget);
+      expect(find.text('Ngày về'), findsOneWidget);
+
+      final today = DateUtils.dateOnly(DateTime.now());
+
+      // Tap on 'Ngày đi' to open date picker dialog
+      await tester.tap(find.text('Ngày đi'));
+      await tester.pumpAndSettle();
+
+      // Verify date picker opened and firstDate is today (not yesterday!)
+      expect(find.text('Chọn ngày'), findsOneWidget);
+      final startDateCalendar = tester.widget<CalendarDatePicker>(find.byType(CalendarDatePicker));
+      expect(startDateCalendar.firstDate, today);
+      expect(startDateCalendar.firstDate.isAfter(today.subtract(const Duration(days: 1))), isTrue);
+
+      // Tap cancel to dismiss
+      await tester.tap(find.text('Hủy'));
+      await tester.pumpAndSettle();
+
+      // Tap on 'Ngày về' to open date picker dialog
+      await tester.tap(find.text('Ngày về'));
+      await tester.pumpAndSettle();
+
+      // Verify date picker opened and firstDate is >= today (cannot be before start date)
+      expect(find.text('Chọn ngày'), findsOneWidget);
+      final endDateCalendar = tester.widget<CalendarDatePicker>(find.byType(CalendarDatePicker));
+      expect(endDateCalendar.firstDate.isBefore(today), isFalse);
+
+      // Tap cancel to dismiss
+      await tester.tap(find.text('Hủy'));
+      await tester.pumpAndSettle();
     });
   });
 }

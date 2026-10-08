@@ -50,8 +50,16 @@ class _TripFormScreenState extends State<TripFormScreen> {
       text: VndInputFormatter.format('${trip?.estimatedBudget ?? 0}'),
     );
     _description = TextEditingController(text: trip?.description);
-    _startDate = trip?.startDate ?? DateTime.now().add(const Duration(days: 7));
-    _endDate = trip?.endDate ?? _startDate.add(const Duration(days: 2));
+    final today = DateUtils.dateOnly(DateTime.now());
+    _startDate = trip?.startDate != null
+        ? DateUtils.dateOnly(trip!.startDate)
+        : today.add(const Duration(days: 7));
+    _endDate = trip?.endDate != null
+        ? DateUtils.dateOnly(trip!.endDate)
+        : _startDate.add(const Duration(days: 2));
+    if (_endDate.isBefore(_startDate)) {
+      _endDate = _startDate;
+    }
     _startLabel = TextEditingController(text: AppUtils.formatDate(_startDate));
     _endLabel = TextEditingController(text: AppUtils.formatDate(_endDate));
     _isPublic = trip?.isPublic ?? false;
@@ -205,19 +213,34 @@ class _TripFormScreenState extends State<TripFormScreen> {
   }
 
   Future<void> _pickDate({required bool start}) async {
-    final value = await showDatePicker(
-      context: context,
-      initialDate: start ? _startDate : _endDate,
-      firstDate: start
-          ? DateTime.now().subtract(const Duration(days: 1))
-          : _startDate,
-      lastDate: DateTime.now().add(const Duration(days: 730)),
+    final today = DateUtils.dateOnly(DateTime.now());
+    final minStartDate = (_editing &&
+            widget.trip != null &&
+            DateUtils.dateOnly(widget.trip!.startDate).isBefore(today))
+        ? DateUtils.dateOnly(widget.trip!.startDate)
+        : today;
+
+    final firstDate = start ? minStartDate : _startDate;
+    final lastDate = today.add(const Duration(days: 730));
+
+    final currentInitial = start ? _startDate : _endDate;
+    final initialDate = currentInitial.isBefore(firstDate)
+        ? firstDate
+        : (currentInitial.isAfter(lastDate) ? lastDate : currentInitial);
+
+    final value = await AppPickers.date(
+      context,
+      initial: initialDate,
+      first: firstDate,
+      last: lastDate,
     );
     if (value == null) return;
     setState(() {
       if (start) {
         _startDate = value;
-        if (_endDate.isBefore(value)) _endDate = value;
+        if (_endDate.isBefore(value)) {
+          _endDate = value;
+        }
       } else {
         _endDate = value;
       }
@@ -228,6 +251,15 @@ class _TripFormScreenState extends State<TripFormScreen> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+    final today = DateUtils.dateOnly(DateTime.now());
+    if (!_editing && _startDate.isBefore(today)) {
+      AppFeedback.show(
+        context,
+        'Ngày bắt đầu chuyến đi không thể ở trong quá khứ.',
+        tone: AppStatusTone.error,
+      );
+      return;
+    }
     if (_endDate.isBefore(_startDate)) {
       AppFeedback.show(
         context,
