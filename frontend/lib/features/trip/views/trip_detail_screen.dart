@@ -70,7 +70,11 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     if (!mounted) return;
     AppFeedback.show(
       context,
-      success ? 'Đã cập nhật trạng thái chuyến đi.' : _viewModel.errorMessage!,
+      success
+          ? next == 'COMPLETED'
+                ? 'Đã hoàn thành chuyến đi. Thông báo đã được gửi đến các thành viên.'
+                : 'Đã bắt đầu chuyến đi. Thông báo đã được gửi đến các thành viên.'
+          : _viewModel.errorMessage ?? 'Không cập nhật được trạng thái chuyến đi.',
       tone: success ? AppStatusTone.success : AppStatusTone.error,
     );
   }

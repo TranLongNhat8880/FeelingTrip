@@ -79,7 +79,6 @@ class _ItineraryItemFormScreenState extends State<ItineraryItemFormScreen> {
     _startTime = item?.startTime ?? widget.suggestedStartTime ?? '08:00';
     _endTime = item?.endTime ?? _addHour(_startTime);
     _useCatalog = !_editing;
-    if (!_editing) _searchPlaces();
   }
 
   @override
