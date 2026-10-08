@@ -47,6 +47,24 @@ class _CompanionRequestsScreenState extends State<CompanionRequestsScreen> {
   }
 
   Future<void> _review(CompanionRequest request, String status) async {
+    if (status == 'ACCEPTED' && !request.requester.isVerified) {
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Chưa xác minh danh tính'),
+          content: const Text(
+            'Người dùng này chưa hoàn thành xác minh CCCD (eKYC). Theo quy định an toàn, chỉ thành viên đã xác minh mới được duyệt vào chuyến đi.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Đã hiểu'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
     final confirmed = await AppConfirmDialog.show(
       context,
       title: status == 'ACCEPTED' ? 'Chấp nhận yêu cầu?' : 'Từ chối yêu cầu?',
@@ -259,6 +277,24 @@ class _CompanionRequestsScreenState extends State<CompanionRequestsScreen> {
                             Icons.verified_rounded,
                             size: 15,
                             color: AppColors.primary,
+                          ),
+                        ] else ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFF3E0),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: const Color(0xFFFFB74D), width: 0.5),
+                            ),
+                            child: Text(
+                              'Chưa eKYC',
+                              style: text.labelSmall?.copyWith(
+                                color: const Color(0xFFE65100),
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                           ),
                         ],
                       ],

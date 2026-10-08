@@ -238,10 +238,27 @@ const markMembership = async (client, tripId, userId, status, removedBy = null) 
  * @description Kiểm tra thành viên có khoản chia tiền nào chưa thanh toán xong không.
  */
 const hasOutstandingDebts = async (client, tripId, userId) => {
+  // 1. Kiểm tra các settlement đang mở (PENDING hoặc REPORTED)
   const { rowCount } = await client.query(`
     SELECT 1 FROM settlements WHERE trip_id=$1 AND status IN ('PENDING','REPORTED')
       AND (from_user_id=$2 OR to_user_id=$2) LIMIT 1`, [tripId, userId]);
-  return rowCount > 0;
+  if (rowCount > 0) return true;
+
+  // 2. Kiểm tra các khoản chi tiêu chưa quyết toán trong chuyến đi
+  const { rows } = await client.query(`
+    WITH ledger AS (
+      SELECT payer_id AS user_id, amount AS delta
+        FROM expenses WHERE trip_id = $1
+      UNION ALL
+      SELECT es.user_id, -es.amount_owed
+        FROM expense_splits es JOIN expenses e ON e.id = es.expense_id WHERE e.trip_id = $1
+      UNION ALL SELECT from_user_id, amount FROM settlements WHERE trip_id = $1 AND status = 'PAID'
+      UNION ALL SELECT to_user_id, -amount FROM settlements WHERE trip_id = $1 AND status = 'PAID'
+    )
+    SELECT COALESCE(SUM(delta), 0) AS balance
+    FROM ledger WHERE user_id = $2`, [tripId, userId]);
+
+  return rows.length > 0 && Number(rows[0].balance) < 0;
 };
 
 /**

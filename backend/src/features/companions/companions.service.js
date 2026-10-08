@@ -432,6 +432,20 @@ const reviewJoinRequest = async ({ requestId, leaderId, status }) => {
         }
 
         if (status === 'ACCEPTED') {
+            const leaderUser = await usersRepository.findProfileById(leaderId);
+            if (!leaderUser || !leaderUser.is_verified) {
+                throw apiError(403, 'Trưởng nhóm cần hoàn thành xác minh danh tính (eKYC) để xét duyệt thành viên');
+            }
+
+            const { rows: [requester] } = await client.query(
+                "SELECT is_verified, verification_status, status FROM users WHERE id = $1", [req.user_id]);
+            if (!requester || !requester.is_verified || requester.verification_status !== 'VERIFIED') {
+                throw apiError(403, 'Người gửi yêu cầu chưa hoàn thành xác minh danh tính (eKYC)');
+            }
+            if (requester.status !== 'ACTIVE') {
+                throw apiError(403, 'Tài khoản người gửi yêu cầu không ở trạng thái hoạt động');
+            }
+
             const trip = await companionsRepository.getTripByIdForUpdate(req.trip_id, client);
             if (!trip) {
                 throw apiError(404, 'Chuyến đi không tồn tại');

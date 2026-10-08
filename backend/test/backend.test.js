@@ -991,3 +991,73 @@ test('trip leader can kick member without SQL parameter type errors', async () =
   assert.equal(memberRow.removed_by, userA);
 });
 
+test('transferLeader blocks transferring leadership to an unverified user', async () => {
+  const testTripId = crypto.randomUUID();
+  const leaderId = crypto.randomUUID();
+  const unverifiedMemberId = crypto.randomUUID();
+
+  for (const uid of [leaderId, unverifiedMemberId]) {
+    await db.query(
+      `INSERT INTO users (id, email, full_name, password_hash, is_email_verified, is_verified, verification_status, status)
+       VALUES ($1, $2, 'User', $3, TRUE, $4, $5, 'ACTIVE')`,
+      [uid, `${uid}@test.local`, defaultPasswordHash, uid === leaderId, uid === leaderId ? 'VERIFIED' : 'UNVERIFIED']
+    );
+  }
+
+  await db.query(
+    `INSERT INTO trips (id, creator_id, name, destination, start_date, end_date)
+     VALUES ($1, $2, 'Security Trip', 'Danang', '2026-10-01', '2026-10-05')`,
+    [testTripId, leaderId]
+  );
+  await db.query("INSERT INTO trip_members (trip_id, user_id, role) VALUES ($1, $2, 'LEADER')", [testTripId, leaderId]);
+  await db.query("INSERT INTO trip_members (trip_id, user_id, role) VALUES ($1, $2, 'MEMBER')", [testTripId, unverifiedMemberId]);
+
+  const tripRow = (await db.query('SELECT updated_at FROM trips WHERE id=$1', [testTripId])).rows[0];
+  const res = await request(
+    `/trips/${testTripId}/leader-transfer`,
+    'POST',
+    { newLeaderUserId: unverifiedMemberId, expectedUpdatedAt: tripRow.updated_at.toISOString() },
+    leaderId
+  );
+  assert.equal(res.status, 403);
+  assert.match(res.body.message, /xác minh danh tính/i);
+});
+
+test('member with unsettled expenses debt cannot be kicked', async () => {
+  const debtTripId = crypto.randomUUID();
+  const leaderId = crypto.randomUUID();
+  const debtorId = crypto.randomUUID();
+
+  for (const uid of [leaderId, debtorId]) {
+    await db.query(
+      `INSERT INTO users (id, email, full_name, password_hash, is_email_verified, is_verified, verification_status, status)
+       VALUES ($1, $2, 'User', $3, TRUE, TRUE, 'VERIFIED', 'ACTIVE')`,
+      [uid, `${uid}@test.local`, defaultPasswordHash]
+    );
+  }
+
+  await db.query(
+    `INSERT INTO trips (id, creator_id, name, destination, start_date, end_date)
+     VALUES ($1, $2, 'Debt Trip', 'Hue', '2026-10-01', '2026-10-05')`,
+    [debtTripId, leaderId]
+  );
+  await db.query("INSERT INTO trip_members (trip_id, user_id, role) VALUES ($1, $2, 'LEADER')", [debtTripId, leaderId]);
+  await db.query("INSERT INTO trip_members (trip_id, user_id, role) VALUES ($1, $2, 'MEMBER')", [debtTripId, debtorId]);
+
+  // Leader pays 200,000 VND and splits equally with debtor (debtor owes 100,000 VND, not yet settled)
+  await expenses.createExpense({
+    tripId: debtTripId,
+    payerId: leaderId,
+    title: 'Dinner Hue',
+    amount: 200000,
+    splitType: 'EQUAL',
+    splits: [leaderId, debtorId],
+  }, leaderId);
+
+  // Attempt to kick debtor before debt is settled
+  const kickRes = await request(`/trips/${debtTripId}/members/${debtorId}`, 'DELETE', undefined, leaderId);
+  assert.equal(kickRes.status, 409);
+  assert.match(kickRes.body.message, /công nợ/i);
+});
+
+
