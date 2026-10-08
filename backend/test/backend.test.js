@@ -978,3 +978,16 @@ test('AI repository rolls back the entire trip when a day insert fails', async (
   const itineraryCount = await db.query('SELECT COUNT(*)::int AS n FROM itineraries');
   assert.equal(itineraryCount.rows[0].n, 0);
 });
+
+test('trip leader can kick member without SQL parameter type errors', async () => {
+  const kickRes = await request(`/trips/${tripId}/members/${userB}`, 'DELETE', undefined, userA);
+  assert.equal(kickRes.status, 200);
+
+  const memberRow = (await db.query(
+    'SELECT membership_status, removed_by FROM trip_members WHERE trip_id=$1 AND user_id=$2',
+    [tripId, userB]
+  )).rows[0];
+  assert.equal(memberRow.membership_status, 'REMOVED');
+  assert.equal(memberRow.removed_by, userA);
+});
+

@@ -201,8 +201,8 @@ const saveSettlements = async (tripId, list, client) => {
 const updateSettlementStatus = async (id, status, client) => {
   const { rows: [row] } = await client.query(`
     UPDATE settlements SET status = $2::varchar,
-      reported_at = CASE WHEN $2 = 'REPORTED' THEN NOW() ELSE reported_at END,
-      paid_at = CASE WHEN $2 = 'PAID' THEN NOW() ELSE paid_at END
+      reported_at = CASE WHEN $2::varchar = 'REPORTED' THEN NOW() ELSE reported_at END,
+      paid_at = CASE WHEN $2::varchar = 'PAID' THEN NOW() ELSE paid_at END
     WHERE id = $1 RETURNING *`, [id, status]);
   return row;
 };

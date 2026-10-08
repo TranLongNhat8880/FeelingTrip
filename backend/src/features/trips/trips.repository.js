@@ -225,10 +225,10 @@ const consumeInviteCode = (client, tripId) => client.query(
  */
 const markMembership = async (client, tripId, userId, status, removedBy = null) => {
   const { rows: [row] } = await client.query(`
-    UPDATE trip_members SET membership_status=$3,
-      left_at=CASE WHEN $3='LEFT' THEN NOW() ELSE NULL END,
-      removed_at=CASE WHEN $3='REMOVED' THEN NOW() ELSE NULL END,
-      removed_by=CASE WHEN $3='REMOVED' THEN $4::uuid ELSE NULL END
+    UPDATE trip_members SET membership_status=$3::varchar,
+      left_at=CASE WHEN $3::varchar='LEFT' THEN NOW() ELSE NULL END,
+      removed_at=CASE WHEN $3::varchar='REMOVED' THEN NOW() ELSE NULL END,
+      removed_by=CASE WHEN $3::varchar='REMOVED' THEN $4::uuid ELSE NULL END
     WHERE trip_id=$1 AND user_id=$2 AND membership_status='ACTIVE'
     RETURNING *`, [tripId, userId, status, removedBy]);
   return row || null;
@@ -372,9 +372,9 @@ const listInvitations = async (client, { tripId, inviteeId, status, page, limit 
  */
 const setInvitationStatus = async (client, invitationId, status) => {
   await client.query(`
-    UPDATE trip_invitations SET status=$2,
-      responded_at=CASE WHEN $2 IN ('ACCEPTED','REJECTED') THEN NOW() ELSE responded_at END,
-      revoked_at=CASE WHEN $2='REVOKED' THEN NOW() ELSE revoked_at END
+    UPDATE trip_invitations SET status=$2::varchar,
+      responded_at=CASE WHEN $2::varchar IN ('ACCEPTED','REJECTED') THEN NOW() ELSE responded_at END,
+      revoked_at=CASE WHEN $2::varchar='REVOKED' THEN NOW() ELSE revoked_at END
     WHERE id=$1`, [invitationId, status]);
   return findInvitation(client, invitationId);
 };
@@ -395,7 +395,7 @@ const notify = async (client, userId, title, message, data) => {
 const notifyActiveMembers = async (client, tripId, actorId, title, message, data) => {
   await client.query(`
     INSERT INTO notifications (user_id,title,message,type,data)
-    SELECT tm.user_id,$3,$4,'TRIP_UPDATE',$5::jsonb FROM trip_members tm
+    SELECT tm.user_id,$3::varchar,$4::text,'TRIP_UPDATE',$5::jsonb FROM trip_members tm
     WHERE tm.trip_id=$1 AND tm.membership_status='ACTIVE' AND tm.user_id<>$2`,
     [tripId, actorId, title, message, JSON.stringify(data)]);
 };
