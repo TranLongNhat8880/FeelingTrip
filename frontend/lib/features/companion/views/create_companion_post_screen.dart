@@ -119,8 +119,8 @@ class _CreateCompanionPostScreenState extends State<CreateCompanionPostScreen> {
       final trips = await CompanionTripRepository().getMyTrips();
       if (mounted) {
         setState(() {
-          _availableTrips = trips;
-          _selectedTripId = trips.isEmpty ? '' : trips.first['id']!;
+          _availableTrips = trips.where((trip) => trip['hasCompanionPost'] != 'true').toList();
+          _selectedTripId = _availableTrips.isEmpty ? '' : _availableTrips.first['id']!;
         });
       }
     } catch (_) {
@@ -180,12 +180,6 @@ class _CreateCompanionPostScreenState extends State<CreateCompanionPostScreen> {
       );
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('🎉 Đã đăng bài tìm bạn đồng hành thành công!'),
-          backgroundColor: AppColors.success,
-        ),
-      );
       Navigator.pop(context, newPost);
     } catch (e) {
       if (!mounted) return;

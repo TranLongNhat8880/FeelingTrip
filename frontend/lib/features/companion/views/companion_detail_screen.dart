@@ -45,6 +45,10 @@ class _CompanionDetailScreenState extends State<CompanionDetailScreen> {
   }
 
   void _openJoinSheet() {
+    if (AuthScope.of(context).user?.hasVerifiedEkyc != true ||
+        _vm.hasSentRequest) {
+      return;
+    }
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -60,12 +64,6 @@ class _CompanionDetailScreenState extends State<CompanionDetailScreen> {
           if (!mounted) return;
           if (ok) {
             if (sheetContext.mounted) Navigator.pop(sheetContext);
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('✅ Đã gửi yêu cầu tham gia!'),
-                backgroundColor: AppColors.success,
-              ),
-            );
           } else if (_vm.errorMessage != null) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -504,13 +502,34 @@ class _CompanionDetailScreenState extends State<CompanionDetailScreen> {
 
   Widget? _buildBottomBar(CompanionPost post) {
     final user = AuthScope.of(context).user;
-    if (post.isClosed ||
-        post.isFull ||
-        post.creator.id == user?.id ||
-        post.creator.id == 'current-user' ||
-        post.trip.members.any((member) => member.userId == user?.id)) {
+    if (post.creator.id == user?.id || post.creator.id == 'current-user') {
       return null;
     }
+    final isMember = post.trip.members.any(
+      (member) => member.userId == user?.id,
+    );
+    final verified = user?.hasVerifiedEkyc == true;
+    final label = isMember
+        ? 'Đã tham gia'
+        : _vm.requestStatus == 'PENDING'
+        ? 'Đã gửi yêu cầu'
+        : _vm.requestStatus == 'ACCEPTED'
+        ? 'Yêu cầu đã được chấp nhận'
+        : _vm.requestStatus == 'REJECTED'
+        ? 'Yêu cầu đã bị từ chối'
+        : post.isClosed
+        ? 'Bài đăng đã đóng'
+        : post.isFull
+        ? 'Đoàn đã đủ thành viên'
+        : !verified
+        ? 'Cần xác minh eKYC để tham gia'
+        : 'Gửi yêu cầu tham gia';
+    final canJoin =
+        verified &&
+        !isMember &&
+        !_vm.hasSentRequest &&
+        !post.isClosed &&
+        !post.isFull;
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -528,9 +547,9 @@ class _CompanionDetailScreenState extends State<CompanionDetailScreen> {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
           child: CustomButton(
-            text: _vm.hasSentRequest ? 'Đã gửi yêu cầu' : 'Gửi yêu cầu tham gia',
+            text: label,
             isLoading: _vm.isSubmitting,
-            onPressed: _vm.hasSentRequest ? null : _openJoinSheet,
+            onPressed: canJoin && !_vm.isLoading ? _openJoinSheet : null,
           ),
         ),
       ),

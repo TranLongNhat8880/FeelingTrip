@@ -28,7 +28,6 @@ class CompanionRequestsViewModel extends ChangeNotifier {
   bool _isLoading = false;
   bool _isReviewing = false; // đang xét duyệt 1 request
   String? _errorMessage;
-  String? _successMessage;
   String _filterStatus =
       'PENDING'; // '' = all, 'PENDING', 'ACCEPTED', 'REJECTED'
 
@@ -57,7 +56,6 @@ class CompanionRequestsViewModel extends ChangeNotifier {
   bool get isLoading => _isLoading;
   bool get isReviewing => _isReviewing;
   String? get errorMessage => _errorMessage;
-  String? get successMessage => _successMessage;
   String get filterStatus => _filterStatus;
 
   // ─── Load danh sách ───────────────────────────────────────────────────────
@@ -102,7 +100,6 @@ class CompanionRequestsViewModel extends ChangeNotifier {
     if (_disposed || _isReviewing) return false;
     _isReviewing = true;
     _errorMessage = null;
-    _successMessage = null;
     notifyListeners();
     try {
       await _repo.reviewJoinRequest(requestId, status);
@@ -119,9 +116,6 @@ class CompanionRequestsViewModel extends ChangeNotifier {
           requester: _requests[idx].requester,
         );
       }
-      _successMessage = status == 'ACCEPTED'
-          ? 'Đã chấp thuận yêu cầu!'
-          : 'Đã từ chối yêu cầu.';
       return true;
     } catch (e) {
       _errorMessage = e.toString().replaceFirst('Exception: ', '');
@@ -142,7 +136,6 @@ class CompanionRequestsViewModel extends ChangeNotifier {
 
   void clearMessages() {
     _errorMessage = null;
-    _successMessage = null;
     notifyListeners();
   }
 

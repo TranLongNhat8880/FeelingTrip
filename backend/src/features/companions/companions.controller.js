@@ -74,7 +74,7 @@ const getCompanionFeed = async (req, res, next) => {
 const getCompanionPostDetail = async (req, res, next) => {
   try {
     const { postId } = req.params;
-    const post = await companionsService.getCompanionPostDetail({ postId });
+    const post = await companionsService.getCompanionPostDetail({ postId, userId: req.user.id });
     return sendSuccess(res, post, 'Lấy chi tiết bài đăng thành công', HTTP_STATUS.OK);
   } catch (error) {
     console.log(error);
@@ -132,7 +132,17 @@ const getMyReceivedRequests = async (req, res, next) => {
   }
 };
 
+const getPostedTripIds = async (req, res, next) => {
+  try {
+    const tripIds = await companionsService.getPostedTripIds(req.user.id);
+    return sendSuccess(res, tripIds, 'Lấy các chuyến đi đã đăng bài', HTTP_STATUS.OK);
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
+  getPostedTripIds,
   createCompanionPost,
   updateCompanionPost,
   deleteCompanionPost,

@@ -125,6 +125,7 @@ class CompanionPost {
   final DateTime? updatedAt;
   final TripInfo trip;
   final CreatorInfo creator;
+  final String? myRequestStatus; // PENDING | ACCEPTED | REJECTED
 
   const CompanionPost({
     required this.id,
@@ -141,6 +142,7 @@ class CompanionPost {
     this.updatedAt,
     required this.trip,
     required this.creator,
+    this.myRequestStatus,
   });
 
   int get slotsLeft => targetMembersCount - currentMembersCount;
@@ -151,6 +153,7 @@ class CompanionPost {
   factory CompanionPost.fromJson(Map<String, dynamic> json) => CompanionPost(
     id: json['id']?.toString() ?? '',
     title: json['title'],
+    myRequestStatus: json['myRequestStatus'],
     content: json['content'],
     targetMembersCount: json['targetMembersCount'] ?? 0,
     currentMembersCount: json['currentMembersCount'] ?? 0,

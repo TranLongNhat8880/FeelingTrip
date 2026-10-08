@@ -1,6 +1,8 @@
 import '../models/companion_post_model.dart';
 import '../models/companion_request_model.dart';
 import 'companion_repository.dart';
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // ================================================================================
 // MOCK REPOSITORY: Companion (DỮ LIỆU GIẢ)
@@ -10,6 +12,18 @@ import 'companion_repository.dart';
 // ================================================================================
 
 class MockCompanionRepository implements CompanionRepository {
+  Future<bool> hasPostForTrip(String tripId) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('mock_companion_trip_$tripId') ?? false;
+  }
+
+  Future<String> _requestKey(String postId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final session = jsonDecode(prefs.getString('auth_session') ?? '{}') as Map;
+    final userId = (session['user'] as Map?)?['id'] ?? 'current-user';
+    return 'mock_join_request_${userId}_$postId';
+  }
+
   // ─── Dữ liệu mẫu ──────────────────────────────────────────────────────────
 
   static final _mockPosts = <CompanionPost>[
@@ -322,9 +336,12 @@ class MockCompanionRepository implements CompanionRepository {
       (p) => p.id == postId,
       orElse: () => throw Exception('Bài đăng không tồn tại'),
     );
+    final prefs = await SharedPreferences.getInstance();
+    final requestStatus = prefs.getString(await _requestKey(postId));
     // Trả về post với members mô phỏng
     return CompanionPost(
       id: post.id,
+      myRequestStatus: requestStatus,
       title: post.title,
       content: post.content,
       targetMembersCount: post.targetMembersCount,
@@ -415,6 +432,8 @@ class MockCompanionRepository implements CompanionRepository {
       ),
     );
     _mockPosts.insert(0, newPost);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('mock_companion_trip_$tripId', true);
     return newPost;
   }
 
@@ -424,7 +443,8 @@ class MockCompanionRepository implements CompanionRepository {
     String? introduction,
   }) async {
     await Future.delayed(const Duration(milliseconds: 800));
-    // Mock: giả thành công, không thực sự ghi gì
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(await _requestKey(postId), 'PENDING');
   }
 
   @override

@@ -245,18 +245,20 @@ const getCompanionFeed = async ({
     };
 };
 
-const getCompanionPostDetail = async ({ postId }) => {
+const getCompanionPostDetail = async ({ postId, userId }) => {
     const post = await companionsRepository.getCompanionPostDetail(postId);
     if (!post) {
         throw apiError(404, 'Bài viết không tồn tại');
     }
 
     const members = await tripRepository.findSafeMembers(post.trip_id);
+    const myRequest = userId ? await companionsRepository.getExistingRequest(postId, userId) : null;
 
     return {
         id: post.id,
         title: post.title,
         content: post.content,
+        myRequestStatus: myRequest?.status || null,
         targetMembersCount: post.target_members_count,
         currentMembersCount: post.current_members_count,
         minAge: post.min_age,
@@ -297,6 +299,11 @@ const getCompanionPostDetail = async ({ postId }) => {
 };
 
 const createJoinRequest = async ({ postId, userId, introduction }) => {
+    const user = await usersRepository.findProfileById(userId);
+    if (!user || !user.is_verified) {
+        throw apiError(403, 'Bạn cần xác minh danh tính (eKYC) để gửi yêu cầu tham gia');
+    }
+
     const post = await companionsRepository.getCompanionPostById(postId);
     if (!post) {
         throw apiError(404, 'Bài viết không tồn tại');
@@ -357,7 +364,6 @@ const createJoinRequest = async ({ postId, userId, introduction }) => {
         throw error;
     }
 
-    const user = await usersRepository.findProfileById(userId);
     notificationsService.createNotification({
         recipientId: leader.user_id,
         title: 'Yêu cầu tham gia mới',
@@ -535,7 +541,10 @@ const getMyReceivedRequests = async ({ userId, page = 1, limit = 20, status, pos
     };
 };
 
+const getPostedTripIds = async (userId) => companionsRepository.getPostedTripIds(userId);
+
 module.exports = {
+    getPostedTripIds,
     createCompanionPost,
     updateCompanionPost,
     deleteCompanionPost,

@@ -26,15 +26,14 @@ class CompanionDetailViewModel extends ChangeNotifier {
   bool _isLoading = false;
   bool _isSubmitting = false;
   String? _errorMessage;
-  String? _successMessage;
   bool _disposed = false;
-  bool hasSentRequest = false;
+  String? requestStatus;
+  bool get hasSentRequest => requestStatus != null;
 
   CompanionPost? get post => _post;
   bool get isLoading => _isLoading;
   bool get isSubmitting => _isSubmitting;
   String? get errorMessage => _errorMessage;
-  String? get successMessage => _successMessage;
 
   // ─── Load chi tiết bài đăng ───────────────────────────────────────────────
 
@@ -44,7 +43,10 @@ class CompanionDetailViewModel extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
     try {
-      _post = await _repo.getPostDetail(postId);
+      final post = await _repo.getPostDetail(postId);
+      if (_disposed) return;
+      _post = post;
+      requestStatus = post.myRequestStatus;
     } catch (e) {
       _errorMessage = 'Không thể tải bài đăng. Vui lòng thử lại.';
     } finally {
@@ -62,12 +64,11 @@ class CompanionDetailViewModel extends ChangeNotifier {
     if (_disposed || _isSubmitting || hasSentRequest) return false;
     _isSubmitting = true;
     _errorMessage = null;
-    _successMessage = null;
     notifyListeners();
     try {
       await _repo.createJoinRequest(postId: postId, introduction: introduction);
-      hasSentRequest = true;
-      _successMessage = 'Đã gửi yêu cầu tham gia thành công!';
+      if (_disposed) return false;
+      requestStatus = 'PENDING';
       return true;
     } catch (e) {
       _errorMessage = e.toString().replaceFirst('Exception: ', '');
@@ -80,7 +81,6 @@ class CompanionDetailViewModel extends ChangeNotifier {
 
   void clearMessages() {
     _errorMessage = null;
-    _successMessage = null;
     notifyListeners();
   }
 
