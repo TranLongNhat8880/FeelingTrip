@@ -181,6 +181,7 @@ class ItineraryItemCard extends StatelessWidget {
     required this.onMoveUp,
     required this.onMoveDown,
     required this.onSmartSwap,
+    this.reorderHandle,
   });
 
   final ItineraryItem item;
@@ -192,6 +193,7 @@ class ItineraryItemCard extends StatelessWidget {
   final VoidCallback? onMoveUp;
   final VoidCallback? onMoveDown;
   final VoidCallback? onSmartSwap;
+  final Widget? reorderHandle;
 
   @override
   Widget build(BuildContext context) => Row(
@@ -247,6 +249,10 @@ class ItineraryItemCard extends StatelessWidget {
                       ],
                     ),
                   ),
+                  if (reorderHandle != null) ...[
+                    reorderHandle!,
+                    const SizedBox(width: 2),
+                  ],
                   if (canEdit)
                     PopupMenuButton<String>(
                       tooltip: 'Tùy chọn điểm dừng',

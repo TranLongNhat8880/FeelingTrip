@@ -264,7 +264,7 @@ class _JoinTripFormState extends State<_JoinTripForm> {
       children: [
         const AppInlineNotice(
           message:
-              'Mã gồm 6 ký tự và chỉ dùng được một lần. Mã mẫu khi xem mock: A1B2C3.',
+              'Mã gồm 6 ký tự và chỉ dùng được một lần.',
         ),
         const SizedBox(height: 16),
         CustomTextField(
