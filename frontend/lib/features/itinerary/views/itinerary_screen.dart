@@ -61,6 +61,9 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
           destination: widget.destination,
           position: item == null ? day.items.length : day.items.indexOf(item),
           item: item,
+          previousItem: item == null && day.items.isNotEmpty
+              ? day.items.last
+              : null,
           suggestedStartTime: day.items.isEmpty ? null : day.items.last.endTime,
         ),
       ),
@@ -236,6 +239,12 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
         onRetry: () => _viewModel.load(widget.tripId),
       );
     }
+    if (plan.days.isEmpty) {
+      return ErrorState(
+        message: 'Chuyến đi chưa có dữ liệu ngày hợp lệ.',
+        onRetry: () => _viewModel.load(widget.tripId),
+      );
+    }
     final day = plan.days[_selectedDay];
     return RefreshIndicator(
       onRefresh: () => _viewModel.load(widget.tripId),
@@ -317,7 +326,7 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                   : null,
             )
           else ...[
-            for (var index = 0; index < day.items.length; index++)
+            for (var index = 0; index < day.items.length; index++) ...[
               ItineraryItemCard(
                 item: day.items[index],
                 position: index,
@@ -336,6 +345,12 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                     ? () => _smartSwap(day.items[index])
                     : null,
               ),
+              if (index < day.items.length - 1)
+                ItineraryLegIndicator(
+                  origin: day.items[index],
+                  destination: day.items[index + 1],
+                ),
+            ],
             if (plan.trip.canEdit) ...[
               const SizedBox(height: 4),
               CustomButton(

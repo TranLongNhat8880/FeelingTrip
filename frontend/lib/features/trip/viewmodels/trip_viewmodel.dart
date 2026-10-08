@@ -19,14 +19,19 @@ class TripViewModel extends ChangeNotifier {
   List<TripModel> _trips = [];
   TripModel? _selectedTrip;
   List<TripInvitation> _invitations = [];
+  List<TripInvitation> _tripInvitations = [];
   bool _isLoading = false;
+  bool _isLoadingTripInvitations = false;
   bool _isSubmitting = false;
   String? _errorMessage;
 
   List<TripModel> get trips => List.unmodifiable(_trips);
   TripModel? get selectedTrip => _selectedTrip;
   List<TripInvitation> get invitations => List.unmodifiable(_invitations);
+  List<TripInvitation> get tripInvitations =>
+      List.unmodifiable(_tripInvitations);
   bool get isLoading => _isLoading;
+  bool get isLoadingTripInvitations => _isLoadingTripInvitations;
   bool get isSubmitting => _isSubmitting;
   String? get errorMessage => _errorMessage;
 
@@ -146,6 +151,47 @@ class TripViewModel extends ChangeNotifier {
         await loadMyInvitations();
       });
 
+  Future<void> loadTripInvitations(String tripId) async {
+    _tripInvitations = [];
+    _setLoadingTripInvitations(true);
+    try {
+      _tripInvitations = await repository.getTripInvitations(tripId);
+      _errorMessage = null;
+    } catch (error) {
+      _errorMessage = _message(
+        error,
+        'Không tải được danh sách lời mời của chuyến đi.',
+      );
+    } finally {
+      _setLoadingTripInvitations(false);
+    }
+  }
+
+  Future<bool> sendTripInvitation(
+    String inviteeUserId, {
+    int expiresInHours = 72,
+  }) async {
+    final trip = _selectedTrip;
+    if (trip == null) return false;
+    return _action(() async {
+      final invitation = await repository.sendInvitation(
+        trip.id,
+        inviteeUserId.trim(),
+        expiresInHours: expiresInHours,
+      );
+      _tripInvitations.insert(0, invitation);
+    });
+  }
+
+  Future<bool> revokeTripInvitation(String invitationId) async {
+    final trip = _selectedTrip;
+    if (trip == null) return false;
+    return _action(() async {
+      await repository.revokeInvitation(trip.id, invitationId);
+      _tripInvitations.removeWhere((item) => item.id == invitationId);
+    });
+  }
+
   void clearError() {
     _errorMessage = null;
     notifyListeners();
@@ -194,6 +240,11 @@ class TripViewModel extends ChangeNotifier {
 
   void _setLoading(bool value) {
     _isLoading = value;
+    notifyListeners();
+  }
+
+  void _setLoadingTripInvitations(bool value) {
+    _isLoadingTripInvitations = value;
     notifyListeners();
   }
 

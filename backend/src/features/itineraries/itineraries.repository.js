@@ -29,7 +29,9 @@ const findTrip = async (client, tripId, forUpdate = false) => {
  */
 const findTripForMember = async (client, tripId, userId) => {
   const { rows: [row] } = await client.query(`
-    SELECT t.id,t.name,t.start_date,t.end_date,t.status,tm.role AS member_role
+    SELECT t.id,t.name,t.start_date::text AS start_date,
+      t.end_date::text AS end_date,t.duration_days,t.status,
+      tm.role AS member_role
     FROM trips t JOIN trip_members tm ON tm.trip_id=t.id
     WHERE t.id=$1 AND tm.user_id=$2 AND tm.membership_status='ACTIVE'`, [tripId, userId]);
   return row || null;
@@ -50,9 +52,12 @@ const findDays = async (client, tripId) => {
 const findItemsForDays = async (client, dayIds) => {
   if (!dayIds.length) return [];
   const { rows } = await client.query(`
-    SELECT ii.*,ii.xmin::text AS row_version FROM itinerary_items ii
-    WHERE itinerary_id=ANY($1::uuid[])
-    ORDER BY order_index,start_time,id`, [dayIds]);
+    SELECT ii.*,ii.xmin::text AS row_version,
+      p.latitude,p.longitude
+    FROM itinerary_items ii
+    LEFT JOIN places p ON p.id=ii.place_id
+    WHERE ii.itinerary_id=ANY($1::uuid[])
+    ORDER BY ii.order_index,ii.start_time,ii.id`, [dayIds]);
   return rows;
 };
 

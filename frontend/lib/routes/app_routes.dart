@@ -60,6 +60,8 @@ class AppRoutes {
     register: (context) => const RegisterScreen(),
     terms: (context) => const TermsScreen(),
     tripList: (context) => const TripListScreen(),
+    publicItineraries: (context) => const PublicItinerariesScreen(),
+    tripInvitations: (context) => const TripInvitationsScreen(),
     companionFeed: (context) => const CompanionFeedScreen(),
     companionRequests: (context) => const CompanionRequestsScreen(),
     places: (context) => const PlaceListScreen(),
