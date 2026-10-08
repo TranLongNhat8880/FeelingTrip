@@ -16,14 +16,7 @@ import 'admin_place_form_screen.dart';
 // ============================================================================
 
 class AdminPlaceManagementContent extends StatefulWidget {
-  const AdminPlaceManagementContent({
-    super.key,
-    this.onCreatePlace,
-    this.onEditPlace,
-  });
-
-  final VoidCallback? onCreatePlace;
-  final ValueChanged<PlaceModel>? onEditPlace;
+  const AdminPlaceManagementContent({super.key});
 
   @override
   State<AdminPlaceManagementContent> createState() =>
@@ -88,11 +81,6 @@ class _AdminPlaceManagementContentState
   }
 
   Future<void> _openCreatePlace() async {
-    if (widget.onCreatePlace != null) {
-      widget.onCreatePlace!();
-      return;
-    }
-
     final createdPlace = await Navigator.push<PlaceModel>(
       context,
       MaterialPageRoute<PlaceModel>(
@@ -112,11 +100,6 @@ class _AdminPlaceManagementContentState
   }
 
   Future<void> _openEditPlace(PlaceModel place) async {
-    if (widget.onEditPlace != null) {
-      widget.onEditPlace!(place);
-      return;
-    }
-
     final updatedPlace = await Navigator.push<PlaceModel>(
       context,
       MaterialPageRoute<PlaceModel>(

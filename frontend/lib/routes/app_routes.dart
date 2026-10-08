@@ -11,7 +11,6 @@ import '../features/companion/views/create_companion_post_screen.dart';
 import '../features/itinerary/repositories/itinerary_repository.dart';
 import '../features/itinerary/views/itinerary_screen.dart';
 import '../features/itinerary/views/public_itineraries_screen.dart';
-import '../features/map/views/admin_place_management_screen.dart';
 import '../features/map/views/place_list_screen.dart';
 import '../features/trip/models/trip_model.dart';
 import '../features/trip/repositories/trip_repository.dart';
@@ -40,7 +39,6 @@ class AppRoutes {
   static const String profile = '/profile';
   static const String uiKit = '/ui-kit';
   static const String places = '/places';
-  static const String adminPlaces = '/admin/places';
   static const String admin = '/admin';
 
   // Companion routes
@@ -82,134 +80,135 @@ class AppRoutes {
       icon: Icons.account_balance_wallet_rounded,
     ),
     if (kDebugMode) admin: (context) => const AdminScreen(),
-    if (kDebugMode)
-      adminPlaces: (context) => const AdminPlaceManagementScreen(),
     if (kDebugMode) uiKit: (context) => const UiKitGalleryScreen(),
   };
 
   /// Xử lý các routes có truyền tham số động (arguments) hoặc fallback
   static Route<dynamic>? onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {
-      case tripDetail: {
-        final args = settings.arguments;
-        String? tripId;
-        TripRepository? repository;
-        if (args is String) {
-          tripId = args;
-        } else if (args is TripModel) {
-          tripId = args.id;
-        } else if (args is Map) {
-          tripId = args['tripId'] as String? ?? args['id'] as String?;
-          repository = args['repository'] as TripRepository?;
+      case tripDetail:
+        {
+          final args = settings.arguments;
+          String? tripId;
+          TripRepository? repository;
+          if (args is String) {
+            tripId = args;
+          } else if (args is TripModel) {
+            tripId = args.id;
+          } else if (args is Map) {
+            tripId = args['tripId'] as String? ?? args['id'] as String?;
+            repository = args['repository'] as TripRepository?;
+          }
+          if (tripId == null || tripId.isEmpty) {
+            return _errorRoute('Thiếu mã chuyến đi (tripId).');
+          }
+          return MaterialPageRoute(
+            settings: settings,
+            builder: (_) =>
+                TripDetailScreen(tripId: tripId!, repository: repository),
+          );
         }
-        if (tripId == null || tripId.isEmpty) {
-          return _errorRoute('Thiếu mã chuyến đi (tripId).');
-        }
-        return MaterialPageRoute(
-          settings: settings,
-          builder: (_) => TripDetailScreen(
-            tripId: tripId!,
-            repository: repository,
-          ),
-        );
-      }
 
-      case itinerary: {
-        final args = settings.arguments;
-        String? tripId;
-        String? destination;
-        ItineraryRepository? repository;
-        if (args is String) {
-          tripId = args;
-        } else if (args is Map) {
-          tripId = args['tripId'] as String? ?? args['id'] as String?;
-          destination = args['destination'] as String?;
-          repository = args['repository'] as ItineraryRepository?;
+      case itinerary:
+        {
+          final args = settings.arguments;
+          String? tripId;
+          String? destination;
+          ItineraryRepository? repository;
+          if (args is String) {
+            tripId = args;
+          } else if (args is Map) {
+            tripId = args['tripId'] as String? ?? args['id'] as String?;
+            destination = args['destination'] as String?;
+            repository = args['repository'] as ItineraryRepository?;
+          }
+          if (tripId == null || tripId.isEmpty) {
+            return _errorRoute(
+              'Thiếu mã chuyến đi (tripId) để xem lịch trình.',
+            );
+          }
+          return MaterialPageRoute(
+            settings: settings,
+            builder: (_) => ItineraryScreen(
+              tripId: tripId!,
+              destination: destination ?? '',
+              repository: repository,
+            ),
+          );
         }
-        if (tripId == null || tripId.isEmpty) {
-          return _errorRoute('Thiếu mã chuyến đi (tripId) để xem lịch trình.');
-        }
-        return MaterialPageRoute(
-          settings: settings,
-          builder: (_) => ItineraryScreen(
-            tripId: tripId!,
-            destination: destination ?? '',
-            repository: repository,
-          ),
-        );
-      }
 
-      case createTrip: {
-        final args = settings.arguments;
-        TripModel? trip;
-        TripRepository? repository;
-        if (args is TripModel) {
-          trip = args;
-        } else if (args is Map) {
-          trip = args['trip'] as TripModel?;
-          repository = args['repository'] as TripRepository?;
+      case createTrip:
+        {
+          final args = settings.arguments;
+          TripModel? trip;
+          TripRepository? repository;
+          if (args is TripModel) {
+            trip = args;
+          } else if (args is Map) {
+            trip = args['trip'] as TripModel?;
+            repository = args['repository'] as TripRepository?;
+          }
+          return MaterialPageRoute(
+            settings: settings,
+            builder: (_) => TripFormScreen(trip: trip, repository: repository),
+          );
         }
-        return MaterialPageRoute(
-          settings: settings,
-          builder: (_) => TripFormScreen(
-            trip: trip,
-            repository: repository,
-          ),
-        );
-      }
 
-      case tripInvitations: {
-        final args = settings.arguments;
-        TripRepository? repository;
-        if (args is TripRepository) {
-          repository = args;
-        } else if (args is Map) {
-          repository = args['repository'] as TripRepository?;
+      case tripInvitations:
+        {
+          final args = settings.arguments;
+          TripRepository? repository;
+          if (args is TripRepository) {
+            repository = args;
+          } else if (args is Map) {
+            repository = args['repository'] as TripRepository?;
+          }
+          return MaterialPageRoute(
+            settings: settings,
+            builder: (_) => TripInvitationsScreen(repository: repository),
+          );
         }
-        return MaterialPageRoute(
-          settings: settings,
-          builder: (_) => TripInvitationsScreen(repository: repository),
-        );
-      }
 
-      case publicItineraries: {
-        final args = settings.arguments;
-        String? destination;
-        ItineraryRepository? repository;
-        if (args is String) {
-          destination = args;
-        } else if (args is Map) {
-          destination = args['destination'] as String?;
-          repository = args['repository'] as ItineraryRepository?;
+      case publicItineraries:
+        {
+          final args = settings.arguments;
+          String? destination;
+          ItineraryRepository? repository;
+          if (args is String) {
+            destination = args;
+          } else if (args is Map) {
+            destination = args['destination'] as String?;
+            repository = args['repository'] as ItineraryRepository?;
+          }
+          return MaterialPageRoute(
+            settings: settings,
+            builder: (_) => PublicItinerariesScreen(
+              initialDestination: destination,
+              repository: repository,
+            ),
+          );
         }
-        return MaterialPageRoute(
-          settings: settings,
-          builder: (_) => PublicItinerariesScreen(
-            initialDestination: destination,
-            repository: repository,
-          ),
-        );
-      }
 
-      case createCompanionPost: {
-        final args = settings.arguments;
-        String? tripId;
-        String? tripName;
-        String? tripDestination;
-        if (args is Map) {
-          tripId = args['tripId'] as String?;
-          tripName = args['tripName'] as String?;
-          tripDestination = args['tripDestination'] as String?;
+      case createCompanionPost:
+        {
+          final args = settings.arguments;
+          String? tripId;
+          String? tripName;
+          String? tripDestination;
+          if (args is Map) {
+            tripId = args['tripId'] as String?;
+            tripName = args['tripName'] as String?;
+            tripDestination = args['tripDestination'] as String?;
+          }
+          return MaterialPageRoute(
+            settings: settings,
+            builder: (_) => CreateCompanionPostScreen(
+              tripId: tripId,
+              tripName: tripName,
+              tripDestination: tripDestination,
+            ),
+          );
         }
-        return MaterialPageRoute(
-          settings: settings,
-          builder: (_) => CreateCompanionPostScreen(
-            tripId: tripId,
-            tripName: tripName,
-            tripDestination: tripDestination,
-          ),
-        );
-      }
 
       default:
         return null;

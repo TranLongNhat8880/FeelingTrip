@@ -1,5 +1,3 @@
-import 'place_model.dart';
-
 // ============================================================================
 // MODEL: Dữ liệu Admin nhập khi thêm hoặc sửa địa điểm
 // ============================================================================
@@ -24,20 +22,6 @@ class PlaceFormData {
   final double? longitude;
   final int priceLevel;
   final int avgDurationMinutes;
-
-  /// Điền sẵn form khi Admin sửa địa điểm.
-  factory PlaceFormData.fromPlace(PlaceModel place) {
-    return PlaceFormData(
-      name: place.name,
-      destination: place.destination,
-      address: place.address,
-      category: place.category,
-      latitude: place.latitude,
-      longitude: place.longitude,
-      priceLevel: place.priceLevel,
-      avgDurationMinutes: place.avgDurationMinutes,
-    );
-  }
 
   /// Chuyển thành các field text của multipart/form-data.
   Map<String, String> toMultipartFields() {
