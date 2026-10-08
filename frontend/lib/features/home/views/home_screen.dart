@@ -186,10 +186,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Text(
-                          _titles[_tab],
-                          style: text.headlineMedium,
-                        ),
+                        Text(_titles[_tab], style: text.headlineMedium),
                         const SizedBox(height: 8),
                         if (_tab == 1) ...[
                           // ── TAB 1: KẾ HOẠCH & CHUYẾN ĐI CỦA TÔI ──
@@ -294,10 +291,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           const SizedBox(height: 12),
                           AppCard(
                             outlined: true,
-                            onTap: () => Navigator.pushNamed(
-                              context,
-                              AppRoutes.places,
-                            ),
+                            onTap: () =>
+                                Navigator.pushNamed(context, AppRoutes.places),
                             child: Row(
                               children: [
                                 const Icon(
@@ -476,9 +471,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       Icons.admin_panel_settings_outlined,
                                       color: Color(0xFF0284C7),
                                     ),
-                                    title: const Text(
-                                      'Bảng điều khiển Admin',
-                                    ),
+                                    title: const Text('Bảng điều khiển Admin'),
                                     subtitle: const Text(
                                       'Quản trị người dùng & địa điểm',
                                     ),
@@ -522,9 +515,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               padding: const EdgeInsets.only(bottom: 12),
                               child: Text(
                                 auth.errorMessage!,
-                                style: const TextStyle(
-                                  color: AppColors.error,
-                                ),
+                                style: const TextStyle(color: AppColors.error),
                               ),
                             ),
                           CustomButton(
@@ -554,8 +545,14 @@ class _HomeScreenState extends State<HomeScreen> {
         selectedIndex: _tab,
         onSelected: _select,
         items: [
-          const AppNavigationItem(label: 'Trang chủ', icon: Icons.home_outlined),
-          const AppNavigationItem(label: 'Chuyến đi', icon: Icons.luggage_outlined),
+          const AppNavigationItem(
+            label: 'Trang chủ',
+            icon: Icons.home_outlined,
+          ),
+          const AppNavigationItem(
+            label: 'Chuyến đi',
+            icon: Icons.luggage_outlined,
+          ),
           AppNavigationItem(
             label: 'Thông báo',
             icon: Icons.notifications_none_rounded,
@@ -806,24 +803,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   Navigator.pushNamed(context, AppRoutes.admin);
                 },
               ),
-              ListTile(
-                leading: const Icon(
-                  Icons.map_outlined,
-                  color: Color(0xFF0284C7),
-                ),
-                title: const Text('Quản lý địa điểm (Admin)'),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.pushNamed(context, AppRoutes.adminPlaces);
-                },
-              ),
             ],
             const Divider(height: 24),
             ListTile(
-              leading: const Icon(
-                Icons.logout_rounded,
-                color: AppColors.error,
-              ),
+              leading: const Icon(Icons.logout_rounded, color: AppColors.error),
               title: const Text(
                 'Đăng xuất',
                 style: TextStyle(color: AppColors.error),
