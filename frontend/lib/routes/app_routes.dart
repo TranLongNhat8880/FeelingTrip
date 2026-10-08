@@ -12,6 +12,7 @@ import '../features/itinerary/repositories/itinerary_repository.dart';
 import '../features/itinerary/views/itinerary_screen.dart';
 import '../features/itinerary/views/public_itineraries_screen.dart';
 import '../features/map/views/place_list_screen.dart';
+import '../features/profile/views/profile_screen.dart';
 import '../features/trip/models/trip_model.dart';
 import '../features/trip/repositories/trip_repository.dart';
 import '../features/trip/views/trip_detail_screen.dart';
@@ -63,6 +64,7 @@ class AppRoutes {
     companionFeed: (context) => const CompanionFeedScreen(),
     companionRequests: (context) => const CompanionRequestsScreen(),
     places: (context) => const PlaceListScreen(),
+    profile: (context) => const ProfileScreen(),
     aiPlanner: (context) => const FeaturePlaceholderScreen(
       title: 'AI Travel Planner',
       featureName: 'Lên lịch trình thông minh cùng AI',

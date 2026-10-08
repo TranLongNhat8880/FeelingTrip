@@ -405,6 +405,25 @@ class _HomeScreenState extends State<HomeScreen> {
                               children: [
                                 ListTile(
                                   leading: const Icon(
+                                    Icons.manage_accounts_outlined,
+                                    color: AppColors.primary,
+                                  ),
+                                  title: const Text('Hồ sơ cá nhân'),
+                                  subtitle: const Text(
+                                    'Thông tin cá nhân, eKYC và tài khoản ngân hàng',
+                                  ),
+                                  trailing: const Icon(
+                                    Icons.chevron_right,
+                                    size: 20,
+                                  ),
+                                  onTap: () => Navigator.pushNamed(
+                                    context,
+                                    AppRoutes.profile,
+                                  ),
+                                ),
+                                const Divider(height: 1, indent: 56),
+                                ListTile(
+                                  leading: const Icon(
                                     Icons.luggage_outlined,
                                     color: AppColors.primary,
                                   ),
