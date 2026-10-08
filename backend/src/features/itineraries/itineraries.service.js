@@ -304,6 +304,14 @@ const reorderItems = (dayId, userId, data) => db.transaction(async client => {
   await repo.reorderItems(client, dayId, data.orderedItemIds);
   const updatedDay = await repo.touchDayVersion(client, dayId, data.expectedVersion);
   if (!updatedDay) throw apiError(409, 'Ngày đã được cập nhật');
+  await repo.notifyTripMembers(
+    client,
+    initial.trip_id,
+    userId,
+    'Lịch trình đã được sắp xếp lại',
+    `Thứ tự các điểm đến trong Ngày ${day.day_number} đã được cập nhật.`,
+    { tripId: initial.trip_id, dayId },
+  );
   const updatedItems = await repo.findItemsForDays(client, [dayId]);
   return formatDay(updatedDay, updatedItems);
 });

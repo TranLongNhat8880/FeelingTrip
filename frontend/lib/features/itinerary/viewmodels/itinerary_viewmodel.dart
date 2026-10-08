@@ -84,16 +84,33 @@ class ItineraryViewModel extends ChangeNotifier {
       });
 
   Future<bool> moveItem(ItineraryDay day, int oldIndex, int newIndex) async {
-    if (day.id == null || day.version == null || oldIndex == newIndex) {
+    if (day.id == null ||
+        day.version == null ||
+        oldIndex == newIndex ||
+        oldIndex < 0 ||
+        oldIndex >= day.items.length ||
+        newIndex < 0 ||
+        newIndex >= day.items.length) {
       return false;
     }
-    final ids = day.items.map((item) => item.id).toList();
-    final moved = ids.removeAt(oldIndex);
-    ids.insert(newIndex, moved);
-    return _action(() async {
+
+    final originalItems = List<ItineraryItem>.of(day.items);
+    final moved = day.items.removeAt(oldIndex);
+    day.items.insert(newIndex, moved);
+    final ids = day.items.map((item) => item.id).toList(growable: false);
+    notifyListeners();
+
+    final success = await _action(() async {
       await repository.reorderItems(day, ids);
       await _reload();
     });
+    if (!success) {
+      day.items
+        ..clear()
+        ..addAll(originalItems);
+      notifyListeners();
+    }
+    return success;
   }
 
   Future<List<SwapCandidate>?> getSwapCandidates(ItineraryItem item) async {

@@ -181,6 +181,25 @@ const transitionStatus = (tripId, userId, data) => db.transaction(async client =
     throw apiError(409, 'Chuyển trạng thái chuyến đi không hợp lệ');
   }
   await repo.setTripStatus(client, tripId, data.status);
+  if (data.status === 'COMPLETED') {
+    await repo.notifyActiveMembers(
+      client,
+      tripId,
+      userId,
+      'Chuyến đi đã hoàn thành',
+      `Chuyến đi "${trip.name}" đã kết thúc. Cảm ơn bạn đã đồng hành!`,
+      { tripId, status: 'COMPLETED' },
+    );
+  } else if (data.status === 'ONGOING') {
+    await repo.notifyActiveMembers(
+      client,
+      tripId,
+      userId,
+      'Chuyến đi đã bắt đầu',
+      `Chuyến đi "${trip.name}" chính thức bắt đầu. Chúc bạn có trải nghiệm tuyệt vời!`,
+      { tripId, status: 'ONGOING' },
+    );
+  }
   return tripDetail(tripId, userId, client);
 });
 

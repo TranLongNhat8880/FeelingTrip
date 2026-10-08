@@ -118,6 +118,107 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
     );
   }
 
+  Future<void> _moveItem(ItineraryDay day, int oldIndex, int newIndex) async {
+    if (_viewModel.isSubmitting || oldIndex == newIndex) return;
+    final success = await _viewModel.moveItem(day, oldIndex, newIndex);
+    if (!mounted) return;
+    AppFeedback.show(
+      context,
+      success
+          ? 'Thứ tự điểm đến đã thay đổi. Vui lòng kiểm tra lại khung giờ hoạt động để đảm bảo lộ trình hợp lý.'
+          : _viewModel.errorMessage ?? 'Không sắp xếp lại được lịch trình.',
+      tone: success ? AppStatusTone.warning : AppStatusTone.error,
+    );
+  }
+
+  void _onReorder(ItineraryDay day, int oldIndex, int newIndex) {
+    _moveItem(day, oldIndex, newIndex);
+  }
+
+  Widget _timelineItem(
+    ItineraryDay day,
+    int index, {
+    required bool canEdit,
+    required bool draggable,
+  }) {
+    final item = day.items[index];
+    return Column(
+      key: ValueKey('itinerary-item-${item.id}'),
+      children: [
+        ItineraryItemCard(
+          item: item,
+          position: index,
+          canEdit: canEdit,
+          onToggle: () => _viewModel.toggleCompletion(item),
+          onEdit: () => _openItemForm(day, item: item),
+          onDelete: () => _deleteItem(item),
+          onMoveUp: index == 0 || _viewModel.isSubmitting
+              ? null
+              : () => _moveItem(day, index, index - 1),
+          onMoveDown: index == day.items.length - 1 || _viewModel.isSubmitting
+              ? null
+              : () => _moveItem(day, index, index + 1),
+          onSmartSwap: item.supportsSmartSwap ? () => _smartSwap(item) : null,
+          reorderHandle: draggable
+              ? ReorderableDragStartListener(
+                  index: index,
+                  enabled: !_viewModel.isSubmitting,
+                  child: const Padding(
+                    padding: EdgeInsets.all(8),
+                    child: MouseRegion(
+                      cursor: SystemMouseCursors.grab,
+                      child: Icon(
+                        Icons.drag_handle_rounded,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                )
+              : null,
+        ),
+        if (index < day.items.length - 1)
+          ItineraryLegIndicator(
+            origin: item,
+            destination: day.items[index + 1],
+          ),
+      ],
+    );
+  }
+
+  Widget _timeline(ItineraryDay day, {required bool canEdit}) {
+    final draggable = canEdit && day.items.length > 1;
+    if (!draggable) {
+      return Column(
+        children: [
+          for (var index = 0; index < day.items.length; index++)
+            _timelineItem(day, index, canEdit: canEdit, draggable: false),
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const AppInlineNotice(
+          message:
+              'Giữ và kéo biểu tượng ≡ để sắp xếp lại. Bạn vẫn có thể dùng các nút mũi tên.',
+        ),
+        const SizedBox(height: 10),
+        ReorderableListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          buildDefaultDragHandles: false,
+          itemCount: day.items.length,
+          onReorderItem: _viewModel.isSubmitting
+              ? (_, _) {}
+              : (oldIndex, newIndex) => _onReorder(day, oldIndex, newIndex),
+          itemBuilder: (_, index) =>
+              _timelineItem(day, index, canEdit: canEdit, draggable: true),
+        ),
+      ],
+    );
+  }
+
   Future<void> _deleteItem(ItineraryItem item) async {
     final confirmed = await AppConfirmDialog.show(
       context,
@@ -326,31 +427,7 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                   : null,
             )
           else ...[
-            for (var index = 0; index < day.items.length; index++) ...[
-              ItineraryItemCard(
-                item: day.items[index],
-                position: index,
-                canEdit: plan.trip.canEdit,
-                onToggle: () => _viewModel.toggleCompletion(day.items[index]),
-                onEdit: () => _openItemForm(day, item: day.items[index]),
-                onDelete: () => _deleteItem(day.items[index]),
-                onMoveUp: index == 0 || _viewModel.isSubmitting
-                    ? null
-                    : () => _viewModel.moveItem(day, index, index - 1),
-                onMoveDown:
-                    index == day.items.length - 1 || _viewModel.isSubmitting
-                    ? null
-                    : () => _viewModel.moveItem(day, index, index + 1),
-                onSmartSwap: day.items[index].supportsSmartSwap
-                    ? () => _smartSwap(day.items[index])
-                    : null,
-              ),
-              if (index < day.items.length - 1)
-                ItineraryLegIndicator(
-                  origin: day.items[index],
-                  destination: day.items[index + 1],
-                ),
-            ],
+            _timeline(day, canEdit: plan.trip.canEdit),
             if (plan.trip.canEdit) ...[
               const SizedBox(height: 4),
               CustomButton(
