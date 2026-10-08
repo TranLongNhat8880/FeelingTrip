@@ -19,6 +19,7 @@ import '../features/trip/views/trip_detail_screen.dart';
 import '../features/trip/views/trip_form_screen.dart';
 import '../features/trip/views/trip_invitations_screen.dart';
 import '../features/trip/views/trip_list_screen.dart';
+import '../features/expense/views/split_bill_screen.dart';
 import '../shared/gallery/ui_kit_gallery_screen.dart';
 import '../shared/widgets/feature_placeholder_screen.dart';
 
@@ -73,14 +74,7 @@ class AppRoutes {
       owner: 'Nhóm AI',
       icon: Icons.auto_awesome_rounded,
     ),
-    expenses: (context) => const FeaturePlaceholderScreen(
-      title: 'Sổ quỹ & Chia tiền',
-      featureName: 'Quản lý chi tiêu & Split Bill',
-      description:
-          'Tự động tối ưu hóa công nợ nhóm (Min Cash Flow) và tạo mã VietQR thanh toán tức thì.',
-      owner: 'Long Nhật',
-      icon: Icons.account_balance_wallet_rounded,
-    ),
+    expenses: (context) => const SplitBillScreen(),
     if (kDebugMode) admin: (context) => const AdminScreen(),
     if (kDebugMode) uiKit: (context) => const UiKitGalleryScreen(),
   };

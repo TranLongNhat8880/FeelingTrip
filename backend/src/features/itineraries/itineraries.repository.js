@@ -265,7 +265,7 @@ const applySmartSwap = async (client, itemId, place, expectedVersion) => {
 const notifyTripMembers = async (client, tripId, actorId, title, message, data) => {
   await client.query(`
     INSERT INTO notifications (user_id,title,message,type,data)
-    SELECT tm.user_id,$3,$4,'TRIP_UPDATE',$5::jsonb FROM trip_members tm
+    SELECT tm.user_id,$3::varchar,$4::text,'TRIP_UPDATE',$5::jsonb FROM trip_members tm
     WHERE tm.trip_id=$1 AND tm.membership_status='ACTIVE' AND tm.user_id<>$2`,
     [tripId, actorId, title, message, JSON.stringify(data)]);
 };
