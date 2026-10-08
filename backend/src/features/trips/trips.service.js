@@ -75,9 +75,23 @@ const formatPagination = (page, limit, total) => ({
 const sameVersion = (actual, expected) =>
   new Date(actual).getTime() === new Date(expected).getTime();
 
+const asDateOnly = value => {
+  if (value instanceof Date) {
+    const year = value.getFullYear();
+    const month = String(value.getMonth() + 1).padStart(2, '0');
+    const day = String(value.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+  const match = String(value).match(/^\d{4}-\d{2}-\d{2}/);
+  return match?.[0] || null;
+};
+
 const durationDays = (startDate, endDate) => {
-  const start = Date.parse(`${startDate}T00:00:00Z`);
-  const end = Date.parse(`${endDate}T00:00:00Z`);
+  const normalizedStart = asDateOnly(startDate);
+  const normalizedEnd = asDateOnly(endDate);
+  if (!normalizedStart || !normalizedEnd) return Number.NaN;
+  const start = Date.parse(`${normalizedStart}T00:00:00Z`);
+  const end = Date.parse(`${normalizedEnd}T00:00:00Z`);
   return Math.round((end - start) / 86400000) + 1;
 };
 

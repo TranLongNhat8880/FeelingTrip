@@ -1,9 +1,173 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/utils/app_utils.dart';
+import '../../../map/models/place_distance_model.dart';
+import '../../../map/repositories/api_place_repository.dart';
 import '../../../../shared/ui_kit.dart';
 import '../../models/itinerary_model.dart';
+
+class ItineraryLegIndicator extends StatefulWidget {
+  const ItineraryLegIndicator({
+    super.key,
+    required this.origin,
+    required this.destination,
+  });
+
+  final ItineraryItem origin;
+  final ItineraryItem destination;
+
+  @override
+  State<ItineraryLegIndicator> createState() => _ItineraryLegIndicatorState();
+}
+
+class _ItineraryLegIndicatorState extends State<ItineraryLegIndicator> {
+  final ApiPlaceRepository _placeRepository = ApiPlaceRepository();
+  PlaceDistanceResult? _distance;
+  bool _loading = false;
+  int _requestId = 0;
+
+  bool get _hasCoordinates =>
+      widget.origin.latitude != null &&
+      widget.origin.longitude != null &&
+      widget.destination.latitude != null &&
+      widget.destination.longitude != null;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDistance();
+  }
+
+  @override
+  void didUpdateWidget(covariant ItineraryLegIndicator oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_coordinateKey(oldWidget) != _coordinateKey(widget)) {
+      _loadDistance();
+    }
+  }
+
+  String _coordinateKey(ItineraryLegIndicator value) =>
+      '${value.origin.latitude}:${value.origin.longitude}:'
+      '${value.destination.latitude}:${value.destination.longitude}';
+
+  Future<void> _loadDistance() async {
+    final requestId = ++_requestId;
+    if (!_hasCoordinates) {
+      if (mounted) {
+        setState(() {
+          _distance = null;
+          _loading = false;
+        });
+      }
+      return;
+    }
+
+    setState(() {
+      _loading = true;
+      _distance = null;
+    });
+    try {
+      final result = await _placeRepository.calculateDistance(
+        originLatitude: widget.origin.latitude!,
+        originLongitude: widget.origin.longitude!,
+        destinationLatitude: widget.destination.latitude!,
+        destinationLongitude: widget.destination.longitude!,
+        travelMode: 'driving',
+      );
+      if (!mounted || requestId != _requestId) return;
+      setState(() => _distance = result);
+    } catch (_) {
+      // Không làm hỏng timeline nếu API khoảng cách tạm thời không khả dụng.
+      if (!mounted || requestId != _requestId) return;
+      setState(() => _distance = null);
+    } finally {
+      if (mounted && requestId == _requestId) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+
+  Future<void> _openDirections() async {
+    final uri = _distance?.directionsUri;
+    if (uri == null) return;
+    var opened = false;
+    try {
+      opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      opened = false;
+    }
+    if (!opened && mounted) {
+      AppFeedback.show(
+        context,
+        'Không thể mở Google Maps.',
+        tone: AppStatusTone.error,
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_hasCoordinates || (!_loading && _distance == null)) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(46, 2, 0, 10),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(10, 5, 4, 5),
+          decoration: BoxDecoration(
+            color: AppColors.primarySurface,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: AppColors.primaryBorder),
+          ),
+          child: _loading
+              ? const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    SizedBox(width: 8),
+                    Text('Đang tính chặng di chuyển...'),
+                  ],
+                )
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.directions_car_rounded,
+                      size: 17,
+                      color: AppColors.primary,
+                    ),
+                    const SizedBox(width: 7),
+                    Text(
+                      '${_distance!.distanceKm.toStringAsFixed(1)} km · '
+                      '${_distance!.estimatedDurationMinutes} phút',
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (_distance!.directionsUri != null)
+                      IconButton(
+                        tooltip: 'Mở chỉ đường Google Maps',
+                        visualDensity: VisualDensity.compact,
+                        onPressed: _openDirections,
+                        icon: const Icon(Icons.open_in_new_rounded, size: 17),
+                      ),
+                  ],
+                ),
+        ),
+      ),
+    );
+  }
+}
 
 class ItineraryItemCard extends StatelessWidget {
   const ItineraryItemCard({

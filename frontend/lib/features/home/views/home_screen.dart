@@ -195,34 +195,50 @@ class _HomeScreenState extends State<HomeScreen> {
                           // ── TAB 1: KẾ HOẠCH & CHUYẾN ĐI CỦA TÔI ──
                           const SizedBox(height: 12),
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                'Kế hoạch của tôi',
-                                style: text.titleMedium,
+                              Expanded(
+                                child: Text(
+                                  'Kế hoạch của tôi',
+                                  style: text.titleMedium,
+                                ),
                               ),
-                              Row(
-                                children: [
-                                  Text(
-                                    '${_myTrips.length} chuyến đi',
-                                    style: text.bodySmall?.copyWith(
-                                      color: AppColors.textSecondary,
-                                    ),
+                              Text(
+                                '${_myTrips.length} chuyến đi',
+                                style: text.bodySmall?.copyWith(
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              TextButton(
+                                style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
                                   ),
-                                  const SizedBox(width: 8),
-                                  IconButton(
-                                    tooltip: 'Khám phá địa điểm du lịch',
-                                    icon: const Icon(
-                                      Icons.explore_outlined,
-                                      color: AppColors.primary,
-                                      size: 20,
-                                    ),
-                                    onPressed: () => Navigator.pushNamed(
-                                      context,
-                                      AppRoutes.places,
-                                    ),
-                                  ),
-                                ],
+                                  minimumSize: Size.zero,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                onPressed: () => Navigator.pushNamed(
+                                  context,
+                                  AppRoutes.tripList,
+                                ),
+                                child: const Text('Quản lý'),
+                              ),
+                              const SizedBox(width: 4),
+                              IconButton(
+                                padding: const EdgeInsets.all(4),
+                                constraints: const BoxConstraints(),
+                                tooltip: 'Khám phá địa điểm du lịch',
+                                icon: const Icon(
+                                  Icons.explore_outlined,
+                                  color: AppColors.primary,
+                                  size: 20,
+                                ),
+                                onPressed: () => Navigator.pushNamed(
+                                  context,
+                                  AppRoutes.places,
+                                ),
                               ),
                             ],
                           ),
@@ -245,6 +261,16 @@ class _HomeScreenState extends State<HomeScreen> {
                                     textAlign: TextAlign.center,
                                   ),
                                   const SizedBox(height: 12),
+                                  CustomButton(
+                                    text: 'Quản lý & Tạo chuyến đi',
+                                    variant: AppButtonVariant.primary,
+                                    icon: Icons.luggage_outlined,
+                                    onPressed: () => Navigator.pushNamed(
+                                      context,
+                                      AppRoutes.tripList,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
                                   CustomButton(
                                     text: 'Khám phá kho địa điểm',
                                     variant: AppButtonVariant.secondary,
@@ -382,6 +408,25 @@ class _HomeScreenState extends State<HomeScreen> {
                             padding: EdgeInsets.zero,
                             child: Column(
                               children: [
+                                ListTile(
+                                  leading: const Icon(
+                                    Icons.luggage_outlined,
+                                    color: AppColors.primary,
+                                  ),
+                                  title: const Text('Chuyến đi của tôi'),
+                                  subtitle: const Text(
+                                    'Quản lý chuyến đi & lịch trình chi tiết',
+                                  ),
+                                  trailing: const Icon(
+                                    Icons.chevron_right,
+                                    size: 20,
+                                  ),
+                                  onTap: () => Navigator.pushNamed(
+                                    context,
+                                    AppRoutes.tripList,
+                                  ),
+                                ),
+                                const Divider(height: 1, indent: 56),
                                 ListTile(
                                   leading: const Icon(
                                     Icons.explore_outlined,
@@ -630,7 +675,18 @@ class _HomeScreenState extends State<HomeScreen> {
               selectedColor: AppColors.primary,
               onTap: () {
                 Navigator.pop(context);
-                _select(1);
+                Navigator.pushNamed(context, AppRoutes.tripList);
+              },
+            ),
+            ListTile(
+              leading: const Icon(
+                Icons.alt_route_rounded,
+                color: Color(0xFF0D9488),
+              ),
+              title: const Text('Lịch trình cộng đồng'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, AppRoutes.publicItineraries);
               },
             ),
             ListTile(

@@ -105,6 +105,8 @@ class ItineraryItem {
     required this.version,
     this.placeId,
     this.customAddress,
+    this.latitude,
+    this.longitude,
     this.note,
     this.createdAt,
   });
@@ -114,6 +116,8 @@ class ItineraryItem {
   final String? placeId;
   final String customName;
   final String? customAddress;
+  final double? latitude;
+  final double? longitude;
   final String category;
   final String startTime;
   final String endTime;
@@ -131,6 +135,8 @@ class ItineraryItem {
     placeId: _string(json['placeId']),
     customName: '${json['customName'] ?? 'Điểm dừng'}',
     customAddress: _string(json['customAddress']),
+    latitude: json['latitude'] == null ? null : _double(json['latitude']),
+    longitude: json['longitude'] == null ? null : _double(json['longitude']),
     category: '${json['category'] ?? 'OTHER'}'.toUpperCase(),
     startTime: '${json['startTime'] ?? ''}',
     endTime: '${json['endTime'] ?? ''}',
@@ -193,6 +199,8 @@ class ItineraryPlaceOption {
     required this.destination,
     required this.category,
     this.address,
+    this.latitude,
+    this.longitude,
     this.rating = 0,
   });
 
@@ -200,6 +208,8 @@ class ItineraryPlaceOption {
   final String name;
   final String destination;
   final String? address;
+  final double? latitude;
+  final double? longitude;
   final String category;
   final double rating;
 
@@ -209,6 +219,10 @@ class ItineraryPlaceOption {
         name: '${json['name'] ?? ''}',
         destination: '${json['destination'] ?? ''}',
         address: _string(json['address']),
+        latitude: json['latitude'] == null ? null : _double(json['latitude']),
+        longitude: json['longitude'] == null
+            ? null
+            : _double(json['longitude']),
         category: '${json['category'] ?? 'OTHER'}'.toUpperCase(),
         rating: _double(json['rating']),
       );

@@ -15,6 +15,8 @@ const formatItem = row => ({
   customName: row.custom_name,
   customAddress: row.custom_address || null,
   category: row.category,
+  latitude: row.latitude != null ? Number(row.latitude) : null,
+  longitude: row.longitude != null ? Number(row.longitude) : null,
   startTime: asTime(row.start_time),
   endTime: asTime(row.end_time),
   note: row.note || null,
@@ -74,9 +76,22 @@ const formatPublicDay = (row, items = []) => ({
 
 const sameVersion = (actual, expected) => String(actual) === String(expected);
 
+const asDateOnly = value => {
+  if (value instanceof Date) {
+    const year = value.getFullYear();
+    const month = String(value.getMonth() + 1).padStart(2, '0');
+    const day = String(value.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+  const match = String(value).match(/^\d{4}-\d{2}-\d{2}/);
+  if (!match) throw apiError(500, 'Dữ liệu ngày chuyến đi không hợp lệ');
+  return match[0];
+};
+
 const datePlus = (date, days) => {
-  const value = new Date(`${date}T00:00:00Z`);
-  value.setUTCDate(value.getUTCDate() + days);
+  const [year, month, day] = asDateOnly(date).split('-').map(Number);
+  const value = new Date(Date.UTC(year, month - 1, day));
+  value.setUTCDate(value.getUTCDate() + Number(days));
   return value.toISOString().slice(0, 10);
 };
 
@@ -109,8 +124,10 @@ const buildInternalItinerary = async (client, tripId, userId) => {
   }
   const daysByNumber = new Map(days.map(day => [Number(day.day_number), day]));
   const output = [];
-  const duration = Math.round((Date.parse(`${trip.end_date}T00:00:00Z`)
-    - Date.parse(`${trip.start_date}T00:00:00Z`)) / 86400000) + 1;
+  const duration = Number(trip.duration_days);
+  if (!Number.isInteger(duration) || duration < 1) {
+    throw apiError(500, 'Thời lượng chuyến đi không hợp lệ');
+  }
   for (let dayNumber = 1; dayNumber <= duration; dayNumber++) {
     const existing = daysByNumber.get(dayNumber);
     const row = existing || {

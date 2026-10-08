@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/api_endpoints.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../map/models/place_distance_model.dart';
+import '../../map/repositories/api_place_repository.dart';
 import '../../../shared/ui_kit.dart';
 import '../models/itinerary_model.dart';
 import '../repositories/api_itinerary_repository.dart';
@@ -15,6 +19,7 @@ class ItineraryItemFormScreen extends StatefulWidget {
     this.destination = '',
     required this.position,
     this.item,
+    this.previousItem,
     this.suggestedStartTime,
   });
 
@@ -22,6 +27,7 @@ class ItineraryItemFormScreen extends StatefulWidget {
   final String destination;
   final int position;
   final ItineraryItem? item;
+  final ItineraryItem? previousItem;
   final String? suggestedStartTime;
 
   @override
@@ -43,15 +49,21 @@ class _ItineraryItemFormScreenState extends State<ItineraryItemFormScreen> {
   late bool _useCatalog;
   ItineraryPlaceOption? _selectedPlace;
   List<ItineraryPlaceOption> _places = [];
+  Timer? _debounceTimer;
+  int _searchRequestId = 0;
+  int _distanceRequestId = 0;
   bool _searching = false;
   String? _searchError;
+  PlaceDistanceResult? _distanceFromPrevious;
+  bool _calculatingDistance = false;
 
   bool get _editing => widget.item != null;
 
   @override
   void initState() {
     super.initState();
-    _repo = widget.repository ??
+    _repo =
+        widget.repository ??
         (ApiEndpoints.useMockData
             ? MockItineraryRepository()
             : ApiItineraryRepository());
@@ -72,13 +84,33 @@ class _ItineraryItemFormScreenState extends State<ItineraryItemFormScreen> {
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     for (final controller in [_name, _address, _note, _cost, _search]) {
       controller.dispose();
     }
     super.dispose();
   }
 
-  Future<void> _searchPlaces() async {
+  void _onSearchQueryChanged(String query) {
+    _debounceTimer?.cancel();
+    final requestId = ++_searchRequestId;
+    _distanceRequestId++;
+    setState(() {
+      _selectedPlace = null;
+      _distanceFromPrevious = null;
+      _calculatingDistance = false;
+      _searchError = null;
+      if (query.trim().isEmpty) _places = [];
+    });
+    if (query.trim().isEmpty) return;
+    _debounceTimer = Timer(
+      const Duration(milliseconds: 350),
+      () => _searchPlaces(requestId: requestId),
+    );
+  }
+
+  Future<void> _searchPlaces({int? requestId}) async {
+    final currentRequestId = requestId ?? ++_searchRequestId;
     setState(() {
       _searching = true;
       _searchError = null;
@@ -88,23 +120,67 @@ class _ItineraryItemFormScreenState extends State<ItineraryItemFormScreen> {
         destination: widget.destination,
         keyword: _search.text,
       );
-      if (!mounted) return;
+      if (!mounted || currentRequestId != _searchRequestId) return;
       setState(() => _places = result);
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || currentRequestId != _searchRequestId) return;
       setState(() => _searchError = '$error'.replaceFirst('Exception: ', ''));
     } finally {
-      if (mounted) setState(() => _searching = false);
+      if (mounted && currentRequestId == _searchRequestId) {
+        setState(() => _searching = false);
+      }
     }
   }
 
-  void _choosePlace(ItineraryPlaceOption place) {
+  Future<void> _choosePlace(ItineraryPlaceOption place) async {
     setState(() {
       _selectedPlace = place;
       _name.text = place.name;
       _address.text = place.address ?? '';
       _category = place.category;
     });
+    await _calculateDistanceToPrevious(place);
+  }
+
+  Future<void> _calculateDistanceToPrevious(ItineraryPlaceOption place) async {
+    final requestId = ++_distanceRequestId;
+    final previous = widget.previousItem;
+    if (previous == null ||
+        previous.latitude == null ||
+        previous.longitude == null ||
+        place.latitude == null ||
+        place.longitude == null) {
+      if (!mounted) return;
+      setState(() {
+        _distanceFromPrevious = null;
+        _calculatingDistance = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _calculatingDistance = true;
+      _distanceFromPrevious = null;
+    });
+    try {
+      final result = await ApiPlaceRepository().calculateDistance(
+        originLatitude: previous.latitude!,
+        originLongitude: previous.longitude!,
+        destinationLatitude: place.latitude!,
+        destinationLongitude: place.longitude!,
+        travelMode: 'driving',
+      );
+      if (!mounted || requestId != _distanceRequestId) return;
+      setState(() => _distanceFromPrevious = result);
+    } catch (_) {
+      // Khoảng cách chỉ là dữ liệu hỗ trợ; lỗi API không chặn việc tạo điểm.
+      if (!mounted || requestId != _distanceRequestId) return;
+      setState(() => _distanceFromPrevious = null);
+    } finally {
+      if (mounted && requestId == _distanceRequestId) {
+        setState(() => _calculatingDistance = false);
+      }
+    }
   }
 
   Future<void> _pickTime({required bool start}) async {
@@ -194,7 +270,12 @@ class _ItineraryItemFormScreenState extends State<ItineraryItemFormScreen> {
               onSelectionChanged: (value) {
                 setState(() {
                   _useCatalog = value.first;
-                  if (!_useCatalog) _selectedPlace = null;
+                  if (!_useCatalog) {
+                    _selectedPlace = null;
+                    _distanceFromPrevious = null;
+                    _calculatingDistance = false;
+                    _distanceRequestId++;
+                  }
                 });
               },
             ),
@@ -205,14 +286,7 @@ class _ItineraryItemFormScreenState extends State<ItineraryItemFormScreen> {
               controller: _search,
               hint: 'Tìm địa điểm tại ${widget.destination}',
               isLoading: _searching,
-              onChanged: (_) {},
-            ),
-            const SizedBox(height: 10),
-            CustomButton(
-              text: 'Tìm địa điểm',
-              icon: Icons.search_rounded,
-              variant: AppButtonVariant.secondary,
-              onPressed: _searching ? null : _searchPlaces,
+              onChanged: _onSearchQueryChanged,
             ),
             if (_searchError != null) ...[
               const SizedBox(height: 10),
@@ -229,40 +303,85 @@ class _ItineraryItemFormScreenState extends State<ItineraryItemFormScreen> {
               ..._places.map(
                 (place) => Padding(
                   padding: const EdgeInsets.only(bottom: 8),
-                  child: AppCard(
-                    outlined: _selectedPlace?.id != place.id,
-                    color: _selectedPlace?.id == place.id
-                        ? AppColors.primarySurface
-                        : AppColors.surface,
-                    onTap: () => _choosePlace(place),
-                    child: Row(
-                      children: [
-                        Icon(
-                          _selectedPlace?.id == place.id
-                              ? Icons.check_circle_rounded
-                              : Icons.place_outlined,
-                          color: AppColors.primary,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      AppCard(
+                        outlined: _selectedPlace?.id != place.id,
+                        color: _selectedPlace?.id == place.id
+                            ? AppColors.primarySurface
+                            : AppColors.surface,
+                        onTap: () => _choosePlace(place),
+                        child: Row(
+                          children: [
+                            Icon(
+                              _selectedPlace?.id == place.id
+                                  ? Icons.check_circle_rounded
+                                  : Icons.place_outlined,
+                              color: AppColors.primary,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    place.name,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.titleSmall,
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    place.address ?? place.destination,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodySmall,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Text('★ ${place.rating.toStringAsFixed(1)}'),
+                          ],
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                place.name,
-                                style: Theme.of(context).textTheme.titleSmall,
-                              ),
-                              const SizedBox(height: 3),
-                              Text(
-                                place.address ?? place.destination,
-                                style: Theme.of(context).textTheme.bodySmall,
-                              ),
-                            ],
+                      ),
+                      if (_selectedPlace?.id == place.id) ...[
+                        const SizedBox(height: 8),
+                        if (_calculatingDistance)
+                          const Text('Đang tính khoảng cách từ điểm trước...')
+                        else if (_distanceFromPrevious != null)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.primarySurface,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.directions_car_rounded,
+                                  size: 18,
+                                  color: AppColors.primary,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Cách điểm trước ${_distanceFromPrevious!.distanceKm.toStringAsFixed(1)} km '
+                                    '(~${_distanceFromPrevious!.estimatedDurationMinutes} phút di chuyển)',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        Text('★ ${place.rating.toStringAsFixed(1)}'),
                       ],
-                    ),
+                    ],
                   ),
                 ),
               ),
