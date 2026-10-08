@@ -135,9 +135,29 @@ void main() {
       await tester.tap(find.text('Gửi yêu cầu'));
       await tester.pumpAndSettle();
       expect(find.text('Đã gửi yêu cầu'), findsOneWidget);
+      expect(find.byType(SnackBar), findsNothing);
+      await tester.tap(find.byTooltip('Quay lại'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(CompanionPostCard).first);
+      await tester.pumpAndSettle();
+      expect(find.text('Đã gửi yêu cầu'), findsOneWidget);
+      expect(find.text('Gửi yêu cầu tham gia'), findsNothing);
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('Unverified user cannot send a companion join request', (
+    tester,
+  ) async {
+    await mount(tester, 'user.noekyc@feelingtrip.com', const Size(390, 844));
+    await tester.tap(find.byType(CompanionPostCard).first);
+    await tester.pumpAndSettle();
+    expect(find.text('Cần xác minh eKYC để tham gia'), findsOneWidget);
+    expect(find.text('Gửi yêu cầu tham gia'), findsNothing);
+    await tester.tap(find.text('Cần xác minh eKYC để tham gia'));
+    await tester.pumpAndSettle();
+    expect(find.text('Lời giới thiệu bản thân *'), findsNothing);
+  });
 
   testWidgets(
     'Notifications default to unread; bulk delete requires confirmation',
@@ -216,6 +236,9 @@ void main() {
     await tester.tap(find.text('Trang chủ').last);
     await tester.pumpAndSettle();
     expect(find.text('Chuyến đi xem thử của mình'), findsOneWidget);
+    await tester.tap(find.text('Chuyến đi').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Tìm bạn đồng hành'), findsNWidgets(2));
     expect(tester.takeException(), isNull);
   });
 

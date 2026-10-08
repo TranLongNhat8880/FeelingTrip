@@ -37,7 +37,7 @@ class _CompanionRequestsScreenState extends State<CompanionRequestsScreen> {
         _posts[request.postId] = request.tripName ?? 'Chuyến đi';
       }
     });
-    final message = _vm.successMessage ?? _vm.errorMessage;
+    final message = _vm.errorMessage;
     if (message != null) {
       ScaffoldMessenger.of(
         context,

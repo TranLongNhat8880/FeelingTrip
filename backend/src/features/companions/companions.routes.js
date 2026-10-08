@@ -5,6 +5,8 @@ const authenticate = require('../../shared/middlewares/auth.middleware');
 const validate = require('../../shared/middlewares/validate.middleware');
 const schemaValidate = require('./companions.validation');
 
+router.get('/posted-trips', authenticate, companionsController.getPostedTripIds);
+
 router.get('/feed',
     authenticate,
     validate({ query: schemaValidate.companionFeedQuerySchema }),

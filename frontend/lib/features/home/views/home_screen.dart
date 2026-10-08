@@ -11,6 +11,8 @@ import '../../companion/repositories/companion_trip_repository.dart';
 import '../../companion/views/companion_feed_screen.dart';
 import '../../companion/views/companion_requests_screen.dart';
 import '../../companion/views/create_companion_post_screen.dart';
+import '../../companion/models/companion_post_model.dart';
+import '../../companion/repositories/mock_companion_repository.dart';
 import '../../notification/viewmodels/notification_viewmodel.dart';
 import '../../notification/views/notification_screen.dart';
 
@@ -51,6 +53,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _select(int index) {
     setState(() => _tab = index);
     if (index == 2) _notifications.load();
+    if (index == 1) _loadTrips();
   }
 
   bool _loadingTrips = false;
@@ -88,7 +91,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadTrips() async {
     if (ApiEndpoints.useMockData) {
-      _myTrips = List.of(_mockTrips);
+      final trips = <Map<String, String>>[];
+      for (final trip in _mockTrips) {
+        trips.add({...trip, 'hasCompanionPost': '${await MockCompanionRepository().hasPostForTrip(trip['id']!)}'});
+      }
+      if (mounted) setState(() => _myTrips = trips);
       return;
     }
     setState(() {
@@ -962,6 +969,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                 ),
+                if (trip['hasCompanionPost'] != 'true')
                 OutlinedButton.icon(
                   icon: const Icon(Icons.group_add_outlined, size: 16),
                   label: const Text('Tìm bạn đồng hành'),
@@ -996,7 +1004,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       return;
                     }
                     if (!context.mounted) return;
-                    Navigator.push<void>(
+                    final post = await Navigator.push<CompanionPost>(
                       context,
                       MaterialPageRoute(
                         settings: RouteSettings(
@@ -1014,6 +1022,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                     );
+                    if (post != null && mounted) await _loadTrips();
                   },
                 ),
               ],

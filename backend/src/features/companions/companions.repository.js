@@ -518,7 +518,19 @@ const getMyReceivedRequests = async ({ userId, limit = 20, offset = 0, status, p
   };
 };
 
+const getPostedTripIds = async (userId) => {
+  const { rows } = await db.query(`
+    SELECT DISTINCT cp.trip_id
+    FROM companion_posts cp
+    JOIN trip_members tm ON tm.trip_id = cp.trip_id
+    WHERE tm.user_id = $1 AND tm.role = 'LEADER'
+      AND tm.membership_status = 'ACTIVE' AND cp.status IN ('OPEN', 'FULL')
+  `, [userId]);
+  return rows.map(row => row.trip_id);
+};
+
 module.exports = {
+    getPostedTripIds,
     createCompanionPost,
     checkExistsPostByTripId,
     updateCompanionPost,
