@@ -169,7 +169,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     final confirmed = await AppConfirmDialog.show(
       context,
       title: 'Chuyển quyền cho ${member.displayName}?',
-      message: 'Bạn sẽ trở thành thành viên thường sau khi chuyển quyền.',
+      message: 'Bạn sẽ trở thành thành viên thường sau khi chuyển quyền. Trưởng nhóm mới phải là thành viên đã hoàn thành xác minh CCCD (eKYC).',
       confirmLabel: 'Chuyển quyền',
     );
     if (!confirmed) return;

@@ -270,6 +270,14 @@ const transferLeader = (tripId, userId, data) => db.transaction(async client => 
   if (data.newLeaderUserId === userId) throw apiError(400, 'Người nhận phải khác trưởng nhóm hiện tại');
   const target = await repo.getMembership(client, tripId, data.newLeaderUserId, true);
   if (!target || target.membership_status !== 'ACTIVE') throw apiError(404, 'Không tìm thấy thành viên');
+  const { rows: [targetUser] } = await client.query(
+    "SELECT is_verified, verification_status, status FROM users WHERE id = $1", [data.newLeaderUserId]);
+  if (!targetUser || !targetUser.is_verified || targetUser.verification_status !== 'VERIFIED') {
+    throw apiError(403, 'Trưởng nhóm mới phải là thành viên đã hoàn thành xác minh danh tính (eKYC)');
+  }
+  if (targetUser.status !== 'ACTIVE') {
+    throw apiError(403, 'Tài khoản của trưởng nhóm mới không ở trạng thái hoạt động');
+  }
   await repo.transferLeader(client, tripId, userId, data.newLeaderUserId);
   await repo.notify(client, data.newLeaderUserId, 'Bạn là trưởng nhóm mới', trip.name, { tripId });
   return tripDetail(tripId, data.newLeaderUserId, client);
