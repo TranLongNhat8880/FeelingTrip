@@ -124,46 +124,93 @@ class TripMemberTile extends StatelessWidget {
     required this.member,
     this.onRemove,
     this.onTransfer,
+    this.onReview,
+    this.onReport,
+    this.onBlock,
   });
   final TripMember member;
   final VoidCallback? onRemove;
   final VoidCallback? onTransfer;
+  final VoidCallback? onReview;
+  final VoidCallback? onReport;
+  final VoidCallback? onBlock;
 
   @override
-  Widget build(BuildContext context) => ListTile(
-    contentPadding: EdgeInsets.zero,
-    leading: AvatarPlaceholder(
-      name: member.displayName,
-      imageUrl: member.avatarUrl,
-      radius: 22,
-    ),
-    title: Text(member.displayName),
-    subtitle: Text(member.isLeader ? 'Trưởng nhóm' : 'Thành viên'),
-    trailing: member.isLeader || (onRemove == null && onTransfer == null)
-        ? AppStatusBadge(
-            label: member.isLeader ? 'Leader' : 'Member',
-            tone: member.isLeader
-                ? AppStatusTone.warning
-                : AppStatusTone.neutral,
-          )
-        : PopupMenuButton<String>(
-            tooltip: 'Quản lý thành viên',
-            onSelected: (value) {
-              if (value == 'transfer') onTransfer?.call();
-              if (value == 'remove') onRemove?.call();
-            },
-            itemBuilder: (_) => const [
-              PopupMenuItem(
-                value: 'transfer',
-                child: Text('Chuyển quyền trưởng nhóm'),
-              ),
-              PopupMenuItem(
-                value: 'remove',
-                child: Text('Loại khỏi chuyến đi'),
-              ),
-            ],
-          ),
-  );
+  Widget build(BuildContext context) {
+    final hasActions =
+        onRemove != null ||
+        onTransfer != null ||
+        onReview != null ||
+        onReport != null ||
+        onBlock != null;
+
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: AvatarPlaceholder(
+        name: member.displayName,
+        imageUrl: member.avatarUrl,
+        radius: 22,
+      ),
+      title: Text(member.displayName),
+      subtitle: Text(member.isLeader ? 'Trưởng nhóm' : 'Thành viên'),
+      trailing: !hasActions
+          ? AppStatusBadge(
+              label: member.isLeader ? 'Leader' : 'Member',
+              tone: member.isLeader
+                  ? AppStatusTone.warning
+                  : AppStatusTone.neutral,
+            )
+          : PopupMenuButton<String>(
+              tooltip: 'Thao tác với thành viên',
+              onSelected: (value) {
+                if (value == 'transfer') onTransfer?.call();
+                if (value == 'remove') onRemove?.call();
+                if (value == 'review') onReview?.call();
+                if (value == 'report') onReport?.call();
+                if (value == 'block') onBlock?.call();
+              },
+              itemBuilder: (_) => [
+                if (onReview != null)
+                  const PopupMenuItem(
+                    value: 'review',
+                    child: ListTile(
+                      leading: Icon(Icons.star_outline_rounded),
+                      title: Text('Đánh giá thành viên'),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                if (onReport != null)
+                  const PopupMenuItem(
+                    value: 'report',
+                    child: ListTile(
+                      leading: Icon(Icons.report_outlined),
+                      title: Text('Báo cáo vi phạm'),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                if (onBlock != null)
+                  const PopupMenuItem(
+                    value: 'block',
+                    child: ListTile(
+                      leading: Icon(Icons.person_off_outlined),
+                      title: Text('Chặn người dùng'),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                if (onTransfer != null)
+                  const PopupMenuItem(
+                    value: 'transfer',
+                    child: Text('Chuyển quyền trưởng nhóm'),
+                  ),
+                if (onRemove != null)
+                  const PopupMenuItem(
+                    value: 'remove',
+                    child: Text('Loại khỏi chuyến đi'),
+                  ),
+              ],
+            ),
+    );
+  }
 }
 
 class _IconText extends StatelessWidget {
