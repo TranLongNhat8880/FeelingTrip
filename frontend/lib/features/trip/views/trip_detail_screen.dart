@@ -7,6 +7,10 @@ import '../../../routes/app_routes.dart';
 import '../../../shared/ui_kit.dart';
 import '../../auth/viewmodels/auth_viewmodel.dart';
 import '../../itinerary/views/itinerary_screen.dart';
+import '../../review/models/review_model.dart';
+import '../../review/viewmodels/review_viewmodel.dart';
+import '../../review/views/report_screen.dart';
+import '../../review/views/review_form_screen.dart';
 import '../models/trip_model.dart';
 import '../repositories/trip_repository.dart';
 import '../viewmodels/trip_viewmodel.dart';
@@ -74,7 +78,8 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
           ? next == 'COMPLETED'
                 ? 'Đã hoàn thành chuyến đi. Thông báo đã được gửi đến các thành viên.'
                 : 'Đã bắt đầu chuyến đi. Thông báo đã được gửi đến các thành viên.'
-          : _viewModel.errorMessage ?? 'Không cập nhật được trạng thái chuyến đi.',
+          : _viewModel.errorMessage ??
+                'Không cập nhật được trạng thái chuyến đi.',
       tone: success ? AppStatusTone.success : AppStatusTone.error,
     );
   }
@@ -173,7 +178,8 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     final confirmed = await AppConfirmDialog.show(
       context,
       title: 'Chuyển quyền cho ${member.displayName}?',
-      message: 'Bạn sẽ trở thành thành viên thường sau khi chuyển quyền. Trưởng nhóm mới phải là thành viên đã hoàn thành xác minh CCCD (eKYC).',
+      message:
+          'Bạn sẽ trở thành thành viên thường sau khi chuyển quyền. Trưởng nhóm mới phải là thành viên đã hoàn thành xác minh CCCD (eKYC).',
       confirmLabel: 'Chuyển quyền',
     );
     if (!confirmed) return;
@@ -182,6 +188,108 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     AppFeedback.show(
       context,
       success ? 'Đã chuyển quyền trưởng nhóm.' : _viewModel.errorMessage!,
+      tone: success ? AppStatusTone.success : AppStatusTone.error,
+    );
+  }
+
+  Future<void> _reviewTrip(TripModel trip) async {
+    final review = await Navigator.push<ReviewModel>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ReviewFormScreen(tripId: trip.id, tripName: trip.name),
+      ),
+    );
+
+    if (!mounted || review == null) return;
+    AppFeedback.show(
+      context,
+      'Đã gửi đánh giá chuyến đi.',
+      tone: AppStatusTone.success,
+    );
+  }
+
+  Future<void> _reviewMember(TripModel trip, TripMember member) async {
+    final review = await Navigator.push<ReviewModel>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ReviewFormScreen(
+          tripId: trip.id,
+          tripName: trip.name,
+          revieweeId: member.userId,
+          revieweeName: member.displayName,
+        ),
+      ),
+    );
+
+    if (!mounted || review == null) return;
+    AppFeedback.show(
+      context,
+      'Đã đánh giá ${member.displayName}.',
+      tone: AppStatusTone.success,
+    );
+  }
+
+  Future<void> _reportMember(TripModel trip, TripMember member) async {
+    final submitted = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ReportScreen(
+          reportedUserId: member.userId,
+          reportedUserName: member.displayName,
+          reportedTripId: trip.id,
+          reportedTripName: trip.name,
+        ),
+      ),
+    );
+
+    if (!mounted || submitted != true) return;
+    AppFeedback.show(
+      context,
+      'Báo cáo đã được gửi tới quản trị viên.',
+      tone: AppStatusTone.success,
+    );
+  }
+
+  Future<void> _reportTrip(TripModel trip) async {
+    final submitted = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) =>
+            ReportScreen(reportedTripId: trip.id, reportedTripName: trip.name),
+      ),
+    );
+
+    if (!mounted || submitted != true) return;
+    AppFeedback.show(
+      context,
+      'Báo cáo chuyến đi đã được gửi tới quản trị viên.',
+      tone: AppStatusTone.success,
+    );
+  }
+
+  Future<void> _blockMember(TripMember member) async {
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: 'Chặn ${member.displayName}?',
+      message:
+          'Người dùng này sẽ được thêm vào danh sách chặn của bạn. Bạn có thể bỏ chặn trong hồ sơ cá nhân.',
+      confirmLabel: 'Chặn người dùng',
+      destructive: true,
+    );
+
+    if (!confirmed) return;
+
+    final viewModel = ReviewViewModel();
+    final success = await viewModel.blockUser(member.userId);
+    final errorMessage = viewModel.errorMessage;
+    viewModel.dispose();
+
+    if (!mounted) return;
+    AppFeedback.show(
+      context,
+      success
+          ? 'Đã chặn ${member.displayName}.'
+          : errorMessage ?? 'Không thể chặn người dùng.',
       tone: success ? AppStatusTone.success : AppStatusTone.error,
     );
   }
@@ -219,6 +327,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     }
     final canTransition =
         trip.isLeader && ['UPCOMING', 'ONGOING'].contains(trip.status);
+    final currentUserId = AuthScope.of(context).user?.id;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -334,6 +443,24 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
             ],
           ],
         ),
+        if (trip.status == 'COMPLETED') ...[
+          const SizedBox(height: 10),
+          CustomButton(
+            text: 'Đánh giá chuyến đi',
+            icon: Icons.star_outline_rounded,
+            variant: AppButtonVariant.secondary,
+            onPressed: () => _reviewTrip(trip),
+          ),
+        ],
+        if (!trip.isLeader) ...[
+          const SizedBox(height: 10),
+          CustomButton(
+            text: 'Báo cáo chuyến đi',
+            icon: Icons.report_outlined,
+            variant: AppButtonVariant.secondary,
+            onPressed: () => _reportTrip(trip),
+          ),
+        ],
         const SizedBox(height: 22),
         SectionHeader(
           title: 'Thành viên (${trip.members.length})',
@@ -349,7 +476,21 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
               for (var index = 0; index < trip.members.length; index++) ...[
                 TripMemberTile(
                   member: trip.members[index],
-                  onRemove: trip.isLeader && !trip.members[index].isLeader
+                  onReview:
+                      trip.status == 'COMPLETED' &&
+                          trip.members[index].userId != currentUserId
+                      ? () => _reviewMember(trip, trip.members[index])
+                      : null,
+                  onReport: trip.members[index].userId != currentUserId
+                      ? () => _reportMember(trip, trip.members[index])
+                      : null,
+                  onBlock: trip.members[index].userId != currentUserId
+                      ? () => _blockMember(trip.members[index])
+                      : null,
+                  onRemove:
+                      trip.isLeader &&
+                          !['COMPLETED', 'CANCELLED'].contains(trip.status) &&
+                          !trip.members[index].isLeader
                       ? () => _remove(trip.members[index])
                       : null,
                   onTransfer: trip.isEditable && !trip.members[index].isLeader

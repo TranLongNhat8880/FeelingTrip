@@ -4,8 +4,10 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/constants/app_sizes.dart';
 import '../../../shared/ui_kit.dart';
+import '../models/administrative_division_model.dart';
 import '../models/place_form_data.dart';
 import '../models/place_model.dart';
+import '../repositories/administrative_division_repository.dart';
 import '../viewmodels/admin_place_viewmodel.dart';
 
 // ============================================================================
@@ -30,6 +32,7 @@ class _AdminPlaceFormScreenState extends State<AdminPlaceFormScreen> {
   final ImagePicker _imagePicker = ImagePicker();
 
   late final AdminPlaceViewModel _viewModel;
+  late final AdministrativeDivisionRepository _divisionRepository;
   late final TextEditingController _nameController;
   late final TextEditingController _destinationController;
   late final TextEditingController _addressController;
@@ -39,11 +42,28 @@ class _AdminPlaceFormScreenState extends State<AdminPlaceFormScreen> {
 
   late String _category;
   late int _priceLevel;
+  AdministrativeDivisionVersion _divisionVersion =
+      AdministrativeDivisionVersion.afterMerger;
+
+  List<AdministrativeDivision> _provinces = const [];
+  List<AdministrativeDivision> _districts = const [];
+  List<AdministrativeDivision> _wards = const [];
+
+  AdministrativeDivision? _selectedProvince;
+  AdministrativeDivision? _selectedDistrict;
+  AdministrativeDivision? _selectedWard;
+
+  bool _isLoadingProvinces = false;
+  bool _isLoadingDistricts = false;
+  bool _isLoadingWards = false;
+  bool _addressSelectionChanged = false;
+  String? _divisionErrorMessage;
 
   Uint8List? _imageBytes;
   String? _imageFileName;
 
   bool get _isEditing => widget.initialPlace != null;
+  bool get _hasDistrictLevel => _divisionVersion.hasDistrictLevel;
 
   @override
   void initState() {
@@ -52,6 +72,7 @@ class _AdminPlaceFormScreenState extends State<AdminPlaceFormScreen> {
     final place = widget.initialPlace;
 
     _viewModel = AdminPlaceViewModel();
+    _divisionRepository = AdministrativeDivisionRepository();
 
     _nameController = TextEditingController(text: place?.name ?? '');
     _destinationController = TextEditingController(
@@ -70,6 +91,10 @@ class _AdminPlaceFormScreenState extends State<AdminPlaceFormScreen> {
 
     _category = place?.category ?? 'ATTRACTION';
     _priceLevel = place?.priceLevel ?? 1;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadProvinces();
+    });
   }
 
   @override
@@ -80,8 +105,348 @@ class _AdminPlaceFormScreenState extends State<AdminPlaceFormScreen> {
     _latitudeController.dispose();
     _longitudeController.dispose();
     _durationController.dispose();
+    _divisionRepository.dispose();
     _viewModel.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadProvinces() async {
+    if (_isLoadingProvinces) return;
+
+    final requestedVersion = _divisionVersion;
+
+    setState(() {
+      _isLoadingProvinces = true;
+      _divisionErrorMessage = null;
+    });
+
+    try {
+      final provinces = await _divisionRepository.getProvinces(
+        requestedVersion,
+      );
+      if (!mounted || requestedVersion != _divisionVersion) return;
+
+      final restoredProvince = _findMatchingDivision(
+        provinces,
+        _destinationController.text,
+      );
+
+      setState(() {
+        _provinces = provinces;
+        _selectedProvince = restoredProvince;
+      });
+
+      if (restoredProvince != null) {
+        _destinationController.text = restoredProvince.name;
+        if (requestedVersion.hasDistrictLevel) {
+          await _loadDistricts(restoredProvince.code, restoreFromAddress: true);
+        } else {
+          await _loadWards(
+            restoredProvince.code,
+            fromProvince: true,
+            restoreFromAddress: true,
+          );
+        }
+      }
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _divisionErrorMessage = _divisionErrorFor(error);
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingProvinces = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadDistricts(
+    int provinceCode, {
+    bool restoreFromAddress = false,
+  }) async {
+    setState(() {
+      _isLoadingDistricts = true;
+      _divisionErrorMessage = null;
+    });
+
+    try {
+      final districts = await _divisionRepository.getDistricts(provinceCode);
+      if (!mounted) return;
+
+      final restoredDistrict = restoreFromAddress
+          ? _findMatchingDivision(districts, _addressController.text)
+          : null;
+
+      setState(() {
+        _districts = districts;
+        _selectedDistrict = restoredDistrict;
+        _wards = const [];
+        _selectedWard = null;
+      });
+
+      if (restoredDistrict != null) {
+        await _loadWards(
+          restoredDistrict.code,
+          fromProvince: false,
+          restoreFromAddress: true,
+        );
+      }
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _divisionErrorMessage = _divisionErrorFor(error);
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingDistricts = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadWards(
+    int parentCode, {
+    required bool fromProvince,
+    bool restoreFromAddress = false,
+  }) async {
+    setState(() {
+      _isLoadingWards = true;
+      _divisionErrorMessage = null;
+    });
+
+    try {
+      final wards = fromProvince
+          ? await _divisionRepository.getWardsByProvince(parentCode)
+          : await _divisionRepository.getWardsByDistrict(parentCode);
+      if (!mounted) return;
+
+      final restoredWard = restoreFromAddress
+          ? _findMatchingDivision(wards, _addressController.text)
+          : null;
+
+      setState(() {
+        _wards = wards;
+        _selectedWard = restoredWard;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _divisionErrorMessage = _divisionErrorFor(error);
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingWards = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _onProvinceChanged(int? code) async {
+    final province = _divisionByCode(_provinces, code);
+
+    setState(() {
+      _addressSelectionChanged = true;
+      _selectedProvince = province;
+      _selectedDistrict = null;
+      _selectedWard = null;
+      _districts = const [];
+      _wards = const [];
+      _destinationController.text = province?.name ?? '';
+    });
+
+    if (province != null) {
+      if (_hasDistrictLevel) {
+        await _loadDistricts(province.code);
+      } else {
+        await _loadWards(province.code, fromProvince: true);
+      }
+    }
+  }
+
+  Future<void> _onDistrictChanged(int? code) async {
+    final district = _divisionByCode(_districts, code);
+
+    setState(() {
+      _addressSelectionChanged = true;
+      _selectedDistrict = district;
+      _selectedWard = null;
+      _wards = const [];
+    });
+
+    if (district != null) {
+      await _loadWards(district.code, fromProvince: false);
+    }
+  }
+
+  Future<void> _onDivisionVersionChanged(
+    AdministrativeDivisionVersion version,
+  ) async {
+    if (version == _divisionVersion) return;
+
+    setState(() {
+      _divisionVersion = version;
+      _addressSelectionChanged = true;
+      _provinces = const [];
+      _districts = const [];
+      _wards = const [];
+      _selectedProvince = null;
+      _selectedDistrict = null;
+      _selectedWard = null;
+      _destinationController.clear();
+      _divisionErrorMessage = null;
+    });
+
+    await _loadProvinces();
+  }
+
+  void _onWardChanged(int? code) {
+    setState(() {
+      _addressSelectionChanged = true;
+      _selectedWard = _divisionByCode(_wards, code);
+    });
+  }
+
+  AdministrativeDivision? _divisionByCode(
+    List<AdministrativeDivision> divisions,
+    int? code,
+  ) {
+    if (code == null) return null;
+
+    for (final division in divisions) {
+      if (division.code == code) return division;
+    }
+
+    return null;
+  }
+
+  AdministrativeDivision? _findMatchingDivision(
+    List<AdministrativeDivision> divisions,
+    String source,
+  ) {
+    final normalizedSource = source.trim().toLowerCase();
+    if (normalizedSource.isEmpty) return null;
+
+    for (final division in divisions) {
+      final normalizedName = division.name.trim().toLowerCase();
+      final coreName = _divisionCoreName(normalizedName);
+      if (normalizedSource == normalizedName ||
+          normalizedSource.contains(normalizedName) ||
+          normalizedName.contains(normalizedSource) ||
+          (coreName.isNotEmpty && normalizedSource.contains(coreName))) {
+        return division;
+      }
+    }
+
+    return null;
+  }
+
+  String _divisionCoreName(String value) {
+    return value.trim().toLowerCase().replaceFirst(
+      RegExp(r'^(thành phố|tỉnh|quận|huyện|thị xã|phường|xã|thị trấn)\s+'),
+      '',
+    );
+  }
+
+  String _divisionErrorFor(Object error) {
+    if (error is AdministrativeDivisionException) {
+      return error.message;
+    }
+
+    if (error is FormatException) {
+      return error.message;
+    }
+
+    return 'Không thể tải dữ liệu địa chỉ hành chính.';
+  }
+
+  bool get _mustChooseAllDivisions => !_isEditing || _addressSelectionChanged;
+
+  String _composeAddress() {
+    final parts = <String>[];
+
+    void addPart(String? rawValue) {
+      final value = rawValue?.trim() ?? '';
+      if (value.isEmpty) return;
+
+      final normalizedValue = value.toLowerCase();
+      final coreValue = _divisionCoreName(normalizedValue);
+
+      final alreadyIncluded = parts.any(
+        (part) =>
+            part.toLowerCase().contains(normalizedValue) ||
+            (coreValue.isNotEmpty && part.toLowerCase().contains(coreValue)),
+      );
+
+      if (!alreadyIncluded) {
+        parts.add(value);
+      }
+    }
+
+    addPart(_addressController.text);
+    addPart(_selectedWard?.name);
+    addPart(_selectedDistrict?.name);
+    addPart(_selectedProvince?.name);
+
+    return parts.join(', ');
+  }
+
+  Future<void> _retryDivisionLoad() async {
+    if (!_hasDistrictLevel && _selectedProvince != null && _wards.isEmpty) {
+      await _loadWards(_selectedProvince!.code, fromProvince: true);
+      return;
+    }
+
+    if (_selectedDistrict != null && _wards.isEmpty) {
+      await _loadWards(_selectedDistrict!.code, fromProvince: false);
+      return;
+    }
+
+    if (_selectedProvince != null && _districts.isEmpty) {
+      await _loadDistricts(_selectedProvince!.code);
+      return;
+    }
+
+    await _loadProvinces();
+  }
+
+  Widget _buildDivisionDropdown({
+    required String label,
+    required String hint,
+    required IconData icon,
+    required List<AdministrativeDivision> items,
+    required AdministrativeDivision? selected,
+    required bool loading,
+    required bool enabled,
+    required ValueChanged<int?> onChanged,
+    required String requiredMessage,
+    bool requiredField = true,
+  }) {
+    return DropdownButtonFormField<int>(
+      key: ValueKey('$label-${selected?.code}-${items.length}'),
+      initialValue: selected?.code,
+      isExpanded: true,
+      decoration: InputDecoration(labelText: label, prefixIcon: Icon(icon)),
+      hint: Text(loading ? 'Đang tải...' : hint),
+      items: items
+          .map(
+            (division) => DropdownMenuItem<int>(
+              value: division.code,
+              child: Text(division.name, overflow: TextOverflow.ellipsis),
+            ),
+          )
+          .toList(growable: false),
+      onChanged: enabled && !loading ? onChanged : null,
+      validator: (_) {
+        if (requiredField && selected == null) {
+          return requiredMessage;
+        }
+        return null;
+      },
+    );
   }
 
   Future<void> _pickImage() async {
@@ -147,6 +512,13 @@ class _AdminPlaceFormScreenState extends State<AdminPlaceFormScreen> {
       return;
     }
 
+    final destinationError = _validateDestination(_destinationController.text);
+
+    if (destinationError != null) {
+      AppFeedback.show(context, destinationError, tone: AppStatusTone.error);
+      return;
+    }
+
     final latitudeText = _latitudeController.text.trim();
     final longitudeText = _longitudeController.text.trim();
 
@@ -159,10 +531,21 @@ class _AdminPlaceFormScreenState extends State<AdminPlaceFormScreen> {
       return;
     }
 
+    final composedAddress = _composeAddress();
+
+    if (composedAddress.length > 500) {
+      AppFeedback.show(
+        context,
+        'Địa chỉ đầy đủ không được vượt quá 500 ký tự.',
+        tone: AppStatusTone.error,
+      );
+      return;
+    }
+
     final formData = PlaceFormData(
       name: _nameController.text,
       destination: _destinationController.text,
-      address: _addressController.text,
+      address: composedAddress,
       category: _category,
       latitude: latitudeText.isEmpty ? null : double.parse(latitudeText),
       longitude: longitudeText.isEmpty ? null : double.parse(longitudeText),
@@ -387,20 +770,112 @@ class _AdminPlaceFormScreenState extends State<AdminPlaceFormScreen> {
                       validator: _validateName,
                       textInputAction: TextInputAction.next,
                     ),
+                    const SizedBox(height: AppSizes.spaceL),
+                    Text(
+                      'Địa chỉ hành chính',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: AppSizes.spaceXS),
+                    Text(
+                      _hasDistrictLevel
+                          ? 'Dữ liệu trước 07/2025 gồm tỉnh/thành phố, quận/huyện và phường/xã.'
+                          : 'Dữ liệu sau 07/2025 gồm tỉnh/thành phố và phường/xã.',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
                     const SizedBox(height: AppSizes.spaceM),
-                    CustomTextField(
+                    AppChoiceChips<AdministrativeDivisionVersion>(
+                      options: _divisionVersionOptions,
+                      selected: {_divisionVersion},
+                      enabled:
+                          !isSaving &&
+                          !_isLoadingProvinces &&
+                          !_isLoadingDistricts &&
+                          !_isLoadingWards,
+                      onChanged: _onDivisionVersionChanged,
+                    ),
+                    if (_divisionErrorMessage != null) ...[
+                      const SizedBox(height: AppSizes.spaceM),
+                      AppInlineNotice(
+                        message: _divisionErrorMessage!,
+                        tone: AppStatusTone.error,
+                      ),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton.icon(
+                          onPressed: _retryDivisionLoad,
+                          icon: const Icon(Icons.refresh_rounded),
+                          label: const Text('Tải lại dữ liệu địa chỉ'),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: AppSizes.spaceM),
+                    _buildDivisionDropdown(
                       label: 'Tỉnh hoặc thành phố',
-                      hint: 'Ví dụ: Hà Nội',
-                      controller: _destinationController,
-                      prefixIcon: Icons.location_city_outlined,
-                      enabled: !isSaving,
-                      validator: _validateDestination,
-                      textInputAction: TextInputAction.next,
+                      hint: 'Chọn tỉnh hoặc thành phố',
+                      icon: Icons.location_city_outlined,
+                      items: _provinces,
+                      selected: _selectedProvince,
+                      loading: _isLoadingProvinces,
+                      enabled:
+                          !isSaving &&
+                          !_isLoadingDistricts &&
+                          !_isLoadingWards &&
+                          _provinces.isNotEmpty,
+                      onChanged: _onProvinceChanged,
+                      requiredMessage: 'Vui lòng chọn tỉnh hoặc thành phố',
+                      requiredField:
+                          !_isEditing ||
+                          _destinationController.text.trim().isEmpty,
+                    ),
+                    if (_hasDistrictLevel) ...[
+                      const SizedBox(height: AppSizes.spaceM),
+                      _buildDivisionDropdown(
+                        label: 'Quận hoặc huyện',
+                        hint: _selectedProvince == null
+                            ? 'Chọn tỉnh/thành phố trước'
+                            : 'Chọn quận hoặc huyện',
+                        icon: Icons.map_outlined,
+                        items: _districts,
+                        selected: _selectedDistrict,
+                        loading: _isLoadingDistricts,
+                        enabled:
+                            !isSaving &&
+                            !_isLoadingWards &&
+                            _selectedProvince != null &&
+                            _districts.isNotEmpty,
+                        onChanged: _onDistrictChanged,
+                        requiredMessage: 'Vui lòng chọn quận hoặc huyện',
+                        requiredField: _mustChooseAllDivisions,
+                      ),
+                    ],
+                    const SizedBox(height: AppSizes.spaceM),
+                    _buildDivisionDropdown(
+                      label: 'Phường hoặc xã',
+                      hint: _hasDistrictLevel
+                          ? (_selectedDistrict == null
+                                ? 'Chọn quận/huyện trước'
+                                : 'Chọn phường hoặc xã')
+                          : (_selectedProvince == null
+                                ? 'Chọn tỉnh/thành phố trước'
+                                : 'Chọn phường hoặc xã'),
+                      icon: Icons.holiday_village_outlined,
+                      items: _wards,
+                      selected: _selectedWard,
+                      loading: _isLoadingWards,
+                      enabled:
+                          !isSaving &&
+                          (_hasDistrictLevel
+                              ? _selectedDistrict != null
+                              : _selectedProvince != null) &&
+                          _wards.isNotEmpty,
+                      onChanged: _onWardChanged,
+                      requiredMessage: 'Vui lòng chọn phường hoặc xã',
+                      requiredField: _mustChooseAllDivisions,
                     ),
                     const SizedBox(height: AppSizes.spaceM),
                     CustomTextField(
-                      label: 'Địa chỉ',
-                      hint: 'Địa chỉ chi tiết nếu có',
+                      label: 'Địa chỉ chi tiết',
+                      hint: 'Ví dụ: Số 58, đường Quốc Tử Giám',
                       controller: _addressController,
                       prefixIcon: Icons.signpost_outlined,
                       enabled: !isSaving,
@@ -501,6 +976,11 @@ class _AdminPlaceFormScreenState extends State<AdminPlaceFormScreen> {
     );
   }
 }
+
+const Map<AdministrativeDivisionVersion, String> _divisionVersionOptions = {
+  AdministrativeDivisionVersion.beforeMerger: 'Trước sáp nhập 07/2025',
+  AdministrativeDivisionVersion.afterMerger: 'Sau sáp nhập 07/2025',
+};
 
 const Map<String, String> _categoryOptions = {
   'ATTRACTION': 'Tham quan',

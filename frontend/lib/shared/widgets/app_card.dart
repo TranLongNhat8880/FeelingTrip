@@ -169,6 +169,7 @@ class AppPlaceCard extends StatelessWidget {
     this.onFavoriteTap,
     this.onTap,
     this.height = 220,
+    this.showFavoriteButton = true,
   });
 
   final String title;
@@ -180,6 +181,7 @@ class AppPlaceCard extends StatelessWidget {
   final VoidCallback? onFavoriteTap;
   final VoidCallback? onTap;
   final double height;
+  final bool showFavoriteButton;
 
   @override
   Widget build(BuildContext context) {
@@ -244,30 +246,31 @@ class AppPlaceCard extends StatelessWidget {
               ),
 
             // Nút yêu thích / Tim (Góc trên bên phải)
-            Positioned(
-              top: 14,
-              right: 14,
-              child: Material(
-                color: Colors.white,
-                shape: const CircleBorder(),
-                elevation: 2,
-                shadowColor: Colors.black26,
-                child: InkWell(
-                  customBorder: const CircleBorder(),
-                  onTap: onFavoriteTap,
-                  child: Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Icon(
-                      isFavorite
-                          ? Icons.favorite_rounded
-                          : Icons.favorite_border_rounded,
-                      color: isFavorite ? AppColors.error : AppColors.action,
-                      size: 20,
+            if (showFavoriteButton)
+              Positioned(
+                top: 14,
+                right: 14,
+                child: Material(
+                  color: Colors.white,
+                  shape: const CircleBorder(),
+                  elevation: 2,
+                  shadowColor: Colors.black26,
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: onFavoriteTap,
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Icon(
+                        isFavorite
+                            ? Icons.favorite_rounded
+                            : Icons.favorite_border_rounded,
+                        color: isFavorite ? AppColors.error : AppColors.action,
+                        size: 20,
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
 
             // Lớp phủ thông tin dưới đáy (Frosted Glass Gradient Banner)
             Positioned(

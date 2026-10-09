@@ -30,6 +30,7 @@ class _AdminPlaceManagementContentState
 
   Timer? _searchDebounce;
   String _statusFilter = 'all';
+  String? _selectedCategory;
 
   @override
   void initState() {
@@ -60,11 +61,24 @@ class _AdminPlaceManagementContentState
     _searchDebounce = Timer(const Duration(milliseconds: 450), () {
       _viewModel.applyFilters(
         keyword: value,
-        category: _viewModel.category,
+        category: _selectedCategory,
         isActive: _isActiveFilter,
         sortBy: _viewModel.sortBy,
       );
     });
+  }
+
+  void _selectCategory(String? category) {
+    setState(() {
+      _selectedCategory = category;
+    });
+
+    _viewModel.applyFilters(
+      keyword: _searchController.text,
+      category: category,
+      isActive: _isActiveFilter,
+      sortBy: _viewModel.sortBy,
+    );
   }
 
   void _changeStatusFilter(String value) {
@@ -74,7 +88,7 @@ class _AdminPlaceManagementContentState
 
     _viewModel.applyFilters(
       keyword: _searchController.text,
-      category: _viewModel.category,
+      category: _selectedCategory,
       isActive: _isActiveFilter,
       sortBy: _viewModel.sortBy,
     );
@@ -172,6 +186,8 @@ class _AdminPlaceManagementContentState
               onChanged: _onSearchChanged,
             ),
             const SizedBox(height: AppSizes.spaceM),
+            _buildCategoryList(),
+            const SizedBox(height: AppSizes.spaceM),
             AppChoiceChips<String>(
               options: const {
                 'all': 'Tất cả',
@@ -194,6 +210,26 @@ class _AdminPlaceManagementContentState
           ],
         );
       },
+    );
+  }
+
+  Widget _buildCategoryList() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          for (var index = 0; index < _adminCategories.length; index++) ...[
+            AppCategoryPill(
+              label: _adminCategories[index].label,
+              icon: _adminCategories[index].icon,
+              selected: _selectedCategory == _adminCategories[index].value,
+              onTap: () => _selectCategory(_adminCategories[index].value),
+            ),
+            if (index < _adminCategories.length - 1)
+              const SizedBox(width: AppSizes.spaceS),
+          ],
+        ],
+      ),
     );
   }
 
@@ -248,94 +284,56 @@ class _AdminPlaceManagementContentState
   Widget _buildPlaceCard(PlaceModel place) {
     final isUpdating = _viewModel.isUpdating(place.id);
 
-    return AppCard(
-      outlined: true,
-      child: Column(
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                width: 92,
-                child: AppImage(
-                  url: place.imageUrl,
-                  aspectRatio: 1,
-                  semanticLabel: 'Ảnh ${place.name}',
-                ),
-              ),
-              const SizedBox(width: AppSizes.spaceM),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      place.name,
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: AppSizes.spaceXS),
-                    Text(
-                      place.displayLocation,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: AppSizes.spaceS),
-                    Wrap(
-                      spacing: AppSizes.spaceS,
-                      runSpacing: AppSizes.spaceS,
-                      children: [
-                        AppStatusBadge(
-                          label: place.isActive ? 'Đang hiển thị' : 'Đã ẩn',
-                          tone: place.isActive
-                              ? AppStatusTone.success
-                              : AppStatusTone.warning,
-                          icon: place.isActive
-                              ? Icons.visibility_outlined
-                              : Icons.visibility_off_outlined,
-                        ),
-                        AppStatusBadge(
-                          label: _categoryLabel(place.category),
-                          tone: AppStatusTone.info,
-                          icon: Icons.category_outlined,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Opacity(
+          opacity: place.isActive ? 1 : .65,
+          child: AppPlaceCard(
+            title: place.name,
+            location: place.displayLocation,
+            imageUrl: place.imageUrl,
+            rating: place.rating,
+            distance: _categoryLabel(place.category),
+            showFavoriteButton: false,
+            onTap: isUpdating ? null : () => _openEditPlace(place),
           ),
-          const SizedBox(height: AppSizes.spaceM),
-          const Divider(height: 1),
-          const SizedBox(height: AppSizes.spaceM),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              AppIconButton(
-                icon: Icons.edit_outlined,
-                tooltip: 'Sửa địa điểm',
-                onPressed: isUpdating ? null : () => _openEditPlace(place),
-              ),
-              const SizedBox(width: AppSizes.spaceS),
-              AppIconButton(
-                icon: place.isActive
-                    ? Icons.visibility_off_outlined
-                    : Icons.restore_outlined,
-                tooltip: place.isActive ? 'Ẩn địa điểm' : 'Khôi phục địa điểm',
-                backgroundColor: place.isActive
-                    ? AppColors.errorSurface
-                    : AppColors.successSurface,
-                foregroundColor: place.isActive
-                    ? AppColors.error
-                    : AppColors.success,
-                onPressed: isUpdating ? null : () => _toggleStatus(place),
-              ),
-            ],
-          ),
-        ],
-      ),
+        ),
+        const SizedBox(height: AppSizes.spaceS),
+        Row(
+          children: [
+            AppStatusBadge(
+              label: place.isActive ? 'Đang hiển thị' : 'Đã ẩn',
+              tone: place.isActive
+                  ? AppStatusTone.success
+                  : AppStatusTone.warning,
+              icon: place.isActive
+                  ? Icons.visibility_outlined
+                  : Icons.visibility_off_outlined,
+            ),
+            const Spacer(),
+            AppIconButton(
+              icon: Icons.edit_outlined,
+              tooltip: 'Sửa địa điểm',
+              onPressed: isUpdating ? null : () => _openEditPlace(place),
+            ),
+            const SizedBox(width: AppSizes.spaceS),
+            AppIconButton(
+              icon: place.isActive
+                  ? Icons.visibility_off_outlined
+                  : Icons.restore_outlined,
+              tooltip: place.isActive ? 'Ẩn địa điểm' : 'Khôi phục địa điểm',
+              backgroundColor: place.isActive
+                  ? AppColors.errorSurface
+                  : AppColors.successSurface,
+              foregroundColor: place.isActive
+                  ? AppColors.error
+                  : AppColors.success,
+              onPressed: isUpdating ? null : () => _toggleStatus(place),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -353,3 +351,64 @@ class _AdminPlaceManagementContentState
     };
   }
 }
+
+class _AdminPlaceCategoryOption {
+  const _AdminPlaceCategoryOption({
+    required this.label,
+    required this.icon,
+    this.value,
+  });
+
+  final String label;
+  final IconData icon;
+  final String? value;
+}
+
+const List<_AdminPlaceCategoryOption> _adminCategories = [
+  _AdminPlaceCategoryOption(label: 'Tất cả', icon: Icons.apps_rounded),
+  _AdminPlaceCategoryOption(
+    label: 'Tham quan',
+    icon: Icons.attractions_outlined,
+    value: 'ATTRACTION',
+  ),
+  _AdminPlaceCategoryOption(
+    label: 'Ăn uống',
+    icon: Icons.restaurant_outlined,
+    value: 'RESTAURANT',
+  ),
+  _AdminPlaceCategoryOption(
+    label: 'Cà phê',
+    icon: Icons.local_cafe_outlined,
+    value: 'CAFE',
+  ),
+  _AdminPlaceCategoryOption(
+    label: 'Khách sạn',
+    icon: Icons.hotel_outlined,
+    value: 'HOTEL',
+  ),
+  _AdminPlaceCategoryOption(
+    label: 'Giải trí',
+    icon: Icons.celebration_outlined,
+    value: 'ENTERTAINMENT',
+  ),
+  _AdminPlaceCategoryOption(
+    label: 'Thiên nhiên',
+    icon: Icons.park_outlined,
+    value: 'NATURE',
+  ),
+  _AdminPlaceCategoryOption(
+    label: 'Văn hóa',
+    icon: Icons.account_balance_outlined,
+    value: 'CULTURE',
+  ),
+  _AdminPlaceCategoryOption(
+    label: 'Mua sắm',
+    icon: Icons.shopping_bag_outlined,
+    value: 'SHOPPING',
+  ),
+  _AdminPlaceCategoryOption(
+    label: 'Khác',
+    icon: Icons.more_horiz_rounded,
+    value: 'OTHER',
+  ),
+];
