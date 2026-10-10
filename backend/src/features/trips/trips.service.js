@@ -291,7 +291,10 @@ const transferLeader = (tripId, userId, data) => db.transaction(async client => 
   if (!target || target.membership_status !== 'ACTIVE') throw apiError(404, 'Không tìm thấy thành viên');
   const { rows: [targetUser] } = await client.query(
     "SELECT is_verified, verification_status, status FROM users WHERE id = $1", [data.newLeaderUserId]);
-  if (!targetUser || !targetUser.is_verified || targetUser.verification_status !== 'VERIFIED') {
+  const isTargetVerified = Boolean(
+    targetUser && (targetUser.is_verified === true || String(targetUser.verification_status || '').toUpperCase() === 'VERIFIED')
+  );
+  if (!isTargetVerified) {
     throw apiError(403, 'Trưởng nhóm mới phải là thành viên đã hoàn thành xác minh danh tính (eKYC)');
   }
   if (targetUser.status !== 'ACTIVE') {

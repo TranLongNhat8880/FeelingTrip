@@ -314,7 +314,7 @@ const findUserForInvitation = async (client, userId) => {
  */
 const isUserVerified = async (client, userId) => {
   const { rows: [row] } = await client.query(
-    "SELECT verification_status='VERIFIED' AS verified FROM users WHERE id=$1", [userId]);
+    "SELECT (UPPER(COALESCE(verification_status, '')) = 'VERIFIED' OR is_verified = TRUE) AS verified FROM users WHERE id=$1", [userId]);
   return Boolean(row && row.verified);
 };
 
