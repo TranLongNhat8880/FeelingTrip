@@ -17,6 +17,7 @@ class AdminScreen extends StatefulWidget {
 class _AdminScreenState extends State<AdminScreen> {
   final _vm = AdminViewModel();
   int _section = 0;
+  final _searchController = TextEditingController();
   @override
   void initState() {
     super.initState();
@@ -25,6 +26,7 @@ class _AdminScreenState extends State<AdminScreen> {
 
   @override
   void dispose() {
+    _searchController.dispose();
     _vm.dispose();
     super.dispose();
   }
@@ -41,41 +43,16 @@ class _AdminScreenState extends State<AdminScreen> {
       );
       if (!confirmed || !mounted) return false;
     } else {
-      final form = GlobalKey<FormState>();
-      var input = '';
-      reason = await showDialog<String>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Lý do từ chối'),
-          content: Form(
-            key: form,
-            child: TextFormField(
-              maxLength: 500,
-              maxLines: 3,
-              decoration: const InputDecoration(
-                hintText: 'Ví dụ: ảnh mặt trước chưa rõ',
-              ),
-              onChanged: (value) => input = value,
-              validator: (value) => (value?.trim().length ?? 0) < 3
-                  ? 'Nhập ít nhất 3 ký tự'
-                  : null,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Hủy'),
-            ),
-            TextButton(
-              onPressed: () {
-                if (form.currentState!.validate()) {
-                  Navigator.pop(context, input.trim());
-                }
-              },
-              child: const Text('Từ chối'),
-            ),
-          ],
-        ),
+      reason = await AppInputDialog.show(
+        context,
+        title: 'Từ chối hồ sơ',
+        label: 'Lý do từ chối',
+        hint: 'Ví dụ: ảnh mặt trước chưa rõ',
+        confirmLabel: 'Từ chối',
+        destructive: true,
+        maxLength: 500,
+        validator: (value) =>
+            (value?.trim().length ?? 0) < 3 ? 'Nhập ít nhất 3 ký tự' : null,
       );
       if (reason == null || !mounted) return false;
     }
@@ -167,9 +144,9 @@ class _AdminScreenState extends State<AdminScreen> {
     Navigator.push<void>(
       context,
       MaterialPageRoute(
-        builder: (profileContext) => Scaffold(
-          backgroundColor: AppColors.background,
-          appBar: const AppTopBar(title: 'Chi tiết hồ sơ'),
+        builder: (profileContext) => AppScaffold(
+          title: 'Chi tiết hồ sơ',
+          padding: EdgeInsets.zero,
           bottomNavigationBar: Container(
             decoration: BoxDecoration(
               color: Colors.white,
@@ -252,15 +229,19 @@ class _AdminScreenState extends State<AdminScreen> {
                                 children: [
                                   Text(
                                     user.name,
-                                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(
                                           fontWeight: FontWeight.w700,
-                                          color: const Color(0xFF09143B),
+                                          color: AppColors.textPrimary,
                                         ),
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
                                     user.email,
-                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    style: Theme.of(context).textTheme.bodySmall
+                                        ?.copyWith(
                                           color: AppColors.textSecondary,
                                         ),
                                   ),
@@ -277,9 +258,8 @@ class _AdminScreenState extends State<AdminScreen> {
                         const SizedBox(height: 6),
                         Text(
                           'Nộp hồ sơ: ${(user.submittedAt == null ? 'Chưa có thời gian' : DateFormat('dd/MM/yyyy · HH:mm').format(user.submittedAt!))}',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: AppColors.textSecondary,
-                              ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: AppColors.textSecondary),
                         ),
                       ],
                     ),
@@ -309,9 +289,10 @@ class _AdminScreenState extends State<AdminScreen> {
                         ]) ...[
                           Text(
                             label,
-                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            style: Theme.of(context).textTheme.titleSmall
+                                ?.copyWith(
                                   fontWeight: FontWeight.w700,
-                                  color: const Color(0xFF09143B),
+                                  color: AppColors.textPrimary,
                                 ),
                           ),
                           const SizedBox(height: 8),
@@ -329,9 +310,11 @@ class _AdminScreenState extends State<AdminScreen> {
                                   ),
                                 ),
                                 actions: [
-                                  TextButton(
+                                  CustomButton(
+                                    text: 'Đóng',
                                     onPressed: () => Navigator.pop(context),
-                                    child: const Text('Đóng'),
+                                    variant: AppButtonVariant.text,
+                                    fullWidth: false,
                                   ),
                                 ],
                               ),
@@ -354,7 +337,8 @@ class _AdminScreenState extends State<AdminScreen> {
                         Center(
                           child: Text(
                             'Chạm ảnh để phóng to',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
                                   color: AppColors.textSecondary,
                                   fontStyle: FontStyle.italic,
                                 ),
@@ -404,19 +388,17 @@ class _AdminScreenState extends State<AdminScreen> {
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: _vm,
-    builder: (context, _) => Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppTopBar(
-        title: _sectionTitle,
-        showBack: false,
-        actions: [
-          IconButton(
-            tooltip: 'Đăng xuất',
-            icon: const Icon(Icons.logout),
-            onPressed: _logout,
-          ),
-        ],
-      ),
+    builder: (context, _) => AppScaffold(
+      padding: EdgeInsets.zero,
+      title: _sectionTitle,
+      showBack: false,
+      actions: [
+        IconButton(
+          tooltip: 'Đăng xuất',
+          icon: const Icon(Icons.logout),
+          onPressed: _logout,
+        ),
+      ],
       bottomNavigationBar: AppBottomNavigation(
         selectedIndex: _section,
         onSelected: (value) => setState(() => _section = value),
@@ -456,14 +438,18 @@ class _AdminScreenState extends State<AdminScreen> {
           ),
           child: Row(
             children: [
-              const Icon(Icons.info_outline, size: 18, color: AppColors.primary),
+              const Icon(
+                Icons.info_outline,
+                size: 18,
+                color: AppColors.primary,
+              ),
               const SizedBox(width: 8),
               Text(
                 '${_vm.pending.length} hồ sơ cần xem xét',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.primaryDark,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  color: AppColors.primaryDark,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ],
           ),
@@ -506,44 +492,49 @@ class _AdminScreenState extends State<AdminScreen> {
                           side: const BorderSide(color: AppColors.border),
                         ),
                         child: ListTile(
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        leading: AvatarPlaceholder(name: user.name, radius: 22),
-                        title: Text(
-                          user.name,
-                          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.w700,
-                                color: const Color(0xFF09143B),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          leading: AvatarPlaceholder(
+                            name: user.name,
+                            radius: 22,
+                          ),
+                          title: Text(
+                            user.name,
+                            style: Theme.of(context).textTheme.titleSmall
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.textPrimary,
+                                ),
+                          ),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const SizedBox(height: 2),
+                              Text(
+                                user.email,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(color: AppColors.textSecondary),
                               ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Nộp ${(user.submittedAt == null ? 'Chưa có thời gian' : DateFormat('dd/MM · HH:mm').format(user.submittedAt!))}',
+                                style: Theme.of(context).textTheme.labelSmall
+                                    ?.copyWith(color: AppColors.textHint),
+                              ),
+                            ],
+                          ),
+                          trailing: const Icon(
+                            Icons.chevron_right,
+                            color: AppColors.textHint,
+                          ),
+                          onTap: () => _openProfile(user),
                         ),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const SizedBox(height: 2),
-                            Text(
-                              user.email,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: AppColors.textSecondary,
-                                  ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Nộp ${(user.submittedAt == null ? 'Chưa có thời gian' : DateFormat('dd/MM · HH:mm').format(user.submittedAt!))}',
-                              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                    color: AppColors.textHint,
-                                  ),
-                            ),
-                          ],
-                        ),
-                        trailing: const Icon(Icons.chevron_right, color: AppColors.textHint),
-                        onTap: () => _openProfile(user),
                       ),
-                    ),
-                  );
+                    );
                   },
                 ),
               ),
@@ -555,31 +546,10 @@ class _AdminScreenState extends State<AdminScreen> {
     children: [
       Padding(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.border),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: .03),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: TextField(
-            onChanged: (value) => _vm.filter(query: value),
-            decoration: const InputDecoration(
-              prefixIcon: Icon(Icons.search, size: 20, color: AppColors.primary),
-              hintText: 'Tên hoặc email',
-              border: InputBorder.none,
-              enabledBorder: InputBorder.none,
-              focusedBorder: InputBorder.none,
-              contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              isDense: true,
-            ),
-          ),
+        child: AppSearchField(
+          controller: _searchController,
+          hint: 'Tên hoặc email',
+          onChanged: (value) => _vm.filter(query: value),
         ),
       ),
       Padding(
@@ -593,29 +563,10 @@ class _AdminScreenState extends State<AdminScreen> {
               'ACTIVE': 'Hoạt động',
               'BANNED': 'Đã khóa',
             }.entries)
-              ChoiceChip(
-                label: Text(item.value),
-                selected: _vm.status == item.key,
-                selectedColor: AppColors.primary,
-                labelStyle: TextStyle(
-                  color: _vm.status == item.key
-                      ? Colors.white
-                      : AppColors.textSecondary,
-                  fontWeight: _vm.status == item.key
-                      ? FontWeight.w600
-                      : FontWeight.w500,
-                  fontSize: 13,
-                ),
-                backgroundColor: Colors.white,
-                side: BorderSide(
-                  color: _vm.status == item.key
-                      ? AppColors.primary
-                      : AppColors.border,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                onSelected: (_) => _vm.filter(userStatus: item.key),
+              AppChoiceChips<String>(
+                options: {item.key: item.value},
+                selected: {_vm.status},
+                onChanged: (_) => _vm.filter(userStatus: item.key),
               ),
           ],
         ),
@@ -657,74 +608,77 @@ class _AdminScreenState extends State<AdminScreen> {
                           side: const BorderSide(color: AppColors.border),
                         ),
                         child: ListTile(
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 6,
-                        ),
-                        leading: AvatarPlaceholder(name: user.name, radius: 20),
-                        title: Row(
-                          children: [
-                            Flexible(
-                              child: Text(
-                                user.name,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 6,
+                          ),
+                          leading: AvatarPlaceholder(
+                            name: user.name,
+                            radius: 20,
+                          ),
+                          title: Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  user.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.titleSmall
+                                      ?.copyWith(
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.textPrimary,
+                                      ),
+                                ),
+                              ),
+                              if (user.verification == 'VERIFIED') ...[
+                                const SizedBox(width: 4),
+                                const Icon(
+                                  Icons.verified_rounded,
+                                  size: 14,
+                                  color: AppColors.primary,
+                                ),
+                              ],
+                            ],
+                          ),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                user.email,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                      fontWeight: FontWeight.w700,
-                                      color: const Color(0xFF09143B),
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(color: AppColors.textSecondary),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                user.role == 'ADMIN'
+                                    ? 'Quản trị viên'
+                                    : user.status == 'BANNED'
+                                    ? 'Đã khóa'
+                                    : 'Hoạt động',
+                                style: Theme.of(context).textTheme.labelSmall
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                      color: user.status == 'BANNED'
+                                          ? AppColors.error
+                                          : user.role == 'ADMIN'
+                                          ? AppColors.primaryDark
+                                          : AppColors.success,
                                     ),
                               ),
-                            ),
-                            if (user.verification == 'VERIFIED') ...[
-                              const SizedBox(width: 4),
-                              const Icon(
-                                Icons.verified_rounded,
-                                size: 14,
-                                color: AppColors.primary,
-                              ),
                             ],
-                          ],
+                          ),
+                          trailing: user.role == 'ADMIN'
+                              ? null
+                              : IconButton(
+                                  tooltip: 'Thao tác tài khoản',
+                                  icon: const Icon(Icons.more_vert),
+                                  onPressed: () => _userActions(user),
+                                ),
                         ),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              user.email,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: AppColors.textSecondary,
-                                  ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              user.role == 'ADMIN'
-                                  ? 'Quản trị viên'
-                                  : user.status == 'BANNED'
-                                  ? 'Đã khóa'
-                                  : 'Hoạt động',
-                              style: Theme.of(context).textTheme.labelSmall
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                    color: user.status == 'BANNED'
-                                        ? AppColors.error
-                                        : user.role == 'ADMIN'
-                                        ? AppColors.primaryDark
-                                        : AppColors.success,
-                                  ),
-                            ),
-                          ],
-                        ),
-                        trailing: user.role == 'ADMIN'
-                            ? null
-                            : IconButton(
-                                tooltip: 'Thao tác tài khoản',
-                                icon: const Icon(Icons.more_vert),
-                                onPressed: () => _userActions(user),
-                              ),
                       ),
-                    ),
-                  );
+                    );
                   },
                 ),
               ),

@@ -93,7 +93,11 @@ class _HomeScreenState extends State<HomeScreen> {
     if (ApiEndpoints.useMockData) {
       final trips = <Map<String, String>>[];
       for (final trip in _mockTrips) {
-        trips.add({...trip, 'hasCompanionPost': '${await MockCompanionRepository().hasPostForTrip(trip['id']!)}'});
+        trips.add({
+          ...trip,
+          'hasCompanionPost':
+              '${await MockCompanionRepository().hasPostForTrip(trip['id']!)}',
+        });
       }
       if (mounted) setState(() => _myTrips = trips);
       return;
@@ -164,7 +168,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         icon: const Icon(
                           Icons.menu_rounded,
                           size: 24,
-                          color: Color(0xFF09143B),
+                          color: AppColors.textPrimary,
                         ),
                       ),
                       const SizedBox(width: 4),
@@ -213,21 +217,14 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                               ),
                               const SizedBox(width: 4),
-                              TextButton(
-                                style: TextButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
-                                  ),
-                                  minimumSize: Size.zero,
-                                  tapTargetSize:
-                                      MaterialTapTargetSize.shrinkWrap,
-                                ),
+                              CustomButton(
+                                text: 'Quản lý',
                                 onPressed: () => Navigator.pushNamed(
                                   context,
                                   AppRoutes.tripList,
                                 ),
-                                child: const Text('Quản lý'),
+                                variant: AppButtonVariant.text,
+                                fullWidth: false,
                               ),
                               const SizedBox(width: 4),
                               IconButton(
@@ -470,7 +467,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ListTile(
                                   leading: const Icon(
                                     Icons.inbox_outlined,
-                                    color: Color(0xFFD97706),
+                                    color: AppColors.warning,
                                   ),
                                   title: const Text(
                                     'Yêu cầu tham gia chuyến đi',
@@ -563,9 +560,9 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
 
-    return Scaffold(
-      key: _scaffold,
-      backgroundColor: AppColors.surface,
+    return AppScaffold(
+      scaffoldKey: _scaffold,
+      padding: EdgeInsets.zero,
       drawer: _buildDrawer(context, user, name, text),
       bottomNavigationBar: AppBottomNavigation(
         selectedIndex: _tab,
@@ -726,7 +723,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ListTile(
               leading: const Icon(
                 Icons.inbox_outlined,
-                color: Color(0xFFD97706),
+                color: AppColors.warning,
               ),
               title: const Text('Yêu cầu ghép đoàn'),
               onTap: () {
@@ -970,61 +967,44 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 if (trip['hasCompanionPost'] != 'true')
-                OutlinedButton.icon(
-                  icon: const Icon(Icons.group_add_outlined, size: 16),
-                  label: const Text('Tìm bạn đồng hành'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.primary,
-                    side: const BorderSide(color: AppColors.primary),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                  ),
-                  onPressed: () async {
-                    if (AuthScope.of(context).user?.isVerified != true) {
-                      await showDialog<void>(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: const Text('Cần xác minh hồ sơ'),
-                          content: const Text(
-                            'Bạn cần hoàn thành eKYC trước khi đăng bài tìm bạn đồng hành.',
+                  CustomButton(
+                    text: 'Tìm bạn đồng hành',
+                    onPressed: () async {
+                      if (AuthScope.of(context).user?.isVerified != true) {
+                        await AppMessageDialog.show(
+                          context,
+                          title: 'Cần xác minh hồ sơ',
+                          message:
+                              'Bạn cần hoàn thành eKYC trước khi đăng bài tìm bạn đồng hành.',
+                          tone: AppStatusTone.warning,
+                        );
+                        return;
+                      }
+                      if (!context.mounted) return;
+                      final post = await Navigator.push<CompanionPost>(
+                        context,
+                        MaterialPageRoute(
+                          settings: RouteSettings(
+                            name: AppRoutes.createCompanionPost,
+                            arguments: {
+                              'tripId': trip['id'],
+                              'tripName': trip['name'],
+                              'tripDestination': trip['destination'],
+                            },
                           ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              child: const Text('Đã hiểu'),
-                            ),
-                          ],
+                          builder: (_) => CreateCompanionPostScreen(
+                            tripId: trip['id'],
+                            tripName: trip['name'],
+                            tripDestination: trip['destination'],
+                          ),
                         ),
                       );
-                      return;
-                    }
-                    if (!context.mounted) return;
-                    final post = await Navigator.push<CompanionPost>(
-                      context,
-                      MaterialPageRoute(
-                        settings: RouteSettings(
-                          name: AppRoutes.createCompanionPost,
-                          arguments: {
-                            'tripId': trip['id'],
-                            'tripName': trip['name'],
-                            'tripDestination': trip['destination'],
-                          },
-                        ),
-                        builder: (_) => CreateCompanionPostScreen(
-                          tripId: trip['id'],
-                          tripName: trip['name'],
-                          tripDestination: trip['destination'],
-                        ),
-                      ),
-                    );
-                    if (post != null && mounted) await _loadTrips();
-                  },
-                ),
+                      if (post != null && mounted) await _loadTrips();
+                    },
+                    icon: Icons.group_add_outlined,
+                    variant: AppButtonVariant.secondary,
+                    fullWidth: false,
+                  ),
               ],
             ),
           ],

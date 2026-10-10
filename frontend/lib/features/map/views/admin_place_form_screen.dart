@@ -801,10 +801,12 @@ class _AdminPlaceFormScreenState extends State<AdminPlaceFormScreen> {
                       ),
                       Align(
                         alignment: Alignment.centerLeft,
-                        child: TextButton.icon(
+                        child: CustomButton(
+                          text: 'Tải lại dữ liệu địa chỉ',
                           onPressed: _retryDivisionLoad,
-                          icon: const Icon(Icons.refresh_rounded),
-                          label: const Text('Tải lại dữ liệu địa chỉ'),
+                          icon: Icons.refresh_rounded,
+                          variant: AppButtonVariant.text,
+                          fullWidth: false,
                         ),
                       ),
                     ],

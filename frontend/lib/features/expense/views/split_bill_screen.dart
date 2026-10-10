@@ -22,12 +22,12 @@ enum SplitType {
 }
 
 enum ExpenseCategory {
-  food('Ăn uống', Icons.restaurant_rounded, Color(0xFFEF4444)),
-  hotel('Khách sạn', Icons.hotel_rounded, Color(0xFF3B82F6)),
+  food('Ăn uống', Icons.restaurant_rounded, AppColors.error),
+  hotel('Khách sạn', Icons.hotel_rounded, AppColors.primary),
   transport('Di chuyển', Icons.directions_car_rounded, Color(0xFFF59E0B)),
   tickets('Vé tham quan', Icons.confirmation_number_rounded, Color(0xFF8B5CF6)),
   cafe('Cafe & Bar', Icons.local_cafe_rounded, Color(0xFFEC4899)),
-  shopping('Mua sắm', Icons.shopping_bag_rounded, Color(0xFF10B981)),
+  shopping('Mua sắm', Icons.shopping_bag_rounded, AppColors.success),
   other('Khác', Icons.receipt_long_rounded, Color(0xFF6B7280));
 
   final String label;
@@ -120,7 +120,8 @@ class _SplitBillScreenState extends State<SplitBillScreen>
       id: 'user-nhat',
       name: 'Long Nhật',
       role: 'Trưởng nhóm',
-      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+      avatarUrl:
+          'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
       bankName: 'VietinBank',
       bankBin: '970415',
       accountNumber: '108876543210',
@@ -130,7 +131,8 @@ class _SplitBillScreenState extends State<SplitBillScreen>
       id: 'user-phu',
       name: 'Duy Phú',
       role: 'Thành viên',
-      avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
+      avatarUrl:
+          'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
       bankName: 'MB Bank',
       bankBin: '970422',
       accountNumber: '0988776655',
@@ -140,7 +142,8 @@ class _SplitBillScreenState extends State<SplitBillScreen>
       id: 'user-thanh',
       name: 'Tạ Thành',
       role: 'Thành viên',
-      avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150',
+      avatarUrl:
+          'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150',
       bankName: 'Techcombank',
       bankBin: '970407',
       accountNumber: '19036789123',
@@ -150,7 +153,8 @@ class _SplitBillScreenState extends State<SplitBillScreen>
       id: 'user-tung',
       name: 'Thanh Tùng',
       role: 'Thành viên',
-      avatarUrl: 'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=150',
+      avatarUrl:
+          'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=150',
       bankName: 'Vietcombank',
       bankBin: '970436',
       accountNumber: '001100456789',
@@ -321,7 +325,9 @@ class _SplitBillScreenState extends State<SplitBillScreen>
       while (dIdx < debtors.length && cIdx < creditors.length) {
         final debtor = debtors[dIdx];
         final creditor = creditors[cIdx];
-        final minAmount = debtor.value < creditor.value ? debtor.value : creditor.value;
+        final minAmount = debtor.value < creditor.value
+            ? debtor.value
+            : creditor.value;
 
         if (minAmount > 0) {
           optimized.add(
@@ -366,93 +372,64 @@ class _SplitBillScreenState extends State<SplitBillScreen>
   Widget build(BuildContext context) {
     final netBalances = _calculateNetBalances();
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF6F8FC),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF09143B),
-        elevation: 0,
-        surfaceTintColor: Colors.transparent,
-        shadowColor: Colors.black.withValues(alpha: .04),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Sổ quỹ & Chia tiền nhóm',
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF09143B),
-                fontSize: 17,
-              ),
-            ),
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE0F2FE),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: const Text(
-                    'MÔ PHỎNG MIN CASH FLOW',
-                    style: TextStyle(
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF0284C7),
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 6),
-                const Text(
-                  'Hội An – Đà Nẵng',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'Đặt lại dữ liệu mẫu',
-            icon: const Icon(Icons.refresh_rounded, color: Color(0xFF5D6889)),
-            onPressed: () {
-              _resetToDefaultMockData();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Đã khôi phục dữ liệu chi tiêu mẫu!'),
-                  behavior: SnackBarBehavior.floating,
-                  duration: Duration(seconds: 2),
-                ),
-              );
-            },
+    return AppScaffold(
+      title: 'Chi phí chuyến đi',
+      subtitle: 'Dữ liệu minh họa · Hội An – Đà Nẵng',
+      padding: EdgeInsets.zero,
+      actions: [
+        IconButton(
+          tooltip: 'Đặt lại dữ liệu mẫu',
+          icon: const Icon(
+            Icons.refresh_rounded,
+            color: AppColors.textSecondary,
           ),
-          const SizedBox(width: 8),
-        ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(48),
-          child: Container(
-            color: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: TabBar(
-              controller: _tabController,
-              labelColor: AppColors.primary,
-              unselectedLabelColor: const Color(0xFF64748B),
-              labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
-              unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13.5),
-              indicatorColor: AppColors.primary,
-              indicatorWeight: 3,
-              indicatorSize: TabBarIndicatorSize.tab,
-              tabs: const [
-                Tab(icon: Icon(Icons.receipt_long_rounded, size: 18), text: 'Hóa đơn'),
-                Tab(icon: Icon(Icons.account_balance_rounded, size: 18), text: 'Cân đối'),
-                Tab(icon: Icon(Icons.qr_code_2_rounded, size: 18), text: 'Tất toán QR'),
-              ],
+          onPressed: () {
+            _resetToDefaultMockData();
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Đã khôi phục dữ liệu chi tiêu mẫu!'),
+                behavior: SnackBarBehavior.floating,
+                duration: Duration(seconds: 2),
+              ),
+            );
+          },
+        ),
+        const SizedBox(width: 8),
+      ],
+      appBarBottom: PreferredSize(
+        preferredSize: const Size.fromHeight(48),
+        child: Container(
+          color: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: TabBar(
+            controller: _tabController,
+            labelColor: AppColors.primary,
+            unselectedLabelColor: const Color(0xFF64748B),
+            labelStyle: const TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 13.5,
             ),
+            unselectedLabelStyle: const TextStyle(
+              fontWeight: FontWeight.w500,
+              fontSize: 13.5,
+            ),
+            indicatorColor: AppColors.primary,
+            indicatorWeight: 3,
+            indicatorSize: TabBarIndicatorSize.tab,
+            tabs: const [
+              Tab(
+                icon: Icon(Icons.receipt_long_rounded, size: 18),
+                text: 'Hóa đơn',
+              ),
+              Tab(
+                icon: Icon(Icons.account_balance_rounded, size: 18),
+                text: 'Cân đối',
+              ),
+              Tab(
+                icon: Icon(Icons.qr_code_2_rounded, size: 18),
+                text: 'Tất toán QR',
+              ),
+            ],
           ),
         ),
       ),
@@ -505,11 +482,14 @@ class _SplitBillScreenState extends State<SplitBillScreen>
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xFF09143B),
+                      color: AppColors.textPrimary,
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: progress > 0.8
                           ? const Color(0xFFFEF2F2)
@@ -535,9 +515,9 @@ class _SplitBillScreenState extends State<SplitBillScreen>
                 child: LinearProgressIndicator(
                   value: progress,
                   minHeight: 8,
-                  backgroundColor: const Color(0xFFE2E8F0),
+                  backgroundColor: AppColors.border,
                   valueColor: AlwaysStoppedAnimation<Color>(
-                    progress > 0.85 ? const Color(0xFFEF4444) : AppColors.primary,
+                    progress > 0.85 ? AppColors.error : AppColors.primary,
                   ),
                 ),
               ),
@@ -551,7 +531,7 @@ class _SplitBillScreenState extends State<SplitBillScreen>
                       valueColor: AppColors.primary,
                     ),
                   ),
-                  Container(width: 1, height: 32, color: const Color(0xFFE2E8F0)),
+                  Container(width: 1, height: 32, color: AppColors.border),
                   Expanded(
                     child: _buildMetricItem(
                       label: 'CÒN LẠI',
@@ -561,12 +541,12 @@ class _SplitBillScreenState extends State<SplitBillScreen>
                           : const Color(0xFF16A34A),
                     ),
                   ),
-                  Container(width: 1, height: 32, color: const Color(0xFFE2E8F0)),
+                  Container(width: 1, height: 32, color: AppColors.border),
                   Expanded(
                     child: _buildMetricItem(
                       label: 'DỰ KIẾN',
                       value: _formatVnd(_estimatedBudget),
-                      valueColor: const Color(0xFF475569),
+                      valueColor: AppColors.textSecondary,
                     ),
                   ),
                 ],
@@ -586,7 +566,7 @@ class _SplitBillScreenState extends State<SplitBillScreen>
               style: const TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF09143B),
+                color: AppColors.textPrimary,
               ),
             ),
             Text(
@@ -615,7 +595,7 @@ class _SplitBillScreenState extends State<SplitBillScreen>
               child: Container(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(AppSizes.cardRadius),
-                  border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
+                  border: Border.all(color: AppColors.border, width: 1),
                 ),
                 padding: const EdgeInsets.all(14),
                 child: Row(
@@ -647,7 +627,7 @@ class _SplitBillScreenState extends State<SplitBillScreen>
                             style: const TextStyle(
                               fontSize: 14.5,
                               fontWeight: FontWeight.w700,
-                              color: Color(0xFF09143B),
+                              color: AppColors.textPrimary,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -673,9 +653,12 @@ class _SplitBillScreenState extends State<SplitBillScreen>
                               ),
                               const SizedBox(width: 6),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 1,
+                                ),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFF1F5F9),
+                                  color: AppColors.inputSurface,
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
@@ -683,7 +666,7 @@ class _SplitBillScreenState extends State<SplitBillScreen>
                                   style: const TextStyle(
                                     fontSize: 10.5,
                                     fontWeight: FontWeight.w600,
-                                    color: Color(0xFF475569),
+                                    color: AppColors.textSecondary,
                                   ),
                                 ),
                               ),
@@ -727,7 +710,7 @@ class _SplitBillScreenState extends State<SplitBillScreen>
                           style: const TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w800,
-                            color: Color(0xFF09143B),
+                            color: AppColors.textPrimary,
                           ),
                         ),
                         IconButton(
@@ -735,7 +718,10 @@ class _SplitBillScreenState extends State<SplitBillScreen>
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
                           tooltip: 'Xóa hóa đơn',
-                          icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFF94A3B8)),
+                          icon: const Icon(
+                            Icons.delete_outline_rounded,
+                            color: Color(0xFF94A3B8),
+                          ),
                           onPressed: () {
                             setState(() {
                               _expenses.removeWhere((e) => e.id == expense.id);
@@ -802,7 +788,11 @@ class _SplitBillScreenState extends State<SplitBillScreen>
           child: const Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.info_outline_rounded, color: Color(0xFF2563EB), size: 20),
+              Icon(
+                Icons.info_outline_rounded,
+                color: Color(0xFF2563EB),
+                size: 20,
+              ),
               SizedBox(width: 10),
               Expanded(
                 child: Text(
@@ -863,15 +853,18 @@ class _SplitBillScreenState extends State<SplitBillScreen>
                                   style: const TextStyle(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w700,
-                                    color: Color(0xFF09143B),
+                                    color: AppColors.textPrimary,
                                   ),
                                 ),
                                 const SizedBox(width: 6),
                                 if (member.role == 'Trưởng nhóm')
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFFFEF3C7),
+                                      color: AppColors.warningSurface,
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: const Text(
@@ -879,7 +872,7 @@ class _SplitBillScreenState extends State<SplitBillScreen>
                                       style: TextStyle(
                                         fontSize: 9.5,
                                         fontWeight: FontWeight.bold,
-                                        color: Color(0xFFD97706),
+                                        color: AppColors.warning,
                                       ),
                                     ),
                                   ),
@@ -898,20 +891,23 @@ class _SplitBillScreenState extends State<SplitBillScreen>
                       ),
                       // Badge trạng thái số dư
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
                           color: isSettled
-                              ? const Color(0xFFF1F5F9)
+                              ? AppColors.inputSurface
                               : (isCreditor
-                                  ? const Color(0xFFECFDF5)
-                                  : const Color(0xFFFEF2F2)),
+                                    ? const Color(0xFFECFDF5)
+                                    : const Color(0xFFFEF2F2)),
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(
                             color: isSettled
                                 ? const Color(0xFFCBD5E1)
                                 : (isCreditor
-                                    ? const Color(0xFFA7F3D0)
-                                    : const Color(0xFFFECACA)),
+                                      ? const Color(0xFFA7F3D0)
+                                      : const Color(0xFFFECACA)),
                           ),
                         ),
                         child: Column(
@@ -920,15 +916,17 @@ class _SplitBillScreenState extends State<SplitBillScreen>
                             Text(
                               isSettled
                                   ? 'Hòa vốn'
-                                  : (isCreditor ? 'Được nhận lại' : 'Cần trả thêm'),
+                                  : (isCreditor
+                                        ? 'Được nhận lại'
+                                        : 'Cần trả thêm'),
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w600,
                                 color: isSettled
                                     ? const Color(0xFF64748B)
                                     : (isCreditor
-                                        ? const Color(0xFF059669)
-                                        : const Color(0xFFDC2626)),
+                                          ? const Color(0xFF059669)
+                                          : const Color(0xFFDC2626)),
                               ),
                             ),
                             Text(
@@ -937,10 +935,10 @@ class _SplitBillScreenState extends State<SplitBillScreen>
                                 fontSize: 13.5,
                                 fontWeight: FontWeight.w800,
                                 color: isSettled
-                                    ? const Color(0xFF09143B)
+                                    ? AppColors.textPrimary
                                     : (isCreditor
-                                        ? const Color(0xFF059669)
-                                        : const Color(0xFFDC2626)),
+                                          ? const Color(0xFF059669)
+                                          : const Color(0xFFDC2626)),
                               ),
                             ),
                           ],
@@ -956,11 +954,17 @@ class _SplitBillScreenState extends State<SplitBillScreen>
                     children: [
                       Text(
                         'Đã chi trước: ${_formatVnd(paidTotal)}',
-                        style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF64748B),
+                        ),
                       ),
                       Text(
                         'Phần phải chịu: ${_formatVnd(owedTotal)}',
-                        style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF64748B),
+                        ),
                       ),
                     ],
                   ),
@@ -994,12 +998,14 @@ class _SplitBillScreenState extends State<SplitBillScreen>
                     decoration: BoxDecoration(
                       color: _isOptimized
                           ? const Color(0xFFECFDF5)
-                          : const Color(0xFFFEF3C7),
+                          : AppColors.warningSurface,
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
                       Icons.auto_awesome_rounded,
-                      color: _isOptimized ? const Color(0xFF10B981) : const Color(0xFFD97706),
+                      color: _isOptimized
+                          ? AppColors.success
+                          : AppColors.warning,
                       size: 20,
                     ),
                   ),
@@ -1015,7 +1021,9 @@ class _SplitBillScreenState extends State<SplitBillScreen>
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
-                            color: _isOptimized ? const Color(0xFF047857) : const Color(0xFFB45309),
+                            color: _isOptimized
+                                ? const Color(0xFF047857)
+                                : const Color(0xFFB45309),
                           ),
                         ),
                         Text(
@@ -1037,7 +1045,9 @@ class _SplitBillScreenState extends State<SplitBillScreen>
                 text: _isOptimized
                     ? 'Xem lại bảng nợ chéo ban đầu'
                     : '⚡ Kích hoạt tối ưu Min Cash Flow',
-                variant: _isOptimized ? AppButtonVariant.secondary : AppButtonVariant.primary,
+                variant: _isOptimized
+                    ? AppButtonVariant.secondary
+                    : AppButtonVariant.primary,
                 icon: _isOptimized ? Icons.history_rounded : Icons.bolt_rounded,
                 onPressed: () {
                   setState(() {
@@ -1061,7 +1071,7 @@ class _SplitBillScreenState extends State<SplitBillScreen>
               style: const TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF09143B),
+                color: AppColors.textPrimary,
               ),
             ),
             const Text(
@@ -1083,7 +1093,8 @@ class _SplitBillScreenState extends State<SplitBillScreen>
             child: EmptyStateWidget(
               icon: Icons.check_circle_outline_rounded,
               title: 'Tất cả đã cân bằng',
-              message: 'Không có khoản nợ nào cần thanh toán giữa các thành viên.',
+              message:
+                  'Không có khoản nợ nào cần thanh toán giữa các thành viên.',
             ),
           )
         else
@@ -1109,8 +1120,8 @@ class _SplitBillScreenState extends State<SplitBillScreen>
                         color: isPaid
                             ? const Color(0xFFA7F3D0)
                             : (isReported
-                                ? const Color(0xFFFDE68A)
-                                : const Color(0xFFE2E8F0)),
+                                  ? const Color(0xFFFDE68A)
+                                  : AppColors.border),
                         width: 1.2,
                       ),
                     ),
@@ -1133,7 +1144,7 @@ class _SplitBillScreenState extends State<SplitBillScreen>
                                   style: const TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w600,
-                                    color: Color(0xFF09143B),
+                                    color: AppColors.textPrimary,
                                   ),
                                 ),
                               ],
@@ -1149,8 +1160,8 @@ class _SplitBillScreenState extends State<SplitBillScreen>
                                       fontSize: 15,
                                       fontWeight: FontWeight.w800,
                                       color: isPaid
-                                          ? const Color(0xFF10B981)
-                                          : const Color(0xFF09143B),
+                                          ? AppColors.success
+                                          : AppColors.textPrimary,
                                     ),
                                   ),
                                   const SizedBox(height: 4),
@@ -1202,7 +1213,7 @@ class _SplitBillScreenState extends State<SplitBillScreen>
                                   style: const TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w600,
-                                    color: Color(0xFF09143B),
+                                    color: AppColors.textPrimary,
                                   ),
                                 ),
                               ],
@@ -1219,13 +1230,16 @@ class _SplitBillScreenState extends State<SplitBillScreen>
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
                               decoration: BoxDecoration(
                                 color: isPaid
                                     ? const Color(0xFFECFDF5)
                                     : (isReported
-                                        ? const Color(0xFFFEF3C7)
-                                        : const Color(0xFFF1F5F9)),
+                                          ? AppColors.warningSurface
+                                          : AppColors.inputSurface),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Row(
@@ -1235,28 +1249,30 @@ class _SplitBillScreenState extends State<SplitBillScreen>
                                     isPaid
                                         ? Icons.check_circle_rounded
                                         : (isReported
-                                            ? Icons.hourglass_top_rounded
-                                            : Icons.pending_actions_rounded),
+                                              ? Icons.hourglass_top_rounded
+                                              : Icons.pending_actions_rounded),
                                     size: 13,
                                     color: isPaid
                                         ? const Color(0xFF059669)
                                         : (isReported
-                                            ? const Color(0xFFD97706)
-                                            : const Color(0xFF64748B)),
+                                              ? AppColors.warning
+                                              : const Color(0xFF64748B)),
                                   ),
                                   const SizedBox(width: 4),
                                   Text(
                                     isPaid
                                         ? 'ĐÃ TẤT TOÁN'
-                                        : (isReported ? 'ĐÃ BÁO CHUYỂN' : 'CHỜ THANH TOÁN'),
+                                        : (isReported
+                                              ? 'ĐÃ BÁO CHUYỂN'
+                                              : 'CHỜ THANH TOÁN'),
                                     style: TextStyle(
                                       fontSize: 10.5,
                                       fontWeight: FontWeight.w700,
                                       color: isPaid
                                           ? const Color(0xFF059669)
                                           : (isReported
-                                              ? const Color(0xFFD97706)
-                                              : const Color(0xFF64748B)),
+                                                ? AppColors.warning
+                                                : const Color(0xFF64748B)),
                                     ),
                                   ),
                                 ],
@@ -1265,7 +1281,11 @@ class _SplitBillScreenState extends State<SplitBillScreen>
 
                             Row(
                               children: [
-                                const Icon(Icons.qr_code_rounded, size: 16, color: AppColors.primary),
+                                const Icon(
+                                  Icons.qr_code_rounded,
+                                  size: 16,
+                                  color: AppColors.primary,
+                                ),
                                 const SizedBox(width: 4),
                                 const Text(
                                   'Mã VietQR',
@@ -1275,7 +1295,11 @@ class _SplitBillScreenState extends State<SplitBillScreen>
                                     color: AppColors.primary,
                                   ),
                                 ),
-                                const Icon(Icons.chevron_right, size: 16, color: AppColors.primary),
+                                const Icon(
+                                  Icons.chevron_right,
+                                  size: 16,
+                                  color: AppColors.primary,
+                                ),
                               ],
                             ),
                           ],
@@ -1307,7 +1331,8 @@ class _SplitBillScreenState extends State<SplitBillScreen>
         builder: (ctx, setModalState) {
           final isPaid = tx.status == 'PAID';
           final isReported = tx.status == 'REPORTED';
-          final transferSyntax = 'FEELINGTRIP ${from.name.toUpperCase()} TRA ${to.name.toUpperCase()}';
+          final transferSyntax =
+              'FEELINGTRIP ${from.name.toUpperCase()} TRA ${to.name.toUpperCase()}';
 
           // Link VietQR chuẩn
           final vietQrUrl =
@@ -1328,7 +1353,7 @@ class _SplitBillScreenState extends State<SplitBillScreen>
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFE2E8F0),
+                    color: AppColors.border,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -1361,12 +1386,15 @@ class _SplitBillScreenState extends State<SplitBillScreen>
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w700,
-                                color: Color(0xFF09143B),
+                                color: AppColors.textPrimary,
                               ),
                             ),
                             Text(
                               'Hỗ trợ toàn bộ ngân hàng NAPAS 247',
-                              style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF64748B),
+                              ),
                             ),
                           ],
                         ),
@@ -1387,7 +1415,7 @@ class _SplitBillScreenState extends State<SplitBillScreen>
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
+                    border: Border.all(color: AppColors.border, width: 1.5),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: .04),
@@ -1413,7 +1441,9 @@ class _SplitBillScreenState extends State<SplitBillScreen>
                               height: 220,
                               color: const Color(0xFFF8FAFC),
                               child: const Center(
-                                child: CircularProgressIndicator(strokeWidth: 2.5),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.5,
+                                ),
                               ),
                             );
                           },
@@ -1424,12 +1454,19 @@ class _SplitBillScreenState extends State<SplitBillScreen>
                             child: const Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.qr_code_scanner_rounded, size: 48, color: AppColors.primary),
+                                Icon(
+                                  Icons.qr_code_scanner_rounded,
+                                  size: 48,
+                                  color: AppColors.primary,
+                                ),
                                 SizedBox(height: 8),
                                 Text(
                                   'Mã QR Mẫu VietQR\n(Không có kết nối mạng)',
                                   textAlign: TextAlign.center,
-                                  style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Color(0xFF64748B),
+                                  ),
                                 ),
                               ],
                             ),
@@ -1442,7 +1479,7 @@ class _SplitBillScreenState extends State<SplitBillScreen>
                         style: const TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.w900,
-                          color: Color(0xFF09143B),
+                          color: AppColors.textPrimary,
                         ),
                       ),
                     ],
@@ -1485,24 +1522,8 @@ class _SplitBillScreenState extends State<SplitBillScreen>
                 Row(
                   children: [
                     Expanded(
-                      child: OutlinedButton.icon(
-                        icon: Icon(
-                          isReported ? Icons.check_rounded : Icons.send_rounded,
-                          size: 16,
-                        ),
-                        label: Text(
-                          isReported ? 'Đã báo chuyển' : 'Báo đã chuyển',
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: isReported ? const Color(0xFFD97706) : AppColors.primary,
-                          side: BorderSide(
-                            color: isReported ? const Color(0xFFD97706) : AppColors.primary,
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
+                      child: CustomButton(
+                        text: isReported ? 'Đã báo chuyển' : 'Báo đã chuyển',
                         onPressed: isPaid
                             ? null
                             : () {
@@ -1513,26 +1534,24 @@ class _SplitBillScreenState extends State<SplitBillScreen>
                                 Navigator.pop(ctx);
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
-                                    content: Text('${from.name} đã báo chuyển ${_formatVnd(tx.amount)}!'),
+                                    content: Text(
+                                      '${from.name} đã báo chuyển ${_formatVnd(tx.amount)}!',
+                                    ),
                                     behavior: SnackBarBehavior.floating,
                                   ),
                                 );
                               },
+                        icon: isReported
+                            ? Icons.check_rounded
+                            : Icons.send_rounded,
+                        variant: AppButtonVariant.secondary,
+                        fullWidth: false,
                       ),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: ElevatedButton.icon(
-                        icon: const Icon(Icons.check_circle_rounded, size: 16),
-                        label: Text(isPaid ? 'Đã gạch nợ' : 'Xác nhận (SePay)'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: isPaid ? const Color(0xFF10B981) : const Color(0xFF09143B),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
+                      child: CustomButton(
+                        text: isPaid ? 'Đã gạch nợ' : 'Xác nhận (SePay)',
                         onPressed: () {
                           setState(() {
                             tx.status = 'PAID';
@@ -1541,12 +1560,15 @@ class _SplitBillScreenState extends State<SplitBillScreen>
                           Navigator.pop(ctx);
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text('Đã xác nhận gạch nợ thành công cho ${from.name}!'),
-                              backgroundColor: const Color(0xFF10B981),
+                              content: Text(
+                                'Đã xác nhận gạch nợ thành công cho ${from.name}!',
+                              ),
+                              backgroundColor: AppColors.success,
                               behavior: SnackBarBehavior.floating,
                             ),
                           );
                         },
+                        icon: Icons.check_circle_rounded,
                       ),
                     ),
                   ],
@@ -1559,7 +1581,11 @@ class _SplitBillScreenState extends State<SplitBillScreen>
     );
   }
 
-  Widget _buildQrDetailRow(String label, String value, {bool copyable = false}) {
+  Widget _buildQrDetailRow(
+    String label,
+    String value, {
+    bool copyable = false,
+  }) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -1574,7 +1600,7 @@ class _SplitBillScreenState extends State<SplitBillScreen>
               style: const TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF09143B),
+                color: AppColors.textPrimary,
               ),
             ),
             if (copyable) ...[
@@ -1592,7 +1618,11 @@ class _SplitBillScreenState extends State<SplitBillScreen>
                 },
                 child: const Padding(
                   padding: EdgeInsets.all(4),
-                  child: Icon(Icons.copy_rounded, size: 14, color: AppColors.primary),
+                  child: Icon(
+                    Icons.copy_rounded,
+                    size: 14,
+                    color: AppColors.primary,
+                  ),
                 ),
               ),
             ],
@@ -1640,7 +1670,7 @@ class _SplitBillScreenState extends State<SplitBillScreen>
                       width: 40,
                       height: 4,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFE2E8F0),
+                        color: AppColors.border,
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -1655,7 +1685,7 @@ class _SplitBillScreenState extends State<SplitBillScreen>
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w800,
-                          color: Color(0xFF09143B),
+                          color: AppColors.textPrimary,
                         ),
                       ),
                       IconButton(
@@ -1691,7 +1721,7 @@ class _SplitBillScreenState extends State<SplitBillScreen>
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xFF09143B),
+                      color: AppColors.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -1703,16 +1733,23 @@ class _SplitBillScreenState extends State<SplitBillScreen>
                         return Padding(
                           padding: const EdgeInsets.only(right: 8),
                           child: ChoiceChip(
-                            avatar: Icon(cat.icon, size: 16, color: isSelected ? Colors.white : cat.color),
+                            avatar: Icon(
+                              cat.icon,
+                              size: 16,
+                              color: isSelected ? Colors.white : cat.color,
+                            ),
                             label: Text(cat.label),
                             selected: isSelected,
                             selectedColor: AppColors.primary,
                             labelStyle: TextStyle(
-                              color: isSelected ? Colors.white : const Color(0xFF09143B),
+                              color: isSelected
+                                  ? Colors.white
+                                  : AppColors.textPrimary,
                               fontWeight: FontWeight.w600,
                               fontSize: 12.5,
                             ),
-                            onSelected: (_) => setSheetState(() => selectedCategory = cat),
+                            onSelected: (_) =>
+                                setSheetState(() => selectedCategory = cat),
                           ),
                         );
                       }).toList(),
@@ -1727,7 +1764,7 @@ class _SplitBillScreenState extends State<SplitBillScreen>
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xFF09143B),
+                      color: AppColors.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -1737,16 +1774,21 @@ class _SplitBillScreenState extends State<SplitBillScreen>
                     children: _members.map((m) {
                       final isPayer = selectedPayerId == m.id;
                       return ChoiceChip(
-                        avatar: AvatarPlaceholder(name: m.name, imageUrl: m.avatarUrl, radius: 10),
+                        avatar: AvatarPlaceholder(
+                          name: m.name,
+                          imageUrl: m.avatarUrl,
+                          radius: 10,
+                        ),
                         label: Text(m.name),
                         selected: isPayer,
-                        selectedColor: const Color(0xFF09143B),
+                        selectedColor: AppColors.textPrimary,
                         labelStyle: TextStyle(
-                          color: isPayer ? Colors.white : const Color(0xFF09143B),
+                          color: isPayer ? Colors.white : AppColors.textPrimary,
                           fontWeight: FontWeight.w600,
                           fontSize: 12.5,
                         ),
-                        onSelected: (_) => setSheetState(() => selectedPayerId = m.id),
+                        onSelected: (_) =>
+                            setSheetState(() => selectedPayerId = m.id),
                       );
                     }).toList(),
                   ),
@@ -1759,7 +1801,7 @@ class _SplitBillScreenState extends State<SplitBillScreen>
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xFF09143B),
+                      color: AppColors.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -1770,15 +1812,23 @@ class _SplitBillScreenState extends State<SplitBillScreen>
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 4),
                           child: InkWell(
-                            onTap: () => setSheetState(() => selectedSplitType = st),
+                            onTap: () =>
+                                setSheetState(() => selectedSplitType = st),
                             borderRadius: BorderRadius.circular(10),
                             child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 10,
+                                horizontal: 4,
+                              ),
                               decoration: BoxDecoration(
-                                color: isSelected ? const Color(0xFFEFF6FF) : const Color(0xFFF8FAFC),
+                                color: isSelected
+                                    ? const Color(0xFFEFF6FF)
+                                    : const Color(0xFFF8FAFC),
                                 borderRadius: BorderRadius.circular(10),
                                 border: Border.all(
-                                  color: isSelected ? AppColors.primary : const Color(0xFFE2E8F0),
+                                  color: isSelected
+                                      ? AppColors.primary
+                                      : AppColors.border,
                                   width: isSelected ? 1.5 : 1,
                                 ),
                               ),
@@ -1787,7 +1837,9 @@ class _SplitBillScreenState extends State<SplitBillScreen>
                                   Icon(
                                     st.icon,
                                     size: 18,
-                                    color: isSelected ? AppColors.primary : const Color(0xFF64748B),
+                                    color: isSelected
+                                        ? AppColors.primary
+                                        : const Color(0xFF64748B),
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
@@ -1795,8 +1847,12 @@ class _SplitBillScreenState extends State<SplitBillScreen>
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
                                       fontSize: 11,
-                                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                                      color: isSelected ? AppColors.primary : const Color(0xFF475569),
+                                      fontWeight: isSelected
+                                          ? FontWeight.w700
+                                          : FontWeight.w500,
+                                      color: isSelected
+                                          ? AppColors.primary
+                                          : AppColors.textSecondary,
                                     ),
                                   ),
                                 ],
@@ -1817,18 +1873,26 @@ class _SplitBillScreenState extends State<SplitBillScreen>
                     icon: Icons.check_circle_rounded,
                     onPressed: () {
                       final title = titleCtrl.text.trim();
-                      final amount = int.tryParse(amountCtrl.text.replaceAll(RegExp(r'\D'), '')) ?? 0;
+                      final amount =
+                          int.tryParse(
+                            amountCtrl.text.replaceAll(RegExp(r'\D'), ''),
+                          ) ??
+                          0;
 
                       if (title.isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Vui lòng nhập tên khoản chi!')),
+                          const SnackBar(
+                            content: Text('Vui lòng nhập tên khoản chi!'),
+                          ),
                         );
                         return;
                       }
 
                       if (amount <= 0) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Số tiền phải lớn hơn 0!')),
+                          const SnackBar(
+                            content: Text('Số tiền phải lớn hơn 0!'),
+                          ),
                         );
                         return;
                       }
@@ -1869,8 +1933,10 @@ class _SplitBillScreenState extends State<SplitBillScreen>
 
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text('Đã thêm hóa đơn "$title" và cập nhật công nợ!'),
-                          backgroundColor: const Color(0xFF10B981),
+                          content: Text(
+                            'Đã thêm hóa đơn "$title" và cập nhật công nợ!',
+                          ),
+                          backgroundColor: AppColors.success,
                           behavior: SnackBarBehavior.floating,
                         ),
                       );

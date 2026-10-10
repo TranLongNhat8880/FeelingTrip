@@ -10,7 +10,7 @@ class AppCard extends StatelessWidget {
     this.padding = const EdgeInsets.all(AppSizes.cardPadding),
     this.onTap,
     this.color = AppColors.surface,
-    this.outlined = false,
+    this.outlined = true,
     this.softShadow = false,
   });
   final Widget child;

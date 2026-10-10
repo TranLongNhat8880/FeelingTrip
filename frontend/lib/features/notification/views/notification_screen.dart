@@ -34,18 +34,12 @@ class NotificationScreen extends StatelessWidget {
         MaterialPageRoute(builder: (_) => const CompanionRequestsScreen()),
       );
     } else {
-      await showDialog<void>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text(item.title),
-          content: Text(item.message),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Đóng'),
-            ),
-          ],
-        ),
+      await AppMessageDialog.show(
+        context,
+        title: item.title,
+        message: item.message,
+        tone: AppStatusTone.info,
+        actionLabel: 'Đóng',
       );
     }
   }
@@ -146,9 +140,9 @@ class NotificationScreen extends StatelessWidget {
                       child: Text(
                         'Thông báo',
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: const Color(0xFF09143B),
-                            ),
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
                       ),
                     ),
                     IconButton(
@@ -156,7 +150,10 @@ class NotificationScreen extends StatelessWidget {
                       onPressed: viewModel.isLoading || viewModel.isUpdating
                           ? null
                           : () => _actions(context),
-                      icon: const Icon(Icons.more_vert, color: Color(0xFF09143B)),
+                      icon: const Icon(
+                        Icons.more_vert,
+                        color: AppColors.textPrimary,
+                      ),
                     ),
                   ],
                 ),
@@ -210,7 +207,8 @@ class NotificationScreen extends StatelessWidget {
                           itemCount: items.length,
                           itemBuilder: (context, index) {
                             final item = items[index];
-                            final showDateHeader = index == 0 ||
+                            final showDateHeader =
+                                index == 0 ||
                                 _day(items[index - 1].createdAt) !=
                                     _day(item.createdAt);
 
@@ -291,13 +289,14 @@ class NotificationScreen extends StatelessWidget {
                                             color: item.isRead
                                                 ? Colors.white
                                                 : const Color(0xFFF2F9FF),
-                                            borderRadius:
-                                                BorderRadius.circular(16),
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
                                             border: Border.all(
                                               color: item.isRead
                                                   ? AppColors.border
                                                   : AppColors.primary
-                                                      .withValues(alpha: .3),
+                                                        .withValues(alpha: .3),
                                               width: 1,
                                             ),
                                             boxShadow: [
@@ -324,22 +323,23 @@ class NotificationScreen extends StatelessWidget {
                                                   color: item.type == 'REQUEST'
                                                       ? const Color(0xFFE0F2FE)
                                                       : item.type == 'SYSTEM'
-                                                          ? const Color(0xFFECFDF5)
-                                                          : const Color(0xFFFEF3C7),
+                                                      ? const Color(0xFFECFDF5)
+                                                      : AppColors
+                                                            .warningSurface,
                                                   shape: BoxShape.circle,
                                                 ),
                                                 child: Icon(
                                                   item.type == 'REQUEST'
                                                       ? Icons.group_add_rounded
                                                       : item.type == 'SYSTEM'
-                                                          ? Icons.verified_rounded
-                                                          : Icons.luggage_rounded,
+                                                      ? Icons.verified_rounded
+                                                      : Icons.luggage_rounded,
                                                   size: 20,
                                                   color: item.type == 'REQUEST'
                                                       ? const Color(0xFF0284C7)
                                                       : item.type == 'SYSTEM'
-                                                          ? const Color(0xFF059669)
-                                                          : const Color(0xFFD97706),
+                                                      ? const Color(0xFF059669)
+                                                      : AppColors.warning,
                                                 ),
                                               ),
                                               const SizedBox(width: 12),
@@ -354,9 +354,12 @@ class NotificationScreen extends StatelessWidget {
                                                           .textTheme
                                                           .titleSmall
                                                           ?.copyWith(
-                                                            fontWeight: item.isRead
-                                                                ? FontWeight.w500
-                                                                : FontWeight.w700,
+                                                            fontWeight:
+                                                                item.isRead
+                                                                ? FontWeight
+                                                                      .w500
+                                                                : FontWeight
+                                                                      .w700,
                                                             color: const Color(
                                                               0xFF09143B,
                                                             ),
@@ -397,16 +400,19 @@ class NotificationScreen extends StatelessWidget {
                                                 Padding(
                                                   padding:
                                                       const EdgeInsets.only(
-                                                    left: 8,
-                                                    top: 4,
-                                                  ),
+                                                        left: 8,
+                                                        top: 4,
+                                                      ),
                                                   child: Container(
                                                     width: 8,
                                                     height: 8,
-                                                    decoration: const BoxDecoration(
-                                                      color: AppColors.primary,
-                                                      shape: BoxShape.circle,
-                                                    ),
+                                                    decoration:
+                                                        const BoxDecoration(
+                                                          color:
+                                                              AppColors.primary,
+                                                          shape:
+                                                              BoxShape.circle,
+                                                        ),
                                                   ),
                                                 ),
                                             ],
@@ -445,9 +451,7 @@ class NotificationScreen extends StatelessWidget {
         color: selected ? AppColors.primary : Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: selected
-              ? AppColors.primary
-              : AppColors.border,
+          color: selected ? AppColors.primary : AppColors.border,
         ),
         boxShadow: [
           if (selected)

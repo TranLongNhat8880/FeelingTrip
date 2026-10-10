@@ -163,13 +163,15 @@ class _BankAccountsScreenState extends State<BankAccountsScreen> {
             openUrl: _openHostedLink,
             onReturn: _refreshAfterReturn,
           ),
-          TextButton(
+          CustomButton(
+            text: 'Hủy liên kết này',
             onPressed: () {
               setState(() {
                 _activeHostedLink = null;
               });
             },
-            child: const Text('Hủy liên kết này'),
+            variant: AppButtonVariant.text,
+            fullWidth: false,
           ),
         ],
       ),

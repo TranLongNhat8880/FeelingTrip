@@ -81,52 +81,9 @@ class _CompanionDetailScreenState extends State<CompanionDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final post = _vm.post;
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF09143B),
-        elevation: 0,
-        surfaceTintColor: Colors.transparent,
-        shadowColor: Colors.black.withValues(alpha: .04),
-        leading: IconButton(
-          tooltip: 'Quay lại',
-          icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF09143B)),
-          onPressed: () => Navigator.pop(context),
-        ),
-        titleSpacing: 0,
-        title: post == null
-            ? const Text('Chi tiết bài đăng')
-            : Row(
-                children: [
-                  AvatarPlaceholder(
-                    name: post.creator.displayName,
-                    imageUrl: post.creator.avatarUrl,
-                    radius: 17,
-                  ),
-                  const SizedBox(width: 10),
-                  Flexible(
-                    child: Text(
-                      post.creator.displayName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                            color: const Color(0xFF09143B),
-                          ),
-                    ),
-                  ),
-                  if (post.creator.isVerified) ...[
-                    const SizedBox(width: 4),
-                    const Icon(
-                      Icons.verified_rounded,
-                      size: 16,
-                      color: AppColors.primary,
-                    ),
-                  ],
-                ],
-              ),
-      ),
+    return AppScaffold(
+      title: 'Chi tiết bài đăng',
+      padding: EdgeInsets.zero,
       bottomNavigationBar: post == null ? null : _buildBottomBar(post),
       body: _vm.isLoading
           ? const Center(child: LoadingIndicator())
@@ -157,7 +114,9 @@ class _CompanionDetailScreenState extends State<CompanionDetailScreen> {
       children: [
         if (trip.coverImageUrl != null)
           ClipRRect(
-            borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
+            borderRadius: const BorderRadius.vertical(
+              bottom: Radius.circular(20),
+            ),
             child: Image.network(
               trip.coverImageUrl!,
               height: 220,
@@ -220,8 +179,8 @@ class _CompanionDetailScreenState extends State<CompanionDetailScreen> {
                     ),
                     _info(
                       Icons.account_balance_wallet_rounded,
-                      const Color(0xFFFEF3C7),
-                      const Color(0xFFD97706),
+                      AppColors.warningSurface,
+                      AppColors.warning,
                       'Chi phí dự kiến',
                       trip.estimatedBudget == null
                           ? 'Chưa có dự kiến'
@@ -254,7 +213,7 @@ class _CompanionDetailScreenState extends State<CompanionDetailScreen> {
                       'Nội dung',
                       style: text.titleSmall?.copyWith(
                         fontWeight: FontWeight.w700,
-                        color: const Color(0xFF09143B),
+                        color: AppColors.textPrimary,
                         fontSize: 15,
                       ),
                     ),
@@ -263,7 +222,7 @@ class _CompanionDetailScreenState extends State<CompanionDetailScreen> {
                       post.title ?? 'Bài tìm bạn đồng hành',
                       style: text.titleMedium?.copyWith(
                         fontWeight: FontWeight.w700,
-                        color: const Color(0xFF09143B),
+                        color: AppColors.textPrimary,
                       ),
                     ),
                     if (post.content?.isNotEmpty == true) ...[
@@ -283,13 +242,16 @@ class _CompanionDetailScreenState extends State<CompanionDetailScreen> {
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 5,
+                          ),
                           decoration: BoxDecoration(
                             color: post.isClosed
                                 ? AppColors.errorSurface
                                 : post.isFull
                                 ? AppColors.warningSurface
-                                : const Color(0xFFEDF7ED),
+                                : AppColors.successSurface,
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
@@ -305,7 +267,7 @@ class _CompanionDetailScreenState extends State<CompanionDetailScreen> {
                                   ? AppColors.error
                                   : post.isFull
                                   ? AppColors.warning
-                                  : const Color(0xFF008B57),
+                                  : AppColors.success,
                             ),
                           ),
                         ),
@@ -313,7 +275,10 @@ class _CompanionDetailScreenState extends State<CompanionDetailScreen> {
                             post.minAge != null ||
                             post.maxAge != null)
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 5,
+                            ),
                             decoration: BoxDecoration(
                               color: AppColors.background,
                               borderRadius: BorderRadius.circular(20),
@@ -339,24 +304,26 @@ class _CompanionDetailScreenState extends State<CompanionDetailScreen> {
                       Wrap(
                         spacing: 6,
                         children: post.tags
-                            .map((tag) => Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 3,
+                            .map(
+                              (tag) => Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.inputSurface,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  '#$tag',
+                                  style: const TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
                                   ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF1F5F9),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(
-                                    '#$tag',
-                                    style: const TextStyle(
-                                      color: Color(0xFF475569),
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ))
+                                ),
+                              ),
+                            )
                             .toList(),
                       ),
                     ],
@@ -387,12 +354,15 @@ class _CompanionDetailScreenState extends State<CompanionDetailScreen> {
                       'Thành viên · ${post.currentMembersCount}/${post.targetMembersCount}',
                       style: text.titleSmall?.copyWith(
                         fontWeight: FontWeight.w700,
-                        color: const Color(0xFF09143B),
+                        color: AppColors.textPrimary,
                       ),
                     ),
                     const SizedBox(height: 14),
                     if (trip.members.isEmpty)
-                      Text('Chưa có thông tin thành viên.', style: text.bodySmall)
+                      Text(
+                        'Chưa có thông tin thành viên.',
+                        style: text.bodySmall,
+                      )
                     else
                       Wrap(
                         spacing: 14,
@@ -426,7 +396,7 @@ class _CompanionDetailScreenState extends State<CompanionDetailScreen> {
                                         vertical: 2,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFFFEF3C7),
+                                        color: AppColors.warningSurface,
                                         borderRadius: BorderRadius.circular(6),
                                       ),
                                       child: const Text(
@@ -434,7 +404,7 @@ class _CompanionDetailScreenState extends State<CompanionDetailScreen> {
                                         style: TextStyle(
                                           fontSize: 9,
                                           fontWeight: FontWeight.w700,
-                                          color: Color(0xFFD97706),
+                                          color: AppColors.warning,
                                         ),
                                       ),
                                     ),
@@ -479,20 +449,18 @@ class _CompanionDetailScreenState extends State<CompanionDetailScreen> {
           children: [
             Text(
               label,
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textSecondary,
-                    fontSize: 12,
-                  ),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppColors.textSecondary,
+                fontSize: 12,
+              ),
             ),
             const SizedBox(height: 2),
             Text(
               value,
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFF09143B),
-                  ),
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
             ),
           ],
         ),
@@ -530,28 +498,11 @@ class _CompanionDetailScreenState extends State<CompanionDetailScreen> {
         !_vm.hasSentRequest &&
         !post.isClosed &&
         !post.isFull;
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: AppColors.border)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: .04),
-            offset: const Offset(0, -3),
-            blurRadius: 10,
-          ),
-        ],
-      ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-          child: CustomButton(
-            text: label,
-            isLoading: _vm.isSubmitting,
-            onPressed: canJoin && !_vm.isLoading ? _openJoinSheet : null,
-          ),
-        ),
+    return AppActionBar(
+      child: CustomButton(
+        text: label,
+        isLoading: _vm.isSubmitting,
+        onPressed: canJoin && !_vm.isLoading ? _openJoinSheet : null,
       ),
     );
   }

@@ -10,12 +10,16 @@ class AppSearchField extends StatelessWidget {
     this.hint = 'Tìm kiếm',
     this.isLoading = false,
     this.enabled = true,
+    this.onSubmitted,
+    this.onClear,
   });
   final TextEditingController controller;
   final ValueChanged<String>? onChanged;
   final String hint;
   final bool isLoading;
   final bool enabled;
+  final ValueChanged<String>? onSubmitted;
+  final VoidCallback? onClear;
   @override
   Widget build(BuildContext context) =>
       ValueListenableBuilder<TextEditingValue>(
@@ -23,6 +27,8 @@ class AppSearchField extends StatelessWidget {
         builder: (context, value, _) => TextField(
           controller: controller,
           onChanged: onChanged,
+          onSubmitted: onSubmitted,
+          textInputAction: TextInputAction.search,
           enabled: enabled,
           decoration: InputDecoration(
             hintText: hint,
@@ -45,6 +51,7 @@ class AppSearchField extends StatelessWidget {
                         ? () {
                             controller.clear();
                             onChanged?.call('');
+                            onClear?.call();
                           }
                         : null,
                   ),
@@ -120,6 +127,32 @@ class AppChoiceChips<T> extends StatelessWidget {
           ),
         ),
     ],
+  );
+}
+
+class AppDropdownField<T> extends StatelessWidget {
+  const AppDropdownField({
+    super.key,
+    required this.label,
+    required this.items,
+    required this.onChanged,
+    this.value,
+    this.enabled = true,
+  });
+  final String label;
+  final T? value;
+  final List<DropdownMenuItem<T>> items;
+  final ValueChanged<T?>? onChanged;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) => DropdownButtonFormField<T>(
+    initialValue: value,
+    isExpanded: true,
+    items: items,
+    onChanged: enabled ? onChanged : null,
+    decoration: InputDecoration(labelText: label, enabled: enabled),
+    icon: const Icon(Icons.keyboard_arrow_down_rounded),
   );
 }
 

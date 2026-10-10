@@ -15,6 +15,7 @@ class CompanionRequestsScreen extends StatefulWidget {
 
 class _CompanionRequestsScreenState extends State<CompanionRequestsScreen> {
   final _vm = CompanionRequestsViewModel();
+  final _searchController = TextEditingController();
   final Map<String, String> _posts = {};
   @override
   void initState() {
@@ -26,6 +27,7 @@ class _CompanionRequestsScreenState extends State<CompanionRequestsScreen> {
   @override
   void dispose() {
     _vm.removeListener(_onChanged);
+    _searchController.dispose();
     _vm.dispose();
     super.dispose();
   }
@@ -48,20 +50,12 @@ class _CompanionRequestsScreenState extends State<CompanionRequestsScreen> {
 
   Future<void> _review(CompanionRequest request, String status) async {
     if (status == 'ACCEPTED' && !request.requester.isVerified) {
-      await showDialog<void>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Chưa xác minh danh tính'),
-          content: const Text(
+      await AppMessageDialog.show(
+        context,
+        title: 'Chưa xác minh danh tính',
+        message:
             'Người dùng này chưa hoàn thành xác minh CCCD (eKYC). Theo quy định an toàn, chỉ thành viên đã xác minh mới được duyệt vào chuyến đi.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Đã hiểu'),
-            ),
-          ],
-        ),
+        tone: AppStatusTone.warning,
       );
       return;
     }
@@ -77,9 +71,9 @@ class _CompanionRequestsScreenState extends State<CompanionRequestsScreen> {
   @override
   Widget build(BuildContext context) {
     final requests = _vm.visibleRequests;
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: const AppTopBar(title: 'Yêu cầu tham gia'),
+    return AppScaffold(
+      title: 'Yêu cầu tham gia',
+      padding: EdgeInsets.zero,
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -90,31 +84,10 @@ class _CompanionRequestsScreenState extends State<CompanionRequestsScreen> {
               children: [
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: AppColors.border),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: .03),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: TextField(
-                      onChanged: (value) => _vm.filterLocal(query: value),
-                      decoration: const InputDecoration(
-                        hintText: 'Tên người gửi yêu cầu',
-                        prefixIcon: Icon(Icons.search, size: 20, color: AppColors.primary),
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                        isDense: true,
-                      ),
-                    ),
+                  child: AppSearchField(
+                    controller: _searchController,
+                    hint: 'Tên người gửi yêu cầu',
+                    onChanged: (value) => _vm.filterLocal(query: value),
                   ),
                 ),
                 Padding(
@@ -122,35 +95,25 @@ class _CompanionRequestsScreenState extends State<CompanionRequestsScreen> {
                     horizontal: 16,
                     vertical: 4,
                   ),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.border),
-                    ),
-                    child: DropdownButton<String>(
-                      value: _vm.selectedPostId,
-                      isExpanded: true,
-                      underline: const SizedBox(),
-                      icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.textSecondary),
-                      items: [
-                        const DropdownMenuItem(
-                          value: '',
-                          child: Text('Tất cả chuyến đi'),
-                        ),
-                        for (final post in _posts.entries)
-                          DropdownMenuItem(
-                            value: post.key,
-                            child: Text(
-                              post.value,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                  child: AppDropdownField<String>(
+                    label: 'Lọc theo chuyến đi',
+                    value: _vm.selectedPostId,
+                    items: [
+                      const DropdownMenuItem(
+                        value: '',
+                        child: Text('Tất cả chuyến đi'),
+                      ),
+                      for (final post in _posts.entries)
+                        DropdownMenuItem(
+                          value: post.key,
+                          child: Text(
+                            post.value,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                      ],
-                      onChanged: (value) => _vm.filterLocal(postId: value),
-                    ),
+                        ),
+                    ],
+                    onChanged: (value) => _vm.filterLocal(postId: value),
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -167,29 +130,10 @@ class _CompanionRequestsScreenState extends State<CompanionRequestsScreen> {
                       }.entries)
                         Padding(
                           padding: const EdgeInsets.only(right: 8),
-                          child: ChoiceChip(
-                            label: Text(tab.value),
-                            selected: _vm.filterStatus == tab.key,
-                            selectedColor: AppColors.primary,
-                            labelStyle: TextStyle(
-                              color: _vm.filterStatus == tab.key
-                                  ? Colors.white
-                                  : AppColors.textSecondary,
-                              fontWeight: _vm.filterStatus == tab.key
-                                  ? FontWeight.w600
-                                  : FontWeight.w500,
-                              fontSize: 13,
-                            ),
-                            backgroundColor: Colors.white,
-                            side: BorderSide(
-                              color: _vm.filterStatus == tab.key
-                                  ? AppColors.primary
-                                  : AppColors.border,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            onSelected: (_) => _vm.setFilter(tab.key),
+                          child: AppChoiceChips<String>(
+                            options: {tab.key: tab.value},
+                            selected: {_vm.filterStatus},
+                            onChanged: (_) => _vm.setFilter(tab.key),
                           ),
                         ),
                     ],
@@ -212,7 +156,8 @@ class _CompanionRequestsScreenState extends State<CompanionRequestsScreen> {
                             physics: const AlwaysScrollableScrollPhysics(),
                             padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
                             itemCount: requests.length,
-                            separatorBuilder: (_, _) => const SizedBox(height: 10),
+                            separatorBuilder: (_, _) =>
+                                const SizedBox(height: 10),
                             itemBuilder: (context, index) =>
                                 _requestRow(requests[index]),
                           ),
@@ -267,7 +212,7 @@ class _CompanionRequestsScreenState extends State<CompanionRequestsScreen> {
                             overflow: TextOverflow.ellipsis,
                             style: text.titleSmall?.copyWith(
                               fontWeight: FontWeight.w700,
-                              color: const Color(0xFF09143B),
+                              color: AppColors.textPrimary,
                             ),
                           ),
                         ),
@@ -281,11 +226,17 @@ class _CompanionRequestsScreenState extends State<CompanionRequestsScreen> {
                         ] else ...[
                           const SizedBox(width: 6),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 1,
+                            ),
                             decoration: BoxDecoration(
                               color: const Color(0xFFFFF3E0),
                               borderRadius: BorderRadius.circular(4),
-                              border: Border.all(color: const Color(0xFFFFB74D), width: 0.5),
+                              border: Border.all(
+                                color: const Color(0xFFFFB74D),
+                                width: 0.5,
+                              ),
                             ),
                             child: Text(
                               'Chưa eKYC',
@@ -302,7 +253,11 @@ class _CompanionRequestsScreenState extends State<CompanionRequestsScreen> {
                     const SizedBox(height: 2),
                     Row(
                       children: [
-                        const Icon(Icons.star_rounded, size: 14, color: AppColors.star),
+                        const Icon(
+                          Icons.star_rounded,
+                          size: 14,
+                          color: AppColors.star,
+                        ),
                         const SizedBox(width: 2),
                         Text(
                           '${user.trustScore.toStringAsFixed(1)} · ${user.reviewCount} đánh giá',
@@ -339,7 +294,9 @@ class _CompanionRequestsScreenState extends State<CompanionRequestsScreen> {
               decoration: BoxDecoration(
                 color: const Color(0xFFF8FAFD),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.border.withValues(alpha: .5)),
+                border: Border.all(
+                  color: AppColors.border.withValues(alpha: .5),
+                ),
               ),
               child: Text(
                 request.introduction!,

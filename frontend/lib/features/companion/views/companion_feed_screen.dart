@@ -126,65 +126,25 @@ class _CompanionFeedScreenState extends State<CompanionFeedScreen> {
                         ),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(AppSizes.inputRadius),
-                            border: Border.all(color: AppColors.border),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.primary.withValues(alpha: 0.04),
-                                blurRadius: 10,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: TextField(
-                            controller: _searchController,
-                            textInputAction: TextInputAction.search,
-                            style: Theme.of(context).textTheme.bodyMedium,
-                            decoration: InputDecoration(
-                              hintText: 'Tìm điểm đến du lịch...',
-                              hintStyle: const TextStyle(
-                                color: AppColors.textHint,
-                                fontSize: 14,
-                              ),
-                              prefixIcon: const Icon(
-                                Icons.search_rounded,
-                                size: 20,
-                                color: AppColors.primary,
-                              ),
-                              isDense: true,
-                              border: InputBorder.none,
-                              enabledBorder: InputBorder.none,
-                              focusedBorder: InputBorder.none,
-                              contentPadding: const EdgeInsets.symmetric(
-                                vertical: 10,
-                                horizontal: 12,
-                              ),
-                              suffixIcon: _vm.destination.isEmpty
-                                  ? null
-                                  : IconButton(
-                                      tooltip: 'Xóa tìm kiếm',
-                                      icon: const Icon(Icons.close, size: 18),
-                                      onPressed: () {
-                                        _searchController.clear();
-                                        _vm.applyFilter(destination: '');
-                                      },
-                                    ),
-                            ),
-                            onSubmitted: (value) =>
-                                _vm.applyFilter(destination: value.trim()),
-                          ),
+                        child: AppSearchField(
+                          controller: _searchController,
+                          hint: 'Tìm điểm đến du lịch...',
+                          onSubmitted: (value) =>
+                              _vm.applyFilter(destination: value.trim()),
+                          onClear: () => _vm.applyFilter(destination: ''),
                         ),
                       ),
                       const SizedBox(width: 8),
                       Container(
                         decoration: BoxDecoration(
-                          color: filtered ? AppColors.primarySurface : Colors.white,
+                          color: filtered
+                              ? AppColors.primarySurface
+                              : Colors.white,
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: filtered ? AppColors.primary : AppColors.border,
+                            color: filtered
+                                ? AppColors.primary
+                                : AppColors.border,
                           ),
                         ),
                         child: IconButton(
@@ -213,7 +173,7 @@ class _CompanionFeedScreenState extends State<CompanionFeedScreen> {
     );
     return widget.embedded
         ? body
-        : Scaffold(backgroundColor: AppColors.surface, body: body);
+        : AppScaffold(padding: EdgeInsets.zero, body: body);
   }
 
   Widget _buildBody() {

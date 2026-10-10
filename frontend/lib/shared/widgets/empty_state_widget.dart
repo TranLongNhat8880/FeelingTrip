@@ -81,7 +81,6 @@ class EmptyStateWidget extends StatelessWidget {
               const SizedBox(height: AppSizes.spaceL),
               CustomButton(
                 text: buttonText!,
-                trailingArrow: true,
                 onPressed: onButtonPressed,
                 width: 240,
               ),

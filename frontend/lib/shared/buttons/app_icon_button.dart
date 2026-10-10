@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/constants/app_colors.dart';
 
 class AppIconButton extends StatelessWidget {
   const AppIconButton({
@@ -23,7 +24,7 @@ class AppIconButton extends StatelessWidget {
       backgroundColor: backgroundColor,
       foregroundColor: foregroundColor,
       minimumSize: const Size(48, 48),
-      side: const BorderSide(color: Color(0xFFDEE4EF)),
+      side: const BorderSide(color: AppColors.border),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
     ),
   );

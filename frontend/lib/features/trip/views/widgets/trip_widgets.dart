@@ -100,7 +100,9 @@ class TripCard extends StatelessWidget {
                   Expanded(
                     child: _Metric(
                       icon: Icons.account_balance_wallet_outlined,
-                      value: AppUtils.formatCurrency(trip.estimatedBudget),
+                      value: trip.estimatedBudget == 0
+                          ? 'Chưa thiết lập'
+                          : AppUtils.formatCurrency(trip.estimatedBudget),
                       label: 'ngân sách',
                     ),
                   ),
@@ -155,7 +157,7 @@ class TripMemberTile extends StatelessWidget {
       subtitle: Text(member.isLeader ? 'Trưởng nhóm' : 'Thành viên'),
       trailing: !hasActions
           ? AppStatusBadge(
-              label: member.isLeader ? 'Leader' : 'Member',
+              label: member.isLeader ? 'Trưởng nhóm' : 'Thành viên',
               tone: member.isLeader
                   ? AppStatusTone.warning
                   : AppStatusTone.neutral,

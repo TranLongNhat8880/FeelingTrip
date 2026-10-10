@@ -147,9 +147,11 @@ class _BlockedUsersScreenState extends State<BlockedUsersScreen> {
                     ],
                   ),
                 ),
-                TextButton(
+                CustomButton(
+                  text: isUpdating ? 'Đang xử lý...' : 'Bỏ chặn',
                   onPressed: isUpdating ? null : () => _unblock(user),
-                  child: Text(isUpdating ? 'Đang xử lý...' : 'Bỏ chặn'),
+                  variant: AppButtonVariant.text,
+                  fullWidth: false,
                 ),
               ],
             ),
