@@ -16,9 +16,9 @@ class CustomButton extends StatelessWidget {
     this.width,
     this.icon,
     this.variant = AppButtonVariant.primary,
-    this.trailingArrow = false,
+    this.fullWidth = true,
   });
-  final bool trailingArrow;
+  final bool fullWidth;
   final String text;
   final VoidCallback? onPressed;
   final bool isLoading;
@@ -62,22 +62,6 @@ class CustomButton extends StatelessWidget {
             ),
           ),
         ),
-        if (trailingArrow && !isLoading) ...[
-          const SizedBox(width: 12),
-          Container(
-            width: 30,
-            height: 30,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: .22),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.arrow_forward_rounded,
-              size: 18,
-              color: Colors.white,
-            ),
-          ),
-        ],
       ],
     );
     final callback = enabled ? onPressed : null;
@@ -86,7 +70,7 @@ class CustomButton extends StatelessWidget {
         onPressed: callback,
         style: OutlinedButton.styleFrom(
           minimumSize: const Size(AppSizes.touchTarget, 52),
-          side: const BorderSide(color: Color(0xFFDEE4EF)),
+          side: const BorderSide(color: AppColors.border),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -111,17 +95,18 @@ class CustomButton extends StatelessWidget {
                       ? [backgroundColor!, backgroundColor!]
                       : kind == AppButtonVariant.destructive
                       ? [const Color(0xFFFF6669), AppColors.error]
-                      : [const Color(0xFF0084FF), const Color(0xFF0066EE)],
+                      : [AppColors.actionStart, AppColors.actionEnd],
                 )
               : null,
           color: enabled || isLoading ? null : AppColors.divider,
           boxShadow: enabled
               ? [
                   BoxShadow(
-                    color: (kind == AppButtonVariant.destructive
-                            ? AppColors.error
-                            : const Color(0xFF0077E6))
-                        .withValues(alpha: .28),
+                    color:
+                        (kind == AppButtonVariant.destructive
+                                ? AppColors.error
+                                : AppColors.primary)
+                            .withValues(alpha: .28),
                     blurRadius: 18,
                     offset: const Offset(0, 7),
                   ),
@@ -150,7 +135,10 @@ class CustomButton extends StatelessWidget {
       button: true,
       enabled: enabled,
       liveRegion: isLoading,
-      child: SizedBox(width: width ?? double.infinity, child: button),
+      child: SizedBox(
+        width: width ?? (fullWidth ? double.infinity : null),
+        child: button,
+      ),
     );
   }
 }

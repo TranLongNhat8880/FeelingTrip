@@ -119,8 +119,12 @@ class _CreateCompanionPostScreenState extends State<CreateCompanionPostScreen> {
       final trips = await CompanionTripRepository().getMyTrips();
       if (mounted) {
         setState(() {
-          _availableTrips = trips.where((trip) => trip['hasCompanionPost'] != 'true').toList();
-          _selectedTripId = _availableTrips.isEmpty ? '' : _availableTrips.first['id']!;
+          _availableTrips = trips
+              .where((trip) => trip['hasCompanionPost'] != 'true')
+              .toList();
+          _selectedTripId = _availableTrips.isEmpty
+              ? ''
+              : _availableTrips.first['id']!;
         });
       }
     } catch (_) {
@@ -198,44 +202,13 @@ class _CreateCompanionPostScreenState extends State<CreateCompanionPostScreen> {
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text(
-          'Đăng bài tìm bạn',
-          style: TextStyle(
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF09143B),
-            fontSize: 18,
-          ),
-        ),
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF09143B),
-        elevation: 0,
-        centerTitle: true,
-        surfaceTintColor: Colors.transparent,
-        shadowColor: Colors.black.withValues(alpha: .04),
-      ),
-      bottomNavigationBar: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border(top: BorderSide(color: AppColors.border)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              offset: const Offset(0, -4),
-              blurRadius: 16,
-            ),
-          ],
-        ),
-        child: SafeArea(
-          child: CustomButton(
-            text: 'Đăng bài',
-            isLoading: _isSubmitting,
-            onPressed: _submit,
-          ),
-        ),
+    return AppScaffold(
+      title: 'Đăng bài tìm bạn',
+      padding: EdgeInsets.zero,
+      bottomAction: CustomButton(
+        text: 'Đăng bài',
+        isLoading: _isSubmitting,
+        onPressed: _submit,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -295,36 +268,22 @@ class _CreateCompanionPostScreenState extends State<CreateCompanionPostScreen> {
                   ),
                 )
               else
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  decoration: BoxDecoration(
-                    color: AppColors.inputSurface,
-                    borderRadius: BorderRadius.circular(AppSizes.inputRadius),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: _selectedTripId.isEmpty ? null : _selectedTripId,
-                      isExpanded: true,
-                      icon: const Icon(
-                        Icons.arrow_drop_down,
-                        color: AppColors.textSecondary,
+                AppDropdownField<String>(
+                  label: 'Chọn chuyến đi',
+                  value: _selectedTripId.isEmpty ? null : _selectedTripId,
+                  items: _availableTrips.map((t) {
+                    return DropdownMenuItem<String>(
+                      value: t['id'],
+                      child: Text(
+                        '${t['name']} (${t['destination']})',
+                        style: text.bodyMedium,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      items: _availableTrips.map((t) {
-                        return DropdownMenuItem<String>(
-                          value: t['id'],
-                          child: Text(
-                            '${t['name']} (${t['destination']})',
-                            style: text.bodyMedium,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        );
-                      }).toList(),
-                      onChanged: (val) {
-                        if (val != null) setState(() => _selectedTripId = val);
-                      },
-                    ),
-                  ),
+                    );
+                  }).toList(),
+                  onChanged: (val) {
+                    if (val != null) setState(() => _selectedTripId = val);
+                  },
                 ),
               const SizedBox(height: 20),
 

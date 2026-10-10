@@ -35,6 +35,7 @@ class _TripFormScreenState extends State<TripFormScreen> {
   Uint8List? _coverImageBytes;
   String? _coverImageFileName;
   bool _removeExistingCover = false;
+  bool _showExtras = false;
 
   bool get _editing => widget.trip != null;
 
@@ -42,6 +43,7 @@ class _TripFormScreenState extends State<TripFormScreen> {
   void initState() {
     super.initState();
     final trip = widget.trip;
+    _showExtras = _editing;
     _viewModel = TripViewModel(repository: widget.repository)
       ..addListener(_onChanged);
     _name = TextEditingController(text: trip?.name);
@@ -214,7 +216,8 @@ class _TripFormScreenState extends State<TripFormScreen> {
 
   Future<void> _pickDate({required bool start}) async {
     final today = DateUtils.dateOnly(DateTime.now());
-    final minStartDate = (_editing &&
+    final minStartDate =
+        (_editing &&
             widget.trip != null &&
             DateUtils.dateOnly(widget.trip!.startDate).isBefore(today))
         ? DateUtils.dateOnly(widget.trip!.startDate)
@@ -250,7 +253,11 @@ class _TripFormScreenState extends State<TripFormScreen> {
   }
 
   Future<void> _save() async {
-    if (!_formKey.currentState!.validate()) return;
+    FocusScope.of(context).unfocus();
+    if (!_formKey.currentState!.validate()) {
+      setState(() => _showExtras = true);
+      return;
+    }
     final today = DateUtils.dateOnly(DateTime.now());
     if (!_editing && _startDate.isBefore(today)) {
       AppFeedback.show(
@@ -304,139 +311,163 @@ class _TripFormScreenState extends State<TripFormScreen> {
       isLoading: _viewModel.isSubmitting,
       onPressed: _viewModel.isSubmitting ? null : _save,
     ),
-    body: Form(
-      key: _formKey,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            _editing
-                ? 'Cập nhật thông tin chung của hành trình.'
-                : 'Chỉ cần điểm đến và thời gian. Các thông tin còn lại có thể bổ sung sau.',
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 20),
-          Text('1. Hành trình', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 10),
-          CustomTextField(
-            label: 'Điểm đến',
-            hint: 'Ví dụ: Đà Lạt, Phú Quốc, Hội An',
-            controller: _destination,
-            prefixIcon: Icons.location_on_outlined,
-            validator: (value) => (value ?? '').trim().length < 2
-                ? 'Vui lòng nhập điểm đến'
-                : null,
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: CustomTextField(
-                  label: 'Ngày đi',
-                  controller: _startLabel,
-                  readOnly: true,
-                  onTap: () => _pickDate(start: true),
-                  prefixIcon: Icons.flight_takeoff_outlined,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: CustomTextField(
-                  label: 'Ngày về',
-                  controller: _endLabel,
-                  readOnly: true,
-                  onTap: () => _pickDate(start: false),
-                  prefixIcon: Icons.flight_land_outlined,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Text(
-            '2. Hình thức chuyến đi',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 10),
-          SegmentedButton<bool>(
-            segments: const [
-              ButtonSegment<bool>(
-                value: false,
-                icon: Icon(Icons.lock_outline_rounded),
-                label: Text('Nhóm riêng tư'),
-              ),
-              ButtonSegment<bool>(
-                value: true,
-                icon: Icon(Icons.public_rounded),
-                label: Text('Nhóm công khai'),
-              ),
-            ],
-            selected: {_isPublic},
-            onSelectionChanged: (values) {
-              setState(() => _isPublic = values.first);
-            },
-          ),
-          const SizedBox(height: 10),
-          AppInlineNotice(
-            message: _isPublic
-                ? 'Nhóm công khai yêu cầu trưởng nhóm đã xác minh eKYC. Sau khi tạo, bạn có thể đăng bài tìm bạn đồng hành.'
-                : 'Nhóm riêng tư chỉ nhận thành viên qua mã hoặc lời mời.',
-            tone: _isPublic ? AppStatusTone.warning : AppStatusTone.info,
-          ),
-          const SizedBox(height: 20),
-          AppCard(
-            outlined: true,
-            padding: EdgeInsets.zero,
-            child: ExpansionTile(
-              initiallyExpanded: _editing,
-              title: const Text('3. Thông tin bổ sung'),
-              subtitle: const Text('Tên, ngân sách, mô tả và ảnh bìa'),
-              childrenPadding: const EdgeInsets.fromLTRB(16, 4, 16, 18),
+    body: AbsorbPointer(
+      absorbing: _viewModel.isSubmitting,
+      child: Form(
+        key: _formKey,
+        autovalidateMode: AutovalidateMode.onUserInteraction,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              _editing
+                  ? 'Cập nhật thông tin chung của hành trình.'
+                  : 'Chỉ cần điểm đến và thời gian. Các thông tin còn lại có thể bổ sung sau.',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 20),
+            SectionHeader(
+              title: 'Thông tin cơ bản',
+              subtitle: 'Điểm đến và thời gian giúp nhóm bắt đầu lên kế hoạch.',
+            ),
+            const SizedBox(height: 10),
+            CustomTextField(
+              label: _editing ? 'Tên chuyến đi' : 'Tên chuyến đi (tùy chọn)',
+              hint: 'Bỏ trống để hệ thống tự đặt tên',
+              controller: _name,
+              prefixIcon: Icons.luggage_outlined,
+              validator: (value) {
+                final text = (value ?? '').trim();
+                if (text.isEmpty && !_editing) return null;
+                return text.length < 2
+                    ? 'Tên chuyến đi cần ít nhất 2 ký tự'
+                    : null;
+              },
+            ),
+            const SizedBox(height: 14),
+            CustomTextField(
+              label: 'Điểm đến',
+              hint: 'Ví dụ: Đà Lạt, Phú Quốc, Hội An',
+              controller: _destination,
+              prefixIcon: Icons.location_on_outlined,
+              validator: (value) => (value ?? '').trim().length < 2
+                  ? 'Vui lòng nhập điểm đến'
+                  : null,
+            ),
+            const SizedBox(height: 12),
+            Row(
               children: [
-                CustomTextField(
-                  label: 'Tên chuyến đi',
-                  hint: 'Bỏ trống để hệ thống tự đặt tên',
-                  controller: _name,
-                  prefixIcon: Icons.luggage_outlined,
-                  validator: (value) {
-                    final text = (value ?? '').trim();
-                    if (text.isEmpty && !_editing) return null;
-                    return text.length < 2
-                        ? 'Tên chuyến đi cần ít nhất 2 ký tự'
-                        : null;
-                  },
+                Expanded(
+                  child: CustomTextField(
+                    label: 'Ngày đi',
+                    controller: _startLabel,
+                    readOnly: true,
+                    onTap: () => _pickDate(start: true),
+                    prefixIcon: Icons.flight_takeoff_outlined,
+                  ),
                 ),
-                const SizedBox(height: 14),
-                AppMoneyField(label: 'Ngân sách dự kiến', controller: _budget),
-                const SizedBox(height: 14),
-                CustomTextField(
-                  label: 'Mô tả',
-                  hint: 'Mục tiêu, phong cách hoặc ghi chú cho cả nhóm',
-                  controller: _description,
-                  maxLines: 4,
-                  prefixIcon: Icons.notes_outlined,
-                ),
-                const SizedBox(height: 14),
-                ImagePickerField(
-                  label:
-                      _coverImageBytes == null &&
-                          (widget.trip?.coverImageUrl == null ||
-                              _removeExistingCover)
-                      ? 'Chọn ảnh bìa'
-                      : 'Chọn ảnh bìa khác',
-                  enabled: !_viewModel.isSubmitting,
-                  onPick: _pickCoverImage,
-                  preview: _coverPreview(),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: CustomTextField(
+                    label: 'Ngày về',
+                    controller: _endLabel,
+                    readOnly: true,
+                    onTap: () => _pickDate(start: false),
+                    prefixIcon: Icons.flight_land_outlined,
+                  ),
                 ),
               ],
             ),
-          ),
-          const SizedBox(height: 14),
-          const AppInlineNotice(
-            message:
-                'Thành viên, lịch trình và chi phí được thiết lập sau khi chuyến đi được tạo thành công.',
-          ),
-          const SizedBox(height: 90),
-        ],
+            const SizedBox(height: 12),
+            AppInlineNotice(
+              message:
+                  '${_endDate.difference(_startDate).inDays + 1} ngày · ${AppUtils.formatDate(_startDate)} – ${AppUtils.formatDate(_endDate)}',
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Ai có thể xem chuyến đi?',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 10),
+            SegmentedButton<bool>(
+              segments: const [
+                ButtonSegment<bool>(
+                  value: false,
+                  icon: Icon(Icons.lock_outline_rounded),
+                  label: Text('Nhóm riêng tư'),
+                ),
+                ButtonSegment<bool>(
+                  value: true,
+                  icon: Icon(Icons.public_rounded),
+                  label: Text('Nhóm công khai'),
+                ),
+              ],
+              selected: {_isPublic},
+              onSelectionChanged: (values) {
+                setState(() => _isPublic = values.first);
+              },
+            ),
+            const SizedBox(height: 10),
+            AppInlineNotice(
+              message: _isPublic
+                  ? 'Nhóm công khai yêu cầu trưởng nhóm đã xác minh eKYC. Sau khi tạo, bạn có thể đăng bài tìm bạn đồng hành.'
+                  : 'Nhóm riêng tư chỉ nhận thành viên qua mã hoặc lời mời.',
+              tone: _isPublic ? AppStatusTone.warning : AppStatusTone.info,
+            ),
+            const SizedBox(height: 20),
+            AppCard(
+              outlined: true,
+              padding: EdgeInsets.zero,
+              child: ExpansionTile(
+                key: ValueKey(_showExtras),
+                initiallyExpanded: _showExtras,
+                onExpansionChanged: (value) => _showExtras = value,
+                title: const Text('Thiết lập thêm (tùy chọn)'),
+                subtitle: const Text('Ngân sách, mô tả và ảnh bìa'),
+                childrenPadding: const EdgeInsets.fromLTRB(16, 4, 16, 18),
+                children: [
+                  AppMoneyField(
+                    label: 'Ngân sách dự kiến',
+                    controller: _budget,
+                  ),
+                  const SizedBox(height: 14),
+                  CustomTextField(
+                    label: 'Mô tả',
+                    hint: 'Mục tiêu, phong cách hoặc ghi chú cho cả nhóm',
+                    controller: _description,
+                    maxLines: 4,
+                    prefixIcon: Icons.notes_outlined,
+                  ),
+                  const SizedBox(height: 14),
+                  ImagePickerField(
+                    label:
+                        _coverImageBytes == null &&
+                            (widget.trip?.coverImageUrl == null ||
+                                _removeExistingCover)
+                        ? 'Chọn ảnh bìa'
+                        : 'Chọn ảnh bìa khác',
+                    enabled: !_viewModel.isSubmitting,
+                    onPick: _pickCoverImage,
+                    preview: _coverPreview(),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            const AppInlineNotice(
+              message:
+                  'Thành viên, lịch trình và chi phí được thiết lập sau khi chuyến đi được tạo thành công.',
+            ),
+            if (_viewModel.errorMessage != null) ...[
+              const SizedBox(height: 12),
+              AppInlineNotice(
+                message: _viewModel.errorMessage!,
+                tone: AppStatusTone.error,
+              ),
+            ],
+            const SizedBox(height: 24),
+          ],
+        ),
       ),
     ),
   );

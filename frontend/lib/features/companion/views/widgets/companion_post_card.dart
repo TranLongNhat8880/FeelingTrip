@@ -29,12 +29,12 @@ class CompanionPostCard extends StatelessWidget {
         ? AppColors.error
         : post.isFull
         ? AppColors.warning
-        : const Color(0xFF008B57);
+        : AppColors.success;
     final statusBgColor = post.isClosed
         ? AppColors.errorSurface
         : post.isFull
         ? AppColors.warningSurface
-        : const Color(0xFFEDF7ED);
+        : AppColors.successSurface;
     final statusText = post.isClosed
         ? 'Đã đóng'
         : post.isFull
@@ -188,7 +188,7 @@ class CompanionPostCard extends StatelessWidget {
                     _pill(
                       icon: Icons.calendar_today_outlined,
                       label: dates,
-                      bgColor: const Color(0xFFF1F5F9),
+                      bgColor: AppColors.inputSurface,
                       textColor: AppColors.textSecondary,
                       iconColor: AppColors.textSecondary,
                     ),

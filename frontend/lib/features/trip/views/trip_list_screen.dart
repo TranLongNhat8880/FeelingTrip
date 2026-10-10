@@ -22,6 +22,7 @@ class TripListScreen extends StatefulWidget {
 class _TripListScreenState extends State<TripListScreen> {
   late final TripViewModel _viewModel;
   String? _status;
+  final _search = TextEditingController();
 
   @override
   void initState() {
@@ -39,12 +40,23 @@ class _TripListScreenState extends State<TripListScreen> {
   void dispose() {
     _viewModel.removeListener(_onChanged);
     _viewModel.dispose();
+    _search.dispose();
     super.dispose();
   }
 
-  List<TripModel> get _visible => _status == null
-      ? _viewModel.trips
-      : _viewModel.trips.where((trip) => trip.status == _status).toList();
+  List<TripModel> get _visible {
+    final query = _search.text.trim().toLowerCase();
+    return _viewModel.trips
+        .where(
+          (trip) =>
+              (_status == null || trip.status == _status) &&
+              (query.isEmpty ||
+                  '${trip.name} ${trip.destination}'.toLowerCase().contains(
+                    query,
+                  )),
+        )
+        .toList();
+  }
 
   Future<void> _create() async {
     final result = await Navigator.push<TripModel>(
@@ -53,7 +65,14 @@ class _TripListScreenState extends State<TripListScreen> {
         builder: (_) => TripFormScreen(repository: _viewModel.repository),
       ),
     );
-    if (result != null) await _viewModel.loadTrips();
+    if (result != null && mounted) {
+      AppFeedback.show(
+        context,
+        'Đã tạo chuyến đi. Bắt đầu thêm lịch trình hoặc mời thành viên nhé.',
+        tone: AppStatusTone.success,
+      );
+      await _open(result);
+    }
   }
 
   Future<void> _join() async {
@@ -93,27 +112,6 @@ class _TripListScreenState extends State<TripListScreen> {
   @override
   Widget build(BuildContext context) => AppScaffold(
     title: 'Chuyến đi của tôi',
-    actions: [
-      IconButton(
-        tooltip: 'Lịch trình cộng đồng',
-        onPressed: () => Navigator.pushNamed<void>(
-          context,
-          AppRoutes.publicItineraries,
-        ),
-        icon: const Icon(Icons.public_outlined),
-      ),
-      IconButton(
-        tooltip: 'Lời mời của tôi',
-        onPressed: () => Navigator.push<void>(
-          context,
-          MaterialPageRoute(
-            builder: (_) =>
-                TripInvitationsScreen(repository: _viewModel.repository),
-          ),
-        ),
-        icon: const Icon(Icons.mark_email_unread_outlined),
-      ),
-    ],
     body: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -121,7 +119,7 @@ class _TripListScreenState extends State<TripListScreen> {
           children: [
             Expanded(
               child: CustomButton(
-                text: 'Tạo chuyến',
+                text: 'Tạo chuyến đi',
                 icon: Icons.add_rounded,
                 onPressed: _create,
               ),
@@ -129,7 +127,7 @@ class _TripListScreenState extends State<TripListScreen> {
             const SizedBox(width: 10),
             Expanded(
               child: CustomButton(
-                text: 'Nhập mã',
+                text: 'Tham gia bằng mã',
                 icon: Icons.key_outlined,
                 variant: AppButtonVariant.secondary,
                 onPressed: _join,
@@ -137,33 +135,74 @@ class _TripListScreenState extends State<TripListScreen> {
             ),
           ],
         ),
-        const SizedBox(height: 18),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              _FilterChip(
-                label: 'Tất cả',
-                selected: _status == null,
-                onTap: () => setState(() => _status = null),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          children: [
+            CustomButton(
+              text: 'Lời mời của tôi',
+              icon: Icons.mail_outline,
+              fullWidth: false,
+              variant: AppButtonVariant.text,
+              onPressed: () async {
+                await Navigator.push<void>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => TripInvitationsScreen(
+                      repository: _viewModel.repository,
+                    ),
+                  ),
+                );
+                await _viewModel.loadTrips();
+              },
+            ),
+            CustomButton(
+              text: 'Lịch trình cộng đồng',
+              icon: Icons.public_outlined,
+              fullWidth: false,
+              variant: AppButtonVariant.text,
+              onPressed: () => Navigator.pushNamed<void>(
+                context,
+                AppRoutes.publicItineraries,
               ),
-              for (final entry in const {
-                'UPCOMING': 'Sắp đi',
-                'ONGOING': 'Đang đi',
-                'COMPLETED': 'Đã xong',
-                'CANCELLED': 'Đã hủy',
-              }.entries) ...[
-                const SizedBox(width: 8),
-                _FilterChip(
-                  label: entry.value,
-                  selected: _status == entry.key,
-                  onTap: () => setState(() => _status = entry.key),
-                ),
-              ],
-            ],
-          ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        AppSearchField(
+          controller: _search,
+          hint: 'Tìm tên chuyến đi hoặc điểm đến',
+          onChanged: (_) => setState(() {}),
         ),
         const SizedBox(height: 16),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: AppChoiceChips<String>(
+            options: const {
+              'ALL': 'Tất cả',
+              'UPCOMING': 'Sắp đi',
+              'ONGOING': 'Đang đi',
+              'COMPLETED': 'Đã kết thúc',
+              'CANCELLED': 'Đã hủy',
+            },
+            selected: {_status ?? 'ALL'},
+            onChanged: (value) {
+              FocusScope.of(context).unfocus();
+              setState(() => _status = value == 'ALL' ? null : value);
+            },
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          '${_visible.length} chuyến đi',
+          style: Theme.of(context).textTheme.labelLarge,
+        ),
+        if (_viewModel.errorMessage != null && _viewModel.trips.isNotEmpty)
+          AppInlineNotice(
+            message: _viewModel.errorMessage!,
+            tone: AppStatusTone.error,
+          ),
+        const SizedBox(height: 12),
         Expanded(child: _content()),
       ],
     ),
@@ -182,21 +221,31 @@ class _TripListScreenState extends State<TripListScreen> {
       );
     }
     if (_visible.isEmpty) {
-      return EmptyStateWidget(
-        icon: Icons.flight_takeoff_rounded,
-        title: _status == null
-            ? 'Chưa có chuyến đi'
-            : 'Không có chuyến phù hợp',
-        message: _status == null
-            ? 'Tạo hành trình đầu tiên hoặc tham gia nhóm bằng mã mời.'
-            : 'Hãy thử chọn một trạng thái khác.',
-        buttonText: _status == null ? 'Tạo chuyến đi' : null,
-        onButtonPressed: _status == null ? _create : null,
+      return SingleChildScrollView(
+        child: EmptyStateWidget(
+          icon: Icons.flight_takeoff_rounded,
+          title: _status == null && _search.text.isEmpty
+              ? 'Chưa có chuyến đi'
+              : 'Không có chuyến phù hợp',
+          message: _status == null && _search.text.isEmpty
+              ? 'Tạo hành trình đầu tiên hoặc tham gia nhóm bằng mã mời.'
+              : 'Hãy thử chọn một trạng thái khác.',
+          buttonText: _status == null && _search.text.isEmpty
+              ? 'Tạo chuyến đi'
+              : 'Xóa bộ lọc',
+          onButtonPressed: _status == null && _search.text.isEmpty
+              ? _create
+              : () => setState(() {
+                  _status = null;
+                  _search.clear();
+                }),
+        ),
       );
     }
     return RefreshIndicator(
       onRefresh: _viewModel.loadTrips,
       child: ListView.separated(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.only(bottom: 24),
         itemCount: _visible.length,
         separatorBuilder: (_, _) => const SizedBox(height: 14),
@@ -207,24 +256,6 @@ class _TripListScreenState extends State<TripListScreen> {
       ),
     );
   }
-}
-
-class _FilterChip extends StatelessWidget {
-  const _FilterChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => ChoiceChip(
-    label: Text(label),
-    selected: selected,
-    onSelected: (_) => onTap(),
-  );
 }
 
 class _JoinTripForm extends StatefulWidget {
@@ -263,8 +294,7 @@ class _JoinTripFormState extends State<_JoinTripForm> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const AppInlineNotice(
-          message:
-              'Mã gồm 6 ký tự và chỉ dùng được một lần.',
+          message: 'Mã gồm 6 ký tự và chỉ dùng được một lần.',
         ),
         const SizedBox(height: 16),
         CustomTextField(

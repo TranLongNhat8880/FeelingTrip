@@ -148,10 +148,12 @@ class _PlaceListScreenState extends State<PlaceListScreen> {
           ),
         ),
         if (hasFilter)
-          TextButton.icon(
+          CustomButton(
+            text: 'Xóa lọc',
             onPressed: _viewModel.isLoading ? null : _clearFilters,
-            icon: const Icon(Icons.filter_alt_off_outlined, size: 18),
-            label: const Text('Xóa lọc'),
+            icon: Icons.filter_alt_off_outlined,
+            variant: AppButtonVariant.text,
+            fullWidth: false,
           ),
       ],
     );

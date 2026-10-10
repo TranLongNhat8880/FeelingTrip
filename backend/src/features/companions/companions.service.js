@@ -6,6 +6,10 @@ const notificationsService = require('../notifications/notifications.service');
 const apiError = require('../../shared/utils/apiError.util');
 
 
+const isVerifiedUser = (user) => Boolean(
+    user && (user.is_verified === true || String(user.verification_status || '').toUpperCase() === 'VERIFIED')
+);
+
 const createCompanionPost = async ({
     tripId,
     userId,
@@ -18,7 +22,7 @@ const createCompanionPost = async ({
     tags = []
 }) => {
     const user = await usersRepository.findProfileById(userId);
-    if (!user || !user.is_verified) {
+    if (!isVerifiedUser(user)) {
         throw apiError(403, 'Bạn cần xác minh danh tính (eKYC) để đăng bài tuyển bạn đồng hành');
     }
 
@@ -122,7 +126,7 @@ const updateCompanionPost = async ({
 
         if (newCreatorId) {
             const newCreator = await usersRepository.findProfileById(newCreatorId);
-            if (!newCreator || !newCreator.is_verified) {
+            if (!isVerifiedUser(newCreator)) {
                 throw apiError(403, 'Người dùng này không tồn tại hoặc chưa xác minh danh tính');
             }
         }
@@ -300,7 +304,7 @@ const getCompanionPostDetail = async ({ postId, userId }) => {
 
 const createJoinRequest = async ({ postId, userId, introduction }) => {
     const user = await usersRepository.findProfileById(userId);
-    if (!user || !user.is_verified) {
+    if (!isVerifiedUser(user)) {
         throw apiError(403, 'Bạn cần xác minh danh tính (eKYC) để gửi yêu cầu tham gia');
     }
 
@@ -433,13 +437,13 @@ const reviewJoinRequest = async ({ requestId, leaderId, status }) => {
 
         if (status === 'ACCEPTED') {
             const leaderUser = await usersRepository.findProfileById(leaderId);
-            if (!leaderUser || !leaderUser.is_verified) {
+            if (!isVerifiedUser(leaderUser)) {
                 throw apiError(403, 'Trưởng nhóm cần hoàn thành xác minh danh tính (eKYC) để xét duyệt thành viên');
             }
 
             const { rows: [requester] } = await client.query(
                 "SELECT is_verified, verification_status, status FROM users WHERE id = $1", [req.user_id]);
-            if (!requester || !requester.is_verified || requester.verification_status !== 'VERIFIED') {
+            if (!isVerifiedUser(requester)) {
                 throw apiError(403, 'Người gửi yêu cầu chưa hoàn thành xác minh danh tính (eKYC)');
             }
             if (requester.status !== 'ACTIVE') {

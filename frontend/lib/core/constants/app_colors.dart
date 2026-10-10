@@ -8,6 +8,8 @@ class AppColors {
   static const primaryLight = Color(0xFF13B5FA);
   static const primarySurface = Color(0xFFE3F4FF);
   static const action = primary;
+  static const actionStart = Color(0xFF0084FF);
+  static const actionEnd = Color(0xFF0066EE);
   static const accent = primary;
   static const accentLight = primaryLight;
   static const accentSurface = primarySurface;

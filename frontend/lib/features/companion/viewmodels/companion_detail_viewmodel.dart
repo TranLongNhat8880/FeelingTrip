@@ -4,6 +4,7 @@ import '../repositories/companion_repository.dart';
 import '../repositories/mock_companion_repository.dart';
 import '../repositories/api_companion_repository.dart';
 import '../../../core/constants/api_endpoints.dart';
+import '../../../core/network/api_client.dart';
 
 // ================================================================================
 // VIEWMODEL: CompanionDetail
@@ -70,6 +71,9 @@ class CompanionDetailViewModel extends ChangeNotifier {
       if (_disposed) return false;
       requestStatus = 'PENDING';
       return true;
+    } on ApiException catch (e) {
+      _errorMessage = e.message;
+      return false;
     } catch (e) {
       _errorMessage = e.toString().replaceFirst('Exception: ', '');
       return false;
