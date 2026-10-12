@@ -3,10 +3,12 @@ import 'package:feeling_trip/core/constants/app_colors.dart';
 import 'package:feeling_trip/core/constants/app_sizes.dart';
 import 'package:feeling_trip/shared/ui_kit.dart';
 import '../repositories/companion_repository.dart';
+import '../models/companion_post_model.dart';
 import '../repositories/mock_companion_repository.dart';
 import '../repositories/api_companion_repository.dart';
 import '../repositories/companion_trip_repository.dart';
 import '../../../core/constants/api_endpoints.dart';
+import '../../../core/network/api_client.dart';
 
 // ================================================================================
 // SCREEN: Create Companion Post
@@ -18,12 +20,14 @@ class CreateCompanionPostScreen extends StatefulWidget {
   const CreateCompanionPostScreen({
     super.key,
     this.repository,
+    this.post,
     this.tripId,
     this.tripName,
     this.tripDestination,
   });
 
   final CompanionRepository? repository;
+  final CompanionPost? post;
   final String? tripId;
   final String? tripName;
   final String? tripDestination;
@@ -50,6 +54,7 @@ class _CreateCompanionPostScreenState extends State<CreateCompanionPostScreen> {
   // Danh sách chuyến đi mẫu để leader chọn
   List<Map<String, String>> _availableTrips = [];
   bool _loadingTrips = false;
+  bool _alreadyPosted = false;
   String? _tripError;
   static const List<Map<String, String>> _mockTrips = [
     {
@@ -104,9 +109,22 @@ class _CreateCompanionPostScreenState extends State<CreateCompanionPostScreen> {
     _selectedTripId =
         widget.tripId ??
         (_availableTrips.isEmpty ? '' : _availableTrips.first['id']!);
-    if (widget.tripId == null && !ApiEndpoints.useMockData) _loadTrips();
+    if (widget.post == null) _loadTrips();
     if (widget.tripName != null && widget.tripName!.isNotEmpty) {
       _titleController.text = 'Tìm bạn đồng hành: ${widget.tripName}';
+    }
+    final post = widget.post;
+    if (post != null) {
+      _selectedTripId = post.trip.id;
+      _titleController.text = post.title ?? '';
+      _contentController.text = post.content ?? '';
+      _minAgeController.text = post.minAge?.toString() ?? '';
+      _maxAgeController.text = post.maxAge?.toString() ?? '';
+      _targetMembersCount = post.targetMembersCount;
+      _genderPreference = post.genderPreference;
+      _selectedTags
+        ..clear()
+        ..addAll(post.tags);
     }
   }
 
@@ -116,16 +134,30 @@ class _CreateCompanionPostScreenState extends State<CreateCompanionPostScreen> {
       _tripError = null;
     });
     try {
-      final trips = await CompanionTripRepository().getMyTrips();
-      if (mounted) {
-        setState(() {
-          _availableTrips = trips
-              .where((trip) => trip['hasCompanionPost'] != 'true')
-              .toList();
-          _selectedTripId = _availableTrips.isEmpty
-              ? ''
-              : _availableTrips.first['id']!;
-        });
+      if (widget.tripId != null) {
+        final exists = await CompanionTripRepository().hasPostForTrip(
+          widget.tripId!,
+        );
+        if (mounted) setState(() => _alreadyPosted = exists);
+      } else {
+        final trips = ApiEndpoints.useMockData
+            ? List<Map<String, String>>.of(_mockTrips)
+            : await CompanionTripRepository().getMyTrips();
+        final available = <Map<String, String>>[];
+        for (final trip in trips) {
+          final posted = ApiEndpoints.useMockData
+              ? await CompanionTripRepository().hasPostForTrip(trip['id']!)
+              : trip['hasCompanionPost'] == 'true';
+          if (!posted) available.add(trip);
+        }
+        if (mounted) {
+          setState(() {
+            _availableTrips = available;
+            if (!available.any((t) => t['id'] == _selectedTripId)) {
+              _selectedTripId = available.isEmpty ? '' : available.first['id']!;
+            }
+          });
+        }
       }
     } catch (_) {
       if (mounted) setState(() => _tripError = 'Không tải được chuyến đi.');
@@ -144,7 +176,13 @@ class _CreateCompanionPostScreenState extends State<CreateCompanionPostScreen> {
   }
 
   Future<void> _submit() async {
-    if (_isSubmitting || !_formKey.currentState!.validate()) return;
+    if (_isSubmitting ||
+        _loadingTrips ||
+        _alreadyPosted ||
+        _tripError != null ||
+        !_formKey.currentState!.validate()) {
+      return;
+    }
     if (_selectedTripId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -170,6 +208,20 @@ class _CreateCompanionPostScreenState extends State<CreateCompanionPostScreen> {
     setState(() => _isSubmitting = true);
 
     try {
+      if (widget.post != null) {
+        await _repo.updatePost(widget.post!.id, {
+          'title': _titleController.text.trim(),
+          if (_contentController.text.trim().isNotEmpty)
+            'content': _contentController.text.trim(),
+          'targetMembersCount': _targetMembersCount,
+          'minAge': minAge,
+          'maxAge': maxAge,
+          'genderPreference': _genderPreference,
+          'tags': _selectedTags.toList(),
+        });
+        if (mounted) Navigator.pop(context, true);
+        return;
+      }
       final newPost = await _repo.createPost(
         tripId: _selectedTripId,
         title: _titleController.text.trim(),
@@ -187,9 +239,17 @@ class _CreateCompanionPostScreenState extends State<CreateCompanionPostScreen> {
       Navigator.pop(context, newPost);
     } catch (e) {
       if (!mounted) return;
+      if (widget.post == null && e is ApiException && e.statusCode == 409) {
+        await _loadTrips();
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Lỗi: ${e.toString()}'),
+          content: Text(
+            e is ApiException
+                ? e.message
+                : e.toString().replaceFirst('Exception: ', ''),
+          ),
           backgroundColor: AppColors.error,
         ),
       );
@@ -203,12 +263,22 @@ class _CreateCompanionPostScreenState extends State<CreateCompanionPostScreen> {
     final text = Theme.of(context).textTheme;
 
     return AppScaffold(
-      title: 'Đăng bài tìm bạn',
+      title: widget.post == null ? 'Đăng bài tìm bạn' : 'Sửa bài tìm bạn',
       padding: EdgeInsets.zero,
       bottomAction: CustomButton(
-        text: 'Đăng bài',
+        text: _alreadyPosted
+            ? 'Đã đăng bài'
+            : widget.post == null
+            ? 'Đăng bài'
+            : 'Lưu thay đổi',
         isLoading: _isSubmitting,
-        onPressed: _submit,
+        onPressed:
+            _loadingTrips ||
+                _alreadyPosted ||
+                _tripError != null ||
+                (widget.post == null && _selectedTripId.isEmpty)
+            ? null
+            : _submit,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -221,9 +291,15 @@ class _CreateCompanionPostScreenState extends State<CreateCompanionPostScreen> {
               Text('Chuyến đi gắn liền *', style: text.titleSmall),
               const SizedBox(height: 8),
               if (_loadingTrips) const LoadingIndicator(),
+              if (_alreadyPosted)
+                const AppInlineNotice(
+                  message:
+                      'Chuyến đi này đã có bài tuyển đang hoạt động. Bạn có thể sửa hoặc đóng bài trong Bài tuyển của tôi.',
+                  tone: AppStatusTone.info,
+                ),
               if (_tripError != null)
                 ErrorState(message: _tripError!, onRetry: _loadTrips),
-              if (widget.tripId != null)
+              if (widget.tripId != null || widget.post != null)
                 Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
@@ -244,7 +320,9 @@ class _CreateCompanionPostScreenState extends State<CreateCompanionPostScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              widget.tripName ?? _selectedTripId,
+                              widget.tripName ??
+                                  widget.post?.trip.name ??
+                                  _selectedTripId,
                               style: text.titleSmall?.copyWith(
                                 color: AppColors.primaryDark,
                                 fontWeight: FontWeight.bold,
@@ -516,7 +594,7 @@ class _GenderChip extends StatelessWidget {
       selected: isSelected,
       selectedColor: AppColors.primary,
       backgroundColor: AppColors.inputSurface,
-      labelStyle: TextStyle(
+      labelStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
         color: isSelected ? Colors.white : AppColors.textPrimary,
         fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
       ),

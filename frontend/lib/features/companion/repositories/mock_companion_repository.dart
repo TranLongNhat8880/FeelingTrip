@@ -342,6 +342,7 @@ class MockCompanionRepository implements CompanionRepository {
     return CompanionPost(
       id: post.id,
       myRequestStatus: requestStatus,
+      myRequestId: requestStatus == null ? null : 'mock-$postId',
       title: post.title,
       content: post.content,
       targetMembersCount: post.targetMembersCount,
@@ -499,8 +500,89 @@ class MockCompanionRepository implements CompanionRepository {
   }
 
   @override
+  Future<void> updatePost(String postId, Map<String, dynamic> data) async {
+    final index = _mockPosts.indexWhere((p) => p.id == postId);
+    if (index < 0) throw Exception('Bài đăng không tồn tại');
+    final p = _mockPosts[index];
+    final target = data['targetMembersCount'] as int? ?? p.targetMembersCount;
+    if (target < p.currentMembersCount) {
+      throw Exception('Số lượng mục tiêu nhỏ hơn số thành viên hiện có');
+    }
+    _mockPosts[index] = CompanionPost(
+      id: p.id,
+      title: data['title'] ?? p.title,
+      content: data['content'] ?? p.content,
+      targetMembersCount: target,
+      currentMembersCount: p.currentMembersCount,
+      minAge: data.containsKey('minAge') ? data['minAge'] : p.minAge,
+      maxAge: data.containsKey('maxAge') ? data['maxAge'] : p.maxAge,
+      genderPreference: data['genderPreference'] ?? p.genderPreference,
+      tags: List<String>.from(data['tags'] ?? p.tags),
+      status: target <= p.currentMembersCount ? 'FULL' : 'OPEN',
+      createdAt: p.createdAt,
+      updatedAt: DateTime.now(),
+      trip: p.trip,
+      creator: p.creator,
+    );
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getMyPosts({int page = 1}) async =>
+      _mockPosts
+          .where((p) => p.creator.id == 'current-user')
+          .skip((page - 1) * 20)
+          .take(20)
+          .map(
+            (p) => {
+              'id': p.id,
+              'title': p.title,
+              'status': p.status,
+              'trip_name': p.trip.name,
+              'destination': p.trip.destination,
+            },
+          )
+          .toList();
+
+  @override
+  Future<void> closePost(String postId) async {
+    final p = _mockPosts.firstWhere((p) => p.id == postId);
+    _mockPosts.removeWhere((p) => p.id == postId);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('mock_companion_trip_${p.trip.id}');
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getMySentRequests({
+    String? status,
+    int page = 1,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final rows = <Map<String, dynamic>>[];
+    for (final p in _mockPosts) {
+      final state = prefs.getString(await _requestKey(p.id));
+      if (state != null &&
+          (status == null || status.isEmpty || state == status)) {
+        rows.add({
+          'id': 'mock-${p.id}',
+          'postId': p.id,
+          'title': p.title,
+          'tripName': p.trip.name,
+          'postStatus': p.status,
+          'status': state,
+        });
+      }
+    }
+    final offset = (page - 1) * 20;
+    return rows.skip(offset).take(20).toList();
+  }
+
+  @override
   Future<void> deleteJoinRequest(String requestId) async {
     await Future.delayed(const Duration(milliseconds: 500));
+    if (requestId.startsWith('mock-')) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(await _requestKey(requestId.substring(5)));
+    }
     _mockRequests.removeWhere((r) => r.id == requestId);
   }
 }

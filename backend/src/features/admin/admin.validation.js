@@ -35,7 +35,7 @@ const resolveReportSchema = Joi.object({
     'any.only': 'Hành động xử lý phải là RESOLVED hoặc DISMISSED',
     'any.required': 'Hành động xử lý là bắt buộc',
   }),
-  adminNotes: Joi.string().trim().max(1000).allow(null, '').messages({
+  adminNotes: Joi.string().trim().min(3).max(1000).required().messages({
     'string.max': 'Ghi chú của quản trị viên không được vượt quá 1000 ký tự',
   }),
 });
@@ -69,7 +69,56 @@ const adminIdParamSchema = Joi.object({
   }),
 });
 
+const reportQuerySchema = Joi.object({
+  page: Joi.number().integer().min(1).default(1),
+  limit: Joi.number().integer().min(1).max(100).default(20),
+  status: Joi.string().valid('PENDING','RESOLVED','DISMISSED').allow(''),
+  search: Joi.string().trim().max(100).allow(''),
+});
+const templateQuerySchema = Joi.object({
+  page: Joi.number().integer().min(1).default(1),
+  limit: Joi.number().integer().min(1).max(100).default(20),
+  search: Joi.string().trim().max(100).allow(''),
+  destination: Joi.string().trim().max(100).allow(''),
+  durationDays: Joi.number().integer().min(1).max(30),
+  status: Joi.string().valid('ACTIVE','HIDDEN').allow(''),
+  source: Joi.string().valid('SYSTEM','COMMUNITY').default('SYSTEM'),
+  sortBy: Joi.string().valid('newest','usage','rating').default('newest'),
+});
+const templateItemSchema = Joi.object({
+  placeId: Joi.string().lowercase().guid({version:['uuidv4','uuidv5']}).allow(null),
+  customName: Joi.string().trim().min(1).max(255).required(),
+  customAddress: Joi.string().trim().max(500).allow('',null),
+  category: Joi.string().valid('ATTRACTION','RESTAURANT','CAFE','HOTEL','ENTERTAINMENT','NATURE','CULTURE','SHOPPING','OTHER').default('OTHER'),
+  startTime: Joi.string().pattern(/^([01]\d|2[0-3]):[0-5]\d$/).required(),
+  endTime: Joi.string().pattern(/^([01]\d|2[0-3]):[0-5]\d$/).required(),
+  estimatedCost: Joi.number().integer().min(0).max(1000000000000).default(0),
+  note: Joi.string().trim().max(1000).allow('',null),
+}).custom((v,h)=>v.startTime>=v.endTime?h.message({custom:'Giờ bắt đầu phải trước giờ kết thúc'}):v);
+const templateBodySchema = Joi.object({
+  name: Joi.string().trim().min(2).max(255).required(),
+  destination: Joi.string().trim().min(2).max(100).required(),
+  durationDays: Joi.number().integer().min(1).max(30).required(),
+  estimatedBudget: Joi.number().integer().min(0).max(1000000000000).default(0),
+  description: Joi.string().trim().max(5000).allow('',null),
+  days: Joi.array().min(1).max(30).items(Joi.object({
+    dayNumber: Joi.number().integer().min(1).max(30).required(),
+    title: Joi.string().trim().max(255).allow('',null),
+    items: Joi.array().items(templateItemSchema).min(1).max(50).required(),
+  })).required(),
+});
+const templateUpdateSchema = templateBodySchema.keys({expectedVersion:Joi.string().pattern(/^\d+$/).required()});
+const templateStatusSchema = Joi.object({isActive:Joi.boolean().required(),expectedVersion:Joi.string().pattern(/^\d+$/).required()});
+const templateDeleteQuerySchema = Joi.object({expectedVersion:Joi.string().pattern(/^\d+$/).required()});
+const templateApplySchema = Joi.object({tripId:Joi.string().guid({version:['uuidv4','uuidv5']}).required()});
+
+const moderationQuerySchema = Joi.object({page:Joi.number().integer().min(1).default(1),limit:Joi.number().integer().min(1).max(50).default(20),search:Joi.string().trim().max(200).allow('').default('')});
+const moderatePostSchema = Joi.object({action:Joi.string().valid('HIDE','WARN').required(),reason:Joi.string().trim().min(3).max(1000).required()});
+const warnReportSchema = Joi.object({reason:Joi.string().trim().min(3).max(980).required()});
+
 module.exports = {
+  moderationQuerySchema,moderatePostSchema,warnReportSchema,
+  reportQuerySchema, templateQuerySchema, templateBodySchema, templateUpdateSchema, templateStatusSchema, templateDeleteQuerySchema, templateApplySchema,
   updateUserStatusSchema,
   rejectEkycSchema,
   resolveReportSchema,

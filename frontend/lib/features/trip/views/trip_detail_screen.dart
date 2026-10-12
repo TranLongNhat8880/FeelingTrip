@@ -6,6 +6,7 @@ import '../../../core/utils/app_utils.dart';
 import '../../../routes/app_routes.dart';
 import '../../../shared/ui_kit.dart';
 import '../../auth/viewmodels/auth_viewmodel.dart';
+import '../../companion/repositories/companion_trip_repository.dart';
 import '../../itinerary/views/itinerary_screen.dart';
 import '../../review/models/review_model.dart';
 import '../../review/viewmodels/review_viewmodel.dart';
@@ -29,6 +30,9 @@ class TripDetailScreen extends StatefulWidget {
 class _TripDetailScreenState extends State<TripDetailScreen> {
   late final TripViewModel _viewModel;
   String _section = 'overview';
+  bool _hasCompanionPost = false;
+  bool _checkingPost = false;
+  bool _postCheckFailed = false;
 
   @override
   void initState() {
@@ -36,6 +40,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     _viewModel = TripViewModel(repository: widget.repository)
       ..addListener(_onChanged)
       ..loadTrip(widget.tripId);
+    _checkCompanionPost();
   }
 
   void _onChanged() {
@@ -144,6 +149,26 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     );
   }
 
+  Future<void> _checkCompanionPost() async {
+    if (_checkingPost) return;
+    setState(() => _checkingPost = true);
+    try {
+      final exists = await CompanionTripRepository().hasPostForTrip(
+        widget.tripId,
+      );
+      if (mounted) {
+        setState(() {
+          _hasCompanionPost = exists;
+          _postCheckFailed = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _postCheckFailed = true);
+    } finally {
+      if (mounted) setState(() => _checkingPost = false);
+    }
+  }
+
   Future<void> _openCompanionPost(TripModel trip) async {
     if (AuthScope.of(context).user?.hasVerifiedEkyc != true) {
       await AppMessageDialog.show(
@@ -156,7 +181,9 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
       return;
     }
     if (!mounted) return;
-    Navigator.pushNamed(
+    await _checkCompanionPost();
+    if (!mounted || _hasCompanionPost || _postCheckFailed) return;
+    await Navigator.pushNamed(
       context,
       AppRoutes.createCompanionPost,
       arguments: {
@@ -165,6 +192,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
         'tripDestination': trip.destination,
       },
     );
+    if (mounted) await _checkCompanionPost();
   }
 
   Future<void> _transfer(TripMember member) async {
@@ -467,14 +495,19 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                 ),
               ),
               if (trip.isLeader &&
+                  !_hasCompanionPost &&
                   !['COMPLETED', 'CANCELLED'].contains(trip.status)) ...[
                 const SizedBox(width: 10),
                 Expanded(
                   child: CustomButton(
-                    text: 'Tìm bạn đồng hành',
+                    text: _postCheckFailed
+                        ? 'Kiểm tra lại bài tuyển'
+                        : 'Tìm bạn đồng hành',
                     icon: Icons.group_add_outlined,
                     variant: AppButtonVariant.secondary,
-                    onPressed: () => _openCompanionPost(trip),
+                    onPressed: _checkingPost
+                        ? null
+                        : () => _openCompanionPost(trip),
                   ),
                 ),
               ],

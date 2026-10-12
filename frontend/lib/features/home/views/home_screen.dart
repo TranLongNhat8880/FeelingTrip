@@ -10,11 +10,13 @@ import '../../auth/viewmodels/auth_viewmodel.dart';
 import '../../companion/repositories/companion_trip_repository.dart';
 import '../../companion/views/companion_feed_screen.dart';
 import '../../companion/views/companion_requests_screen.dart';
+import '../../companion/views/companion_my_posts_screen.dart';
 import '../../companion/views/create_companion_post_screen.dart';
 import '../../companion/models/companion_post_model.dart';
 import '../../companion/repositories/mock_companion_repository.dart';
 import '../../notification/viewmodels/notification_viewmodel.dart';
 import '../../notification/views/notification_screen.dart';
+import '../../admin/views/plan_library_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -483,7 +485,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                     context,
                                     MaterialPageRoute(
                                       builder: (_) =>
-                                          const CompanionRequestsScreen(),
+                                          const CompanionRequestsScreen(
+                                            initialReceived: true,
+                                          ),
                                     ),
                                   ),
                                 ),
@@ -703,10 +707,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 Icons.alt_route_rounded,
                 color: Color(0xFF0D9488),
               ),
-              title: const Text('Lịch trình cộng đồng'),
+              title: const Text('Kho lịch trình & mẫu'),
               onTap: () {
                 Navigator.pop(context);
-                Navigator.pushNamed(context, AppRoutes.publicItineraries);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const PlanLibraryScreen()),
+                );
               },
             ),
             ListTile(
@@ -725,13 +732,40 @@ class _HomeScreenState extends State<HomeScreen> {
                 Icons.inbox_outlined,
                 color: AppColors.warning,
               ),
-              title: const Text('Yêu cầu ghép đoàn'),
+              title: const Text('Yêu cầu nhận được'),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.push<void>(
                   context,
                   MaterialPageRoute(
+                    builder: (_) =>
+                        const CompanionRequestsScreen(initialReceived: true),
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.send_outlined),
+              title: const Text('Yêu cầu đã gửi'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
                     builder: (_) => const CompanionRequestsScreen(),
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.article_outlined),
+              title: const Text('Bài tuyển của tôi'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const CompanionMyPostsScreen(),
                   ),
                 );
               },

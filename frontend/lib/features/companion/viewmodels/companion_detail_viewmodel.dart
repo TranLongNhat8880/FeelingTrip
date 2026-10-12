@@ -49,7 +49,14 @@ class CompanionDetailViewModel extends ChangeNotifier {
       _post = post;
       requestStatus = post.myRequestStatus;
     } catch (e) {
-      _errorMessage = 'Không thể tải bài đăng. Vui lòng thử lại.';
+      if (_disposed) return;
+      if (e is ApiException && e.statusCode == 404) {
+        _post = null;
+        requestStatus = null;
+      }
+      _errorMessage = e is ApiException
+          ? e.message
+          : 'Không thể tải bài đăng. Vui lòng thử lại.';
     } finally {
       _isLoading = false;
       if (!_disposed) notifyListeners();
@@ -70,12 +77,58 @@ class CompanionDetailViewModel extends ChangeNotifier {
       await _repo.createJoinRequest(postId: postId, introduction: introduction);
       if (_disposed) return false;
       requestStatus = 'PENDING';
+      try {
+        final updated = await _repo.getPostDetail(postId);
+        if (!_disposed) {
+          _post = updated;
+          requestStatus = updated.myRequestStatus;
+        }
+      } catch (_) {}
       return true;
     } on ApiException catch (e) {
       _errorMessage = e.message;
       return false;
     } catch (e) {
       _errorMessage = e.toString().replaceFirst('Exception: ', '');
+      return false;
+    } finally {
+      _isSubmitting = false;
+      if (!_disposed) notifyListeners();
+    }
+  }
+
+  Future<bool> cancelRequest() async {
+    if (_disposed ||
+        _isSubmitting ||
+        requestStatus != 'PENDING' ||
+        _post == null) {
+      return false;
+    }
+    _isSubmitting = true;
+    _errorMessage = null;
+    notifyListeners();
+    try {
+      if (_post!.myRequestId == null) {
+        final latest = await _repo.getPostDetail(_post!.id);
+        if (_disposed) return false;
+        _post = latest;
+      }
+      if (_post!.myRequestId == null) {
+        throw Exception('Yêu cầu không còn tồn tại. Hãy tải lại bài đăng.');
+      }
+      await _repo.deleteJoinRequest(_post!.myRequestId!);
+      if (_disposed) return false;
+      requestStatus = null;
+      return true;
+    } catch (e) {
+      if (e is ApiException &&
+          [400, 404, 409].contains(e.statusCode) &&
+          !_disposed) {
+        await load(_post!.id);
+      }
+      _errorMessage = e is ApiException
+          ? e.message
+          : e.toString().replaceFirst('Exception: ', '');
       return false;
     } finally {
       _isSubmitting = false;

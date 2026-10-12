@@ -529,7 +529,20 @@ const getPostedTripIds = async (userId) => {
   return rows.map(row => row.trip_id);
 };
 
+const getMySentRequests = async ({userId, status, limit, offset}) => {
+  const params=[userId];
+  let filter='cr.user_id=$1';
+  if(status){params.push(status);filter+=` AND cr.status=$${params.length}`;}
+  const from=`FROM companion_requests cr JOIN companion_posts cp ON cp.id=cr.post_id JOIN trips t ON t.id=cp.trip_id WHERE ${filter}`;
+  const total=(await db.query(`SELECT COUNT(*)::int AS total ${from}`,params)).rows[0].total;
+  const {rows}=await db.query(`SELECT cr.id,cr.post_id,cr.status,cr.introduction,cr.created_at,cp.title,cp.status AS post_status,t.name AS trip_name,t.destination ${from} ORDER BY cr.created_at DESC,cr.id DESC LIMIT $${params.length+1} OFFSET $${params.length+2}`,[...params,limit,offset]);
+  return {rows,total};
+};
+const getMyPosts = async (userId,page,limit) => (await db.query(`SELECT cp.id,cp.title,cp.status,t.name AS trip_name,t.destination FROM companion_posts cp JOIN trips t ON t.id=cp.trip_id JOIN trip_members tm ON tm.trip_id=cp.trip_id WHERE tm.user_id=$1 AND tm.role='LEADER' AND tm.membership_status='ACTIVE' AND cp.status IN ('OPEN','FULL') ORDER BY cp.created_at DESC,cp.id DESC LIMIT $2 OFFSET $3`,[userId,limit,(page-1)*limit])).rows;
+
 module.exports = {
+    getMyPosts,
+    getMySentRequests,
     getPostedTripIds,
     createCompanionPost,
     checkExistsPostByTripId,

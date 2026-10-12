@@ -67,4 +67,34 @@ router.put(
   adminController.rejectUserEkyc
 );
 
+// Public library routes require login, but do not require ADMIN.
+const v = require('./admin.validation');
+const upload = require('../../shared/middlewares/upload.middleware');
+const parseTemplateDays = (req,res,next)=>{
+  if(typeof req.body.days==='string'){
+    try {req.body.days=JSON.parse(req.body.days);} catch(_){return res.status(400).json({success:false,message:'Danh sách ngày không hợp lệ'});}
+  }
+  next();
+};
+router.get('/library',authenticate,validate({query:v.templateQuerySchema}),adminController.listPublicTemplates);
+router.post('/library/community/:id/apply',authenticate,validate({params:adminIdParamSchema,body:v.templateApplySchema}),adminController.applyCommunityPlan);
+router.get('/library/community/:id',authenticate,validate({params:adminIdParamSchema}),adminController.getCommunityPlan);
+router.get('/library/templates/:id',authenticate,validate({params:adminIdParamSchema}),adminController.getPublicTemplate);
+router.post('/library/templates/:id/apply',authenticate,validate({params:adminIdParamSchema,body:v.templateApplySchema}),adminController.applyTemplate);
+
+router.get('/reports',authenticate,authorize(ROLES.ADMIN),validate({query:v.reportQuerySchema}),adminController.getReports);
+router.get('/reports/:id',authenticate,authorize(ROLES.ADMIN),validate({params:adminIdParamSchema}),adminController.getReport);
+router.put('/reports/:id/resolve',authenticate,authorize(ROLES.ADMIN),validate({params:adminIdParamSchema,body:v.resolveReportSchema}),adminController.resolveReport);
+router.get('/templates',authenticate,authorize(ROLES.ADMIN),validate({query:v.templateQuerySchema}),adminController.listTemplates);
+router.post('/templates/from-community/:id',authenticate,authorize(ROLES.ADMIN),validate({params:adminIdParamSchema}),adminController.importCommunityTemplate);
+router.post('/templates',authenticate,authorize(ROLES.ADMIN),upload.single('coverImage'),parseTemplateDays,validate({body:v.templateBodySchema}),adminController.createTemplate);
+router.get('/templates/:id',authenticate,authorize(ROLES.ADMIN),validate({params:adminIdParamSchema}),adminController.getTemplate);
+router.put('/templates/:id',authenticate,authorize(ROLES.ADMIN),validate({params:adminIdParamSchema}),upload.single('coverImage'),parseTemplateDays,validate({body:v.templateUpdateSchema}),adminController.updateTemplate);
+router.put('/templates/:id/status',authenticate,authorize(ROLES.ADMIN),validate({params:adminIdParamSchema,body:v.templateStatusSchema}),adminController.setTemplateStatus);
+router.delete('/templates/:id',authenticate,authorize(ROLES.ADMIN),validate({params:adminIdParamSchema,query:v.templateDeleteQuerySchema}),adminController.deleteTemplate);
+
+router.get('/moderation/posts',authenticate,authorize(ROLES.ADMIN),validate({query:v.moderationQuerySchema}),adminController.getModerationPosts);
+router.get('/moderation/posts/:id',authenticate,authorize(ROLES.ADMIN),validate({params:adminIdParamSchema}),adminController.getModerationPost);
+router.put('/moderation/posts/:id',authenticate,authorize(ROLES.ADMIN),validate({params:adminIdParamSchema,body:v.moderatePostSchema}),adminController.moderatePost);
+router.put('/reports/:id/warn',authenticate,authorize(ROLES.ADMIN),validate({params:adminIdParamSchema,body:v.warnReportSchema}),adminController.warnReportedUser);
 module.exports = router;
