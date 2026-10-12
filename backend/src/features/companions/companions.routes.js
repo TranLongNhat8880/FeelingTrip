@@ -5,9 +5,19 @@ const authenticate = require('../../shared/middlewares/auth.middleware');
 const validate = require('../../shared/middlewares/validate.middleware');
 const schemaValidate = require('./companions.validation');
 
-router.get('/my-posts',authenticate,validate({query:schemaValidate.companionFeedQuerySchema}),companionsController.getMyPosts);
+// Bài tuyển của người dùng
+router.get('/my-posts',
+    authenticate,
+    validate({ query: schemaValidate.companionFeedQuerySchema }),
+    companionsController.getMyPosts
+);
 
-router.get('/sent-requests', authenticate, validate({query:schemaValidate.myRequestsQuerySchema}), companionsController.getMySentRequests);
+// Yêu cầu người dùng đã gửi
+router.get('/sent-requests',
+    authenticate,
+    validate({ query: schemaValidate.myRequestsQuerySchema }),
+    companionsController.getMySentRequests
+);
 
 router.get('/posted-trips', authenticate, companionsController.getPostedTripIds);
 
