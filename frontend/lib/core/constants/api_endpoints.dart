@@ -56,4 +56,5 @@ class ApiEndpoints {
 
   // === Places ===
   static const String places = '/places';
+  static const String placeGeocode = '/places/geocode';
 }

@@ -1,12 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../shared/ui_kit.dart';
+import '../../../core/network/storage_helper.dart';
 import '../models/place_search_result.dart';
 import '../repositories/place_search_repository.dart';
 
@@ -21,8 +21,6 @@ class PlaceLocationPickerScreen extends StatefulWidget {
 }
 
 class _PlaceLocationPickerScreenState extends State<PlaceLocationPickerScreen> {
-  static String get _apiKey => dotenv.env['GEOAPIFY_API_KEY']?.trim() ?? '';
-
   final _repository = PlaceSearchRepository();
   final _mapController = MapController();
   final _searchController = TextEditingController();
@@ -40,11 +38,35 @@ class _PlaceLocationPickerScreenState extends State<PlaceLocationPickerScreen> {
 
   int _searchRequest = 0;
   int _addressRequest = 0;
+  bool? _configured;
+  String? _configurationError;
+  NetworkTileProvider? _tileProvider;
 
   @override
   void initState() {
     super.initState();
     _selected = widget.initialLocation;
+    _loadConfiguration();
+  }
+
+  Future<void> _loadConfiguration() async {
+    setState(() {
+      _configured = null;
+      _configurationError = null;
+    });
+    try {
+      final configured = await _repository.isConfigured();
+      final token = await StorageHelper.getToken();
+      if (!mounted) return;
+      setState(() {
+        _configured = configured;
+        _tileProvider = NetworkTileProvider(
+          headers: {if (token != null) 'Authorization': 'Bearer $token'},
+        );
+      });
+    } catch (error) {
+      if (mounted) setState(() => _configurationError = _messageFor(error));
+    }
   }
 
   @override
@@ -243,10 +265,8 @@ class _PlaceLocationPickerScreenState extends State<PlaceLocationPickerScreen> {
           ),
           children: [
             TileLayer(
-              urlTemplate:
-                  'https://maps.geoapify.com/v1/tile/'
-                  'osm-carto/{z}/{x}/{y}.png'
-                  '?apiKey=${Uri.encodeQueryComponent(_apiKey.trim())}',
+              urlTemplate: PlaceSearchRepository.tileUrlTemplate,
+              tileProvider: _tileProvider!,
               maxNativeZoom: 20,
             ),
             if (selected != null)
@@ -329,13 +349,28 @@ class _PlaceLocationPickerScreenState extends State<PlaceLocationPickerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_repository.isConfigured) {
+    if (_configurationError != null) {
+      return AppScaffold(
+        title: 'Chọn vị trí địa điểm',
+        body: ErrorState(
+          message: _configurationError!,
+          onRetry: _loadConfiguration,
+        ),
+      );
+    }
+    if (_configured == null) {
+      return const AppScaffold(
+        title: 'Chọn vị trí địa điểm',
+        body: LoadingIndicator(message: 'Đang kết nối bản đồ...'),
+      );
+    }
+    if (!_configured!) {
       return const AppScaffold(
         title: 'Chọn vị trí địa điểm',
         body: Center(
           child: Text(
-            'Chưa cấu hình GEOAPIFY_API_KEY.\n'
-            'Hãy thêm key vào frontend/.env rồi chạy lại ứng dụng.',
+            'Dịch vụ bản đồ chưa sẵn sàng.\n'
+            'Vui lòng liên hệ quản trị viên hoặc thử lại sau.',
             textAlign: TextAlign.center,
           ),
         ),

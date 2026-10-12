@@ -1,31 +1,32 @@
 import 'dart:async';
-import 'dart:convert';
-
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
-
+import '../../../core/constants/api_endpoints.dart';
+import '../../../core/network/api_client.dart';
 import '../models/place_search_result.dart';
 
 class PlaceSearchRepository {
-  static String get _apiKey => dotenv.env['GEOAPIFY_API_KEY']?.trim() ?? '';
+  static String get tileUrlTemplate =>
+      '${ApiEndpoints.baseUrl}${ApiEndpoints.placeGeocode}/tiles/{z}/{x}/{y}.png';
 
-  bool get isConfigured => _apiKey.trim().isNotEmpty;
+  Future<bool> isConfigured() async {
+    try {
+      final response = await ApiClient.get(
+        '${ApiEndpoints.placeGeocode}/configuration',
+      );
+      final data = response['data'];
+      if (data is! Map || data['configured'] is! bool) {
+        throw const FormatException('Invalid map configuration');
+      }
+      return data['configured'] as bool;
+    } catch (error) {
+      throw _errorFor(error);
+    }
+  }
 
   Future<List<PlaceSearchResult>> searchPlaces(String query) async {
     final text = query.trim();
-
-    if (text.length < 3) {
-      return const [];
-    }
-
-    final results = await _request('/v1/geocode/autocomplete', {
-      'text': text,
-      'filter': 'countrycode:vn',
-      'lang': 'vi',
-      'limit': '5',
-    });
-
-    return results;
+    if (text.length < 3) return const [];
+    return _request('search', {'text': text});
   }
 
   Future<PlaceSearchResult?> reverseGeocode({
@@ -40,22 +41,12 @@ class PlaceSearchRepository {
         longitude > 180) {
       throw const PlaceSearchException('Tọa độ không hợp lệ.');
     }
-
-    final results = await _request('/v1/geocode/reverse', {
+    final results = await _request('reverse', {
       'lat': latitude.toString(),
       'lon': longitude.toString(),
-      'lang': 'vi',
-      'limit': '1',
     });
-
-    if (results.isEmpty) {
-      return null;
-    }
-
+    if (results.isEmpty) return null;
     final address = results.first;
-
-    // API trả địa chỉ gần nhất, nhưng vị trí lưu vẫn phải là
-    // đúng điểm admin vừa chọn trên bản đồ.
     return PlaceSearchResult(
       id: address.id,
       name: address.name,
@@ -69,59 +60,26 @@ class PlaceSearchRepository {
     String path,
     Map<String, String> parameters,
   ) async {
-    if (!isConfigured) {
-      throw const PlaceSearchException(
-        'Chưa cấu hình GEOAPIFY_API_KEY trong frontend/.env.',
-      );
-    }
-
-    final uri = Uri.https('api.geoapify.com', path, {
-      ...parameters,
-      'format': 'geojson',
-      'apiKey': _apiKey.trim(),
-    });
-
     try {
-      final response = await http
-          .get(uri, headers: const {'Accept': 'application/json'})
-          .timeout(const Duration(seconds: 15));
-
-      if (response.statusCode == 401 || response.statusCode == 403) {
-        throw const PlaceSearchException(
-          'API key bản đồ không hợp lệ hoặc chưa được cấp quyền.',
-        );
+      final query = Uri(queryParameters: parameters).query;
+      final response = await ApiClient.get(
+        '${ApiEndpoints.placeGeocode}/$path?$query',
+      );
+      final data = response['data'];
+      if (data is! Map || data['features'] is! List) {
+        throw const FormatException('Invalid map response');
       }
-
-      if (response.statusCode == 429) {
-        throw const PlaceSearchException(
-          'Dịch vụ tìm kiếm đang giới hạn lượt gọi. Vui lòng thử lại sau.',
-        );
-      }
-
-      if (response.statusCode != 200) {
-        throw PlaceSearchException(
-          'Không thể tra cứu địa điểm (HTTP ${response.statusCode}).',
-        );
-      }
-
-      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
-
-      if (decoded is! Map || decoded['features'] is! List) {
-        throw const PlaceSearchException(
-          'Dịch vụ bản đồ trả dữ liệu không hợp lệ.',
-        );
-      }
-
-      final features = decoded['features'] as List;
       final results = <PlaceSearchResult>[];
-
-      for (final feature in features) {
+      for (final feature in data['features'] as List) {
         if (feature is! Map) continue;
-
-        final result = PlaceSearchResult.fromGeoJsonFeature(
-          Map<String, dynamic>.from(feature),
-        );
-
+        final PlaceSearchResult result;
+        try {
+          result = PlaceSearchResult.fromGeoJsonFeature(
+            Map<String, dynamic>.from(feature),
+          );
+        } on FormatException {
+          continue;
+        }
         if (result.latitude.isFinite &&
             result.longitude.isFinite &&
             result.latitude >= -90 &&
@@ -131,27 +89,31 @@ class PlaceSearchRepository {
           results.add(result);
         }
       }
-
       return results;
-    } on TimeoutException {
-      throw const PlaceSearchException(
+    } catch (error) {
+      throw _errorFor(error);
+    }
+  }
+
+  PlaceSearchException _errorFor(Object error) {
+    if (error is ApiException) return PlaceSearchException(error.message);
+    if (error is TimeoutException) {
+      return const PlaceSearchException(
         'Tra cứu địa điểm quá lâu. Vui lòng thử lại.',
       );
-    } on http.ClientException {
-      throw const PlaceSearchException(
-        'Không thể kết nối dịch vụ bản đồ. Kiểm tra kết nối mạng.',
-      );
-    } on FormatException {
-      throw const PlaceSearchException('Không đọc được dữ liệu địa điểm.');
     }
+    if (error is http.ClientException) {
+      return const PlaceSearchException(
+        'Không kết nối được máy chủ. Kiểm tra mạng và thử lại.',
+      );
+    }
+    return const PlaceSearchException('Không đọc được dữ liệu địa điểm.');
   }
 }
 
 class PlaceSearchException implements Exception {
   const PlaceSearchException(this.message);
-
   final String message;
-
   @override
   String toString() => message;
 }

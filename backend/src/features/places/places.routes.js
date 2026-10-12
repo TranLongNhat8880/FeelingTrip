@@ -19,6 +19,7 @@ const {
 } = require('./places.validation');
 
 const router = express.Router();
+router.use('/geocode', require('./geocoding.routes'));
 
 // ============================================================================
 // PUBLIC: SEARCH, MAPS & ROUTE

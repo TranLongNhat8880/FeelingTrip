@@ -1,43 +1,127 @@
+import 'dart:convert';
+import 'package:feeling_trip/core/network/api_client.dart';
 import 'package:feeling_trip/features/map/repositories/place_search_repository.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  tearDown(dotenv.clean);
-
-  testWidgets('loads the .env asset at app startup', (tester) async {
-    await dotenv.load(fileName: '.env');
-
-    expect(dotenv.isInitialized, isTrue);
-    expect(dotenv.env.containsKey('GEOAPIFY_API_KEY'), isTrue);
+  final originalClient = ApiClient.client;
+  setUp(
+    () => SharedPreferences.setMockInitialValues({'jwt_token': 'test-token'}),
+  );
+  tearDown(() {
+    ApiClient.client.close();
+    ApiClient.client = originalClient;
   });
 
-  test('reads the map key from dotenv without a dart-define', () {
-    dotenv.loadFromString(envString: 'GEOAPIFY_API_KEY=test-client-key');
+  http.Response response(Object data) => http.Response(
+    jsonEncode({'success': true, 'data': data}),
+    200,
+    headers: {'content-type': 'application/json; charset=utf-8'},
+  );
 
-    expect(PlaceSearchRepository().isConfigured, isTrue);
+  test(
+    'configuration is read from the backend with the current session',
+    () async {
+      ApiClient.client = MockClient((request) async {
+        expect(request.url.path, '/api/v1/places/geocode/configuration');
+        expect(request.headers['Authorization'], 'Bearer test-token');
+        expect(request.url.queryParameters.containsKey('apiKey'), isFalse);
+        return response({'configured': true});
+      });
+      expect(await PlaceSearchRepository().isConfigured(), isTrue);
+      expect(
+        PlaceSearchRepository.tileUrlTemplate,
+        contains('/places/geocode/tiles/'),
+      );
+      expect(PlaceSearchRepository.tileUrlTemplate, isNot(contains('apiKey')));
+    },
+  );
+
+  test('search uses the backend and skips only malformed results', () async {
+    ApiClient.client = MockClient((request) async {
+      expect(request.url.path, '/api/v1/places/geocode/search');
+      expect(request.url.queryParameters['text'], 'Hồ Hoàn Kiếm');
+      return response({
+        'features': [
+          {
+            'properties': {'name': 'Missing coordinates'},
+          },
+          {
+            'properties': {'name': 'Hồ Hoàn Kiếm', 'formatted': 'Hà Nội'},
+            'geometry': {
+              'coordinates': [105.852, 21.028],
+            },
+          },
+          {
+            'properties': {'lat': 200, 'lon': 300},
+          },
+        ],
+      });
+    });
+    final results = await PlaceSearchRepository().searchPlaces('Hồ Hoàn Kiếm');
+    expect(results, hasLength(1));
+    expect(results.single.name, 'Hồ Hoàn Kiếm');
   });
 
-  test('an empty map key disables map search with a useful message', () async {
-    dotenv.loadFromString(envString: 'GEOAPIFY_API_KEY=');
-    final repository = PlaceSearchRepository();
+  test(
+    'reverse lookup keeps the selected pin and validates coordinates',
+    () async {
+      ApiClient.client = MockClient((request) async {
+        expect(request.url.path, '/api/v1/places/geocode/reverse');
+        expect(request.url.queryParameters['lat'], '21.028');
+        return response({
+          'features': [
+            {
+              'properties': {
+                'formatted': 'Hà Nội',
+                'lat': 21.03,
+                'lon': 105.86,
+              },
+            },
+          ],
+        });
+      });
+      final repository = PlaceSearchRepository();
+      final result = await repository.reverseGeocode(
+        latitude: 21.028,
+        longitude: 105.852,
+      );
+      expect(result!.latitude, 21.028);
+      expect(result.longitude, 105.852);
+      await expectLater(
+        repository.reverseGeocode(latitude: 200, longitude: 0),
+        throwsA(isA<PlaceSearchException>()),
+      );
+    },
+  );
 
-    expect(repository.isConfigured, isFalse);
-    await expectLater(
-      repository.searchPlaces('Ha Noi'),
-      throwsA(
-        isA<PlaceSearchException>().having(
-          (error) => error.message,
-          'message',
-          contains('frontend/.env'),
+  test(
+    'unavailable backend map configuration produces a readable message',
+    () async {
+      ApiClient.client = MockClient(
+        (request) async => http.Response(
+          jsonEncode({
+            'success': false,
+            'message': 'Dịch vụ bản đồ chưa được cấu hình trên máy chủ',
+          }),
+          503,
+          headers: {'content-type': 'application/json; charset=utf-8'},
         ),
-      ),
-    );
-  });
-
-  test('a missing map key is treated as unconfigured', () {
-    dotenv.loadFromString(envString: 'OTHER_CONFIG=test');
-
-    expect(PlaceSearchRepository().isConfigured, isFalse);
-  });
+      );
+      final repository = PlaceSearchRepository();
+      await expectLater(
+        repository.searchPlaces('Hà Nội'),
+        throwsA(
+          isA<PlaceSearchException>().having(
+            (error) => error.message,
+            'message',
+            contains('máy chủ'),
+          ),
+        ),
+      );
+    },
+  );
 }
