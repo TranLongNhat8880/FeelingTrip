@@ -36,9 +36,17 @@ const geocode = async (path, parameters) => {
     const lat = p.lat ?? feature?.geometry?.coordinates?.[1];
     if (!Number.isFinite(lat) || !Number.isFinite(lon) ||
         lat < -90 || lat > 90 || lon < -180 || lon > 180) return [];
-    return [{ properties: { place_id: p.place_id, name: p.name,
-      formatted: p.formatted, address_line1: p.address_line1, city: p.city,
-      lat, lon } }];
+    const properties = { lat, lon };
+    // Explicit whitelist: address components help the admin form match the
+    // selected administrative dataset, without exposing provider internals.
+    for (const key of ['place_id', 'name', 'formatted', 'address_line1',
+      'country_code', 'state', 'county', 'city', 'district', 'suburb',
+      'quarter', 'street', 'housenumber']) {
+      if (typeof p[key] === 'string' && p[key].trim()) {
+        properties[key] = p[key].trim();
+      }
+    }
+    return [{ properties }];
   }) };
 };
 

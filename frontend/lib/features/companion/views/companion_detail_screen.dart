@@ -9,13 +9,15 @@ import '../viewmodels/companion_detail_viewmodel.dart';
 import '../repositories/companion_repository.dart';
 import 'widgets/join_request_sheet.dart';
 import 'widgets/companion_itinerary_preview.dart';
+import 'create_companion_post_screen.dart';
+import '../../review/views/report_screen.dart';
+import '../repositories/api_companion_repository.dart';
+import '../repositories/mock_companion_repository.dart';
+import '../../../core/constants/api_endpoints.dart';
 
-// ================================================================================
-// SCREEN: Companion Detail
-// ================================================================================
-// Chi tiết bài đăng + thông tin nhóm + nút gửi yêu cầu tham gia.
-// ================================================================================
-
+// =========================================================================// SCREEN: Companion Detail
+// =========================================================================// Chi tiết bài đăng + thông tin nhóm + nút gửi yêu cầu tham gia.
+// =========================================================================
 class CompanionDetailScreen extends StatefulWidget {
   const CompanionDetailScreen({
     super.key,
@@ -49,6 +51,88 @@ class _CompanionDetailScreenState extends State<CompanionDetailScreen> {
 
   void _onVmChanged() {
     if (mounted) setState(() {});
+  }
+
+  bool _isLeader(CompanionPost post) {
+    final id = AuthScope.of(context).user?.id;
+    if (ApiEndpoints.useMockData && post.creator.id == 'current-user') {
+      return true;
+    }
+    if (post.trip.members.any((m) => m.role == 'LEADER')) {
+      return post.trip.members.any((m) => m.userId == id && m.role == 'LEADER');
+    }
+    return post.creator.id == id || post.creator.id == 'current-user';
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _cancelRequest() async {
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: 'Huỷ yêu cầu tham gia?',
+      message: 'Bạn có thể gửi lại nếu bài đăng vẫn nhận thành viên.',
+      confirmLabel: 'Huỷ yêu cầu',
+    );
+    if (!confirmed || !mounted) return;
+    if (!await _vm.cancelRequest() && mounted) {
+      _showError(_vm.errorMessage ?? 'Không huỷ được yêu cầu');
+    }
+  }
+
+  Future<void> _action(String action, CompanionPost post) async {
+    if (action == 'report') {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ReportScreen(
+            reportedTripId: post.trip.id,
+            reportedTripName: post.trip.name ?? post.title,
+          ),
+        ),
+      );
+      return;
+    }
+    if (action == 'edit') {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => CreateCompanionPostScreen(
+            post: post,
+            repository: widget.repository,
+            tripId: post.trip.id,
+            tripName: post.trip.name,
+            tripDestination: post.trip.destination,
+          ),
+        ),
+      );
+      if (mounted) await _vm.load(widget.postId);
+      return;
+    }
+    if (action == 'close') {
+      final confirmed = await AppConfirmDialog.show(
+        context,
+        title: 'Đóng bài tuyển?',
+        message:
+            'Bài sẽ rời bảng tin và không nhận thêm yêu cầu. Thành viên chuyến đi được giữ nguyên.',
+        confirmLabel: 'Đóng bài',
+      );
+      if (!confirmed || !mounted) return;
+      try {
+        final repo =
+            widget.repository ??
+            (ApiEndpoints.useMockData
+                ? MockCompanionRepository()
+                : ApiCompanionRepository());
+        await repo.closePost(post.id);
+        if (mounted) Navigator.pop(context);
+      } catch (e) {
+        if (mounted) _showError(e.toString().replaceFirst('Exception: ', ''));
+      }
+    }
   }
 
   void _openJoinSheet() {
@@ -90,6 +174,26 @@ class _CompanionDetailScreenState extends State<CompanionDetailScreen> {
     final post = _vm.post;
     return AppScaffold(
       title: 'Chi tiết bài đăng',
+      actions: [
+        if (post != null)
+          PopupMenuButton<String>(
+            tooltip: 'Thao tác bài đăng',
+            onSelected: (value) => _action(value, post),
+            itemBuilder: (_) => [
+              if (_isLeader(post) && !post.isClosed) ...[
+                const PopupMenuItem(value: 'edit', child: Text('Sửa bài đăng')),
+                const PopupMenuItem(
+                  value: 'close',
+                  child: Text('Đóng bài tuyển'),
+                ),
+              ] else if (!_isLeader(post))
+                const PopupMenuItem(
+                  value: 'report',
+                  child: Text('Báo cáo bài đăng'),
+                ),
+            ],
+          ),
+      ],
       padding: EdgeInsets.zero,
       bottomNavigationBar: post == null ? null : _buildBottomBar(post),
       body: _vm.isLoading
@@ -486,6 +590,7 @@ class _CompanionDetailScreenState extends State<CompanionDetailScreen> {
       (member) => member.userId == user?.id,
     );
     final verified = user?.hasVerifiedEkyc == true;
+    final finished = ['COMPLETED', 'CANCELLED'].contains(post.trip.status);
     final label = isMember
         ? 'Đã tham gia'
         : _vm.requestStatus == 'PENDING'
@@ -496,6 +601,8 @@ class _CompanionDetailScreenState extends State<CompanionDetailScreen> {
         ? 'Yêu cầu đã bị từ chối'
         : post.isClosed
         ? 'Bài đăng đã đóng'
+        : finished
+        ? 'Chuyến đi đã kết thúc hoặc đã huỷ'
         : post.isFull
         ? 'Đoàn đã đủ thành viên'
         : !verified
@@ -506,7 +613,25 @@ class _CompanionDetailScreenState extends State<CompanionDetailScreen> {
         !isMember &&
         !_vm.hasSentRequest &&
         !post.isClosed &&
+        !finished &&
         !post.isFull;
+    if (_vm.requestStatus == 'PENDING') {
+      return AppActionBar(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Đã gửi yêu cầu'),
+            const SizedBox(height: 8),
+            CustomButton(
+              text: 'Huỷ yêu cầu',
+              variant: AppButtonVariant.secondary,
+              isLoading: _vm.isSubmitting,
+              onPressed: _vm.isSubmitting ? null : _cancelRequest,
+            ),
+          ],
+        ),
+      );
+    }
     return AppActionBar(
       child: CustomButton(
         text: label,

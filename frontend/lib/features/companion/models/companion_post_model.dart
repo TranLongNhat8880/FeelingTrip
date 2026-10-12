@@ -180,6 +180,7 @@ class CompanionPost {
   final DateTime? updatedAt;
   final TripInfo trip;
   final CreatorInfo creator;
+  final String? myRequestId;
   final String? myRequestStatus; // PENDING | ACCEPTED | REJECTED
 
   const CompanionPost({
@@ -198,6 +199,7 @@ class CompanionPost {
     required this.trip,
     required this.creator,
     this.myRequestStatus,
+    this.myRequestId,
   });
 
   int get slotsLeft => targetMembersCount - currentMembersCount;
@@ -209,6 +211,7 @@ class CompanionPost {
     id: json['id']?.toString() ?? '',
     title: json['title'],
     myRequestStatus: json['myRequestStatus'],
+    myRequestId: json['myRequestId'],
     content: json['content'],
     targetMembersCount: json['targetMembersCount'] ?? 0,
     currentMembersCount: json['currentMembersCount'] ?? 0,

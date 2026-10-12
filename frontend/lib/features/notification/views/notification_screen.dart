@@ -19,9 +19,11 @@ class NotificationScreen extends StatelessWidget {
     if (item.type == 'REQUEST' && item.title == 'Yêu cầu tham gia mới') {
       await Navigator.push<void>(
         context,
-        MaterialPageRoute(builder: (_) => const CompanionRequestsScreen()),
+        MaterialPageRoute(
+          builder: (_) => const CompanionRequestsScreen(initialReceived: true),
+        ),
       );
-    } else if (item.postId != null) {
+    } else if (item.postId != null && item.type != 'SYSTEM') {
       await Navigator.push<void>(
         context,
         MaterialPageRoute(
@@ -31,7 +33,9 @@ class NotificationScreen extends StatelessWidget {
     } else if (item.type == 'REQUEST') {
       await Navigator.push<void>(
         context,
-        MaterialPageRoute(builder: (_) => const CompanionRequestsScreen()),
+        MaterialPageRoute(
+          builder: (_) => const CompanionRequestsScreen(initialReceived: true),
+        ),
       );
     } else {
       await AppMessageDialog.show(

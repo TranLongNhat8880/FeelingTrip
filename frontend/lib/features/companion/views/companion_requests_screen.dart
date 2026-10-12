@@ -5,15 +5,56 @@ import '../../../core/constants/app_sizes.dart';
 import '../../../shared/ui_kit.dart';
 import '../models/companion_request_model.dart';
 import '../viewmodels/companion_requests_viewmodel.dart';
+import 'companion_sent_requests_screen.dart';
 
-class CompanionRequestsScreen extends StatefulWidget {
-  const CompanionRequestsScreen({super.key});
+class CompanionRequestsScreen extends StatelessWidget {
+  const CompanionRequestsScreen({super.key, this.initialReceived = false});
+  final bool initialReceived;
   @override
-  State<CompanionRequestsScreen> createState() =>
-      _CompanionRequestsScreenState();
+  Widget build(BuildContext context) => DefaultTabController(
+    length: 2,
+    initialIndex: initialReceived ? 1 : 0,
+    child: AppScaffold(
+      title: 'Yêu cầu tham gia',
+      padding: EdgeInsets.zero,
+      appBarBottom: TabBar(
+        labelColor: AppColors.primary,
+        unselectedLabelColor: AppColors.textSecondary,
+        labelStyle: Theme.of(
+          context,
+        ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+        unselectedLabelStyle: Theme.of(context).textTheme.titleSmall,
+        indicatorColor: AppColors.primary,
+        indicatorWeight: 3,
+        indicatorSize: TabBarIndicatorSize.label,
+        dividerColor: AppColors.border,
+        tabs: const [
+          Tab(text: 'Đã gửi'),
+          Tab(text: 'Nhận được'),
+        ],
+      ),
+      body: const TabBarView(
+        children: [
+          CompanionSentRequestsContent(),
+          CompanionReceivedRequestsContent(),
+        ],
+      ),
+    ),
+  );
 }
 
-class _CompanionRequestsScreenState extends State<CompanionRequestsScreen> {
+class CompanionReceivedRequestsContent extends StatefulWidget {
+  const CompanionReceivedRequestsContent({super.key});
+  @override
+  State<CompanionReceivedRequestsContent> createState() =>
+      _CompanionReceivedRequestsContentState();
+}
+
+class _CompanionReceivedRequestsContentState
+    extends State<CompanionReceivedRequestsContent>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
   final _vm = CompanionRequestsViewModel();
   final _searchController = TextEditingController();
   final Map<String, String> _posts = {};
@@ -71,100 +112,103 @@ class _CompanionRequestsScreenState extends State<CompanionRequestsScreen> {
   @override
   Widget build(BuildContext context) {
     final requests = _vm.visibleRequests;
-    return AppScaffold(
-      title: 'Yêu cầu tham gia',
-      padding: EdgeInsets.zero,
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: AppSizes.documentMaxWidth,
-            ),
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                  child: AppSearchField(
-                    controller: _searchController,
-                    hint: 'Tên người gửi yêu cầu',
-                    onChanged: (value) => _vm.filterLocal(query: value),
-                  ),
+    super.build(context);
+    return SafeArea(
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            maxWidth: AppSizes.documentMaxWidth,
+          ),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                child: AppSearchField(
+                  controller: _searchController,
+                  hint: 'Tên người gửi yêu cầu',
+                  onChanged: (value) => _vm.filterLocal(query: value),
                 ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 4,
-                  ),
-                  child: AppDropdownField<String>(
-                    label: 'Lọc theo chuyến đi',
-                    value: _vm.selectedPostId,
-                    items: [
-                      const DropdownMenuItem(
-                        value: '',
-                        child: Text('Tất cả chuyến đi'),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 4,
+                ),
+                child: AppDropdownField<String>(
+                  label: 'Lọc theo chuyến đi',
+                  value: _vm.selectedPostId,
+                  items: [
+                    const DropdownMenuItem(
+                      value: '',
+                      child: Text('Tất cả chuyến đi'),
+                    ),
+                    for (final post in _posts.entries)
+                      DropdownMenuItem(
+                        value: post.key,
+                        child: Text(
+                          post.value,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                      for (final post in _posts.entries)
-                        DropdownMenuItem(
-                          value: post.key,
-                          child: Text(
-                            post.value,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                    ],
-                    onChanged: (value) => _vm.filterLocal(postId: value),
-                  ),
+                  ],
+                  onChanged: (value) => _vm.filterLocal(postId: value),
                 ),
-                const SizedBox(height: 6),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    children: [
-                      for (final tab in const {
-                        'PENDING': 'Chờ duyệt',
-                        'ACCEPTED': 'Đã duyệt',
-                        'REJECTED': 'Từ chối',
-                        '': 'Tất cả',
-                      }.entries)
-                        Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: AppChoiceChips<String>(
-                            options: {tab.key: tab.value},
-                            selected: {_vm.filterStatus},
-                            onChanged: (_) => _vm.setFilter(tab.key),
-                          ),
+              ),
+              const SizedBox(height: 6),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    for (final tab in const {
+                      'PENDING': 'Chờ duyệt',
+                      'ACCEPTED': 'Đã duyệt',
+                      'REJECTED': 'Từ chối',
+                      '': 'Tất cả',
+                    }.entries)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: FilterChip(
+                          label: Text(tab.value),
+                          labelStyle: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: _vm.filterStatus == tab.key
+                                    ? AppColors.primary
+                                    : AppColors.textPrimary,
+                              ),
+                          selected: _vm.filterStatus == tab.key,
+                          onSelected: (_) => _vm.setFilter(tab.key),
                         ),
-                    ],
-                  ),
+                      ),
+                  ],
                 ),
-                const SizedBox(height: 8),
-                Expanded(
-                  child: _vm.isLoading
-                      ? const Center(child: LoadingIndicator())
-                      : requests.isEmpty
-                      ? const EmptyStateWidget(
-                          icon: Icons.inbox_outlined,
-                          title: 'Chưa có yêu cầu nào',
-                          message: 'Thử thay đổi trạng thái hoặc chuyến đi.',
-                        )
-                      : RefreshIndicator(
-                          color: AppColors.primary,
-                          onRefresh: () => _vm.load(refresh: true),
-                          child: ListView.separated(
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-                            itemCount: requests.length,
-                            separatorBuilder: (_, _) =>
-                                const SizedBox(height: 10),
-                            itemBuilder: (context, index) =>
-                                _requestRow(requests[index]),
-                          ),
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: _vm.isLoading
+                    ? const Center(child: LoadingIndicator())
+                    : requests.isEmpty
+                    ? const EmptyStateWidget(
+                        icon: Icons.inbox_outlined,
+                        title: 'Chưa có yêu cầu nào',
+                        message: 'Thử thay đổi trạng thái hoặc chuyến đi.',
+                      )
+                    : RefreshIndicator(
+                        color: AppColors.primary,
+                        onRefresh: () => _vm.load(refresh: true),
+                        child: ListView.separated(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                          itemCount: requests.length,
+                          separatorBuilder: (_, _) =>
+                              const SizedBox(height: 10),
+                          itemBuilder: (context, index) =>
+                              _requestRow(requests[index]),
                         ),
-                ),
-              ],
-            ),
+                      ),
+              ),
+            ],
           ),
         ),
       ),

@@ -5,8 +5,9 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../../shared/ui_kit.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/network/storage_helper.dart';
+import '../../../shared/ui_kit.dart';
 import '../models/place_search_result.dart';
 import '../repositories/place_search_repository.dart';
 
@@ -40,6 +41,9 @@ class _PlaceLocationPickerScreenState extends State<PlaceLocationPickerScreen> {
   int _addressRequest = 0;
   bool? _configured;
   String? _configurationError;
+  String? _tileErrorMessage;
+  bool _tileErrorPending = false;
+  int _configurationRequest = 0;
   NetworkTileProvider? _tileProvider;
 
   @override
@@ -50,23 +54,71 @@ class _PlaceLocationPickerScreenState extends State<PlaceLocationPickerScreen> {
   }
 
   Future<void> _loadConfiguration() async {
+    final request = ++_configurationRequest;
     setState(() {
       _configured = null;
       _configurationError = null;
+      _tileErrorMessage = null;
+      _tileErrorPending = false;
+      _tileProvider = null;
     });
     try {
       final configured = await _repository.isConfigured();
+      if (!mounted || request != _configurationRequest) return;
+      if (!configured) {
+        setState(() => _configured = false);
+        return;
+      }
       final token = await StorageHelper.getToken();
-      if (!mounted) return;
+      if (!mounted || request != _configurationRequest) return;
+      if (token == null || token.trim().isEmpty) {
+        throw const PlaceSearchException(
+          'Vui lòng đăng nhập lại bằng tài khoản quản trị viên để tải bản đồ.',
+        );
+      }
       setState(() {
-        _configured = configured;
+        _configured = true;
         _tileProvider = NetworkTileProvider(
-          headers: {if (token != null) 'Authorization': 'Bearer $token'},
+          headers: {'Authorization': 'Bearer ${token.trim()}'},
+          httpClient: ApiClient.client,
+          // Backend trả lỗi JSON, không phải ảnh PNG cần giải mã.
+          attemptDecodeOfHttpErrorResponses: false,
         );
       });
     } catch (error) {
-      if (mounted) setState(() => _configurationError = _messageFor(error));
+      if (!mounted || request != _configurationRequest) return;
+      setState(() => _configurationError = _messageFor(error));
     }
+  }
+
+  void _onTileError(Object error, int request) {
+    if (!mounted ||
+        request != _configurationRequest ||
+        _tileErrorPending ||
+        _tileErrorMessage != null) {
+      return;
+    }
+
+    final status = error is NetworkImageLoadException ? error.statusCode : null;
+    final message = switch (status) {
+      401 || 403 =>
+        'Phiên đăng nhập hết hạn hoặc không có quyền tải bản đồ. '
+            'Vui lòng đăng nhập lại.',
+      429 => 'Dịch vụ bản đồ đang giới hạn lượt gọi. Vui lòng thử lại sau.',
+      503 => 'Dịch vụ bản đồ chưa được cấu hình trên máy chủ.',
+      _ => 'Không tải được ảnh bản đồ. Kiểm tra kết nối và thử lại.',
+    };
+
+    // Nhiều tile có thể cùng báo lỗi trong một khung hình.
+    _tileErrorPending = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || request != _configurationRequest) return;
+      setState(() {
+        _tileErrorPending = false;
+        _tileErrorMessage = message;
+      });
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   @override
@@ -196,11 +248,9 @@ class _PlaceLocationPickerScreenState extends State<PlaceLocationPickerScreen> {
           return;
         }
 
-        _selected = PlaceSearchResult(
-          id: result.id,
+        _selected = result.copyWith(
           // Địa chỉ gần ghim không nhất thiết là tên địa điểm.
           name: '',
-          formattedAddress: result.formattedAddress,
           latitude: point.latitude,
           longitude: point.longitude,
         );
@@ -248,7 +298,8 @@ class _PlaceLocationPickerScreenState extends State<PlaceLocationPickerScreen> {
 
   Widget _buildMap() {
     final selected = _selected;
-    final initial = widget.initialLocation;
+    final initial = selected;
+    final request = _configurationRequest;
 
     return Stack(
       children: [
@@ -268,6 +319,7 @@ class _PlaceLocationPickerScreenState extends State<PlaceLocationPickerScreen> {
               urlTemplate: PlaceSearchRepository.tileUrlTemplate,
               tileProvider: _tileProvider!,
               maxNativeZoom: 20,
+              errorTileCallback: (_, error, _) => _onTileError(error, request),
             ),
             if (selected != null)
               MarkerLayer(
@@ -365,14 +417,13 @@ class _PlaceLocationPickerScreenState extends State<PlaceLocationPickerScreen> {
       );
     }
     if (!_configured!) {
-      return const AppScaffold(
+      return AppScaffold(
         title: 'Chọn vị trí địa điểm',
-        body: Center(
-          child: Text(
-            'Dịch vụ bản đồ chưa sẵn sàng.\n'
-            'Vui lòng liên hệ quản trị viên hoặc thử lại sau.',
-            textAlign: TextAlign.center,
-          ),
+        body: ErrorState(
+          message:
+              'Dịch vụ bản đồ chưa sẵn sàng trên máy chủ. '
+              'Vui lòng liên hệ quản trị viên hoặc thử lại sau.',
+          onRetry: _loadConfiguration,
         ),
       );
     }
@@ -409,6 +460,26 @@ class _PlaceLocationPickerScreenState extends State<PlaceLocationPickerScreen> {
               style: Theme.of(context).textTheme.bodySmall,
             ),
           const SizedBox(height: 8),
+          if (_tileErrorMessage != null)
+            Semantics(
+              liveRegion: true,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _tileErrorMessage!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _loadConfiguration,
+                    child: const Text('Thử lại bản đồ'),
+                  ),
+                ],
+              ),
+            ),
           Expanded(
             child: ClipRRect(
               borderRadius: BorderRadius.circular(16),

@@ -142,6 +142,18 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Đã gửi yêu cầu'), findsOneWidget);
       expect(find.text('Gửi yêu cầu tham gia'), findsNothing);
+      await capture(tester, key, 'detail-pending-request');
+      await tester.tap(find.text('Huỷ yêu cầu'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Huỷ yêu cầu').last);
+      await tester.pumpAndSettle();
+      expect(find.text('Gửi yêu cầu tham gia'), findsOneWidget);
+      expect(find.byType(SnackBar), findsNothing);
+      await tester.tap(find.byTooltip('Quay lại'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(CompanionPostCard).first);
+      await tester.pumpAndSettle();
+      expect(find.text('Gửi yêu cầu tham gia'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );

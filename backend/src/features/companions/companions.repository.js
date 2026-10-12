@@ -529,7 +529,56 @@ const getPostedTripIds = async (userId) => {
   return rows.map(row => row.trip_id);
 };
 
+// Danh sách yêu cầu do chính người dùng gửi
+const getMySentRequests = async ({ userId, status, limit, offset }) => {
+  const params = [userId];
+  let filter = 'cr.user_id=$1';
+
+  if (status) {
+    params.push(status);
+    filter += ` AND cr.status=$${params.length}`;
+  }
+
+  const from = `
+    FROM companion_requests cr
+    JOIN companion_posts cp ON cp.id=cr.post_id
+    JOIN trips t ON t.id=cp.trip_id
+    WHERE ${filter}
+  `;
+  const countQuery = `SELECT COUNT(*)::int AS total ${from}`;
+  const { rows: countRows } = await db.query(countQuery, params);
+  const total = countRows[0].total;
+
+  const dataQuery = `
+    SELECT cr.id, cr.post_id, cr.status, cr.introduction, cr.created_at,
+      cp.title, cp.status AS post_status, t.name AS trip_name, t.destination
+    ${from}
+    ORDER BY cr.created_at DESC, cr.id DESC
+    LIMIT $${params.length + 1} OFFSET $${params.length + 2}
+  `;
+  const { rows } = await db.query(dataQuery, [...params, limit, offset]);
+  return { rows, total };
+};
+
+// Bài tuyển đang hoạt động của chuyến đi mà người dùng là trưởng nhóm
+const getMyPosts = async (userId, page, limit) => {
+  const query = `
+    SELECT cp.id, cp.title, cp.status, t.name AS trip_name, t.destination
+    FROM companion_posts cp
+    JOIN trips t ON t.id=cp.trip_id
+    JOIN trip_members tm ON tm.trip_id=cp.trip_id
+    WHERE tm.user_id=$1 AND tm.role='LEADER'
+      AND tm.membership_status='ACTIVE' AND cp.status IN ('OPEN','FULL')
+    ORDER BY cp.created_at DESC, cp.id DESC
+    LIMIT $2 OFFSET $3
+  `;
+  const { rows } = await db.query(query, [userId, limit, (page - 1) * limit]);
+  return rows;
+};
+
 module.exports = {
+    getMyPosts,
+    getMySentRequests,
     getPostedTripIds,
     createCompanionPost,
     checkExistsPostByTripId,

@@ -143,6 +143,49 @@ class ApiCompanionRepository implements CompanionRepository {
   }
 
   @override
+  Future<void> updatePost(String postId, Map<String, dynamic> data) async {
+    await ApiClient.patch(
+      '${ApiEndpoints.companions}/posts/$postId',
+      body: data,
+    );
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getMyPosts({int page = 1}) async {
+    final rows =
+        (await ApiClient.get(
+              '${ApiEndpoints.companions}/my-posts?page=$page&limit=20',
+            ))['data']
+            as List;
+    return rows.map((r) => Map<String, dynamic>.from(r)).toList();
+  }
+
+  @override
+  Future<void> closePost(String postId) async {
+    await ApiClient.delete('${ApiEndpoints.companions}/posts/$postId');
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getMySentRequests({
+    String? status,
+    int page = 1,
+  }) async {
+    final query = Uri(
+      queryParameters: {
+        'page': '$page',
+        'limit': '20',
+        if (status != null && status.isNotEmpty) 'status': status,
+      },
+    ).query;
+    final response = await ApiClient.get(
+      '${ApiEndpoints.companions}/sent-requests?$query',
+    );
+    return (response['data']['requests'] as List)
+        .map((r) => Map<String, dynamic>.from(r))
+        .toList();
+  }
+
+  @override
   Future<void> deleteJoinRequest(String requestId) async {
     final endpoint = '${ApiEndpoints.companions}/requests/$requestId';
     await ApiClient.delete(endpoint);

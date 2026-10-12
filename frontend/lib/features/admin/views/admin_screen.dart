@@ -7,6 +7,10 @@ import '../../../shared/ui_kit.dart';
 import '../../auth/viewmodels/auth_viewmodel.dart';
 import '../../map/views/admin_place_management_content.dart';
 import '../viewmodels/admin_viewmodel.dart';
+import 'admin_reports_content.dart';
+import 'admin_templates_content.dart';
+import 'plan_library_screen.dart';
+import 'admin_moderation_screen.dart';
 
 class AdminScreen extends StatefulWidget {
   const AdminScreen({super.key});
@@ -17,6 +21,7 @@ class AdminScreen extends StatefulWidget {
 class _AdminScreenState extends State<AdminScreen> {
   final _vm = AdminViewModel();
   int _section = 0;
+  int _templateRefresh = 0;
   final _searchController = TextEditingController();
   @override
   void initState() {
@@ -361,11 +366,17 @@ class _AdminScreenState extends State<AdminScreen> {
       0 => 'Hồ sơ chờ duyệt',
       1 => 'Người dùng',
       2 => 'Quản lý địa điểm',
+      3 => 'Báo cáo vi phạm',
+      4 => 'Lịch trình mẫu',
       _ => 'Quản trị',
     };
   }
 
   Widget _buildSection() {
+    if (_section == 3) return const AdminReportsContent();
+    if (_section == 4) {
+      return AdminTemplatesContent(key: ValueKey(_templateRefresh));
+    }
     if (_section == 2) {
       return const Padding(
         padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
@@ -394,6 +405,30 @@ class _AdminScreenState extends State<AdminScreen> {
       showBack: false,
       actions: [
         IconButton(
+          tooltip: 'Kiểm duyệt bài tuyển',
+          icon: const Icon(Icons.policy_outlined),
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const AdminModerationScreen()),
+          ),
+        ),
+        IconButton(
+          tooltip: 'Kho lịch trình',
+          icon: const Icon(Icons.explore_outlined),
+          onPressed: () async {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const PlanLibraryScreen()),
+            );
+            if (mounted) {
+              setState(() {
+                _templateRefresh++;
+                _section = 4;
+              });
+            }
+          },
+        ),
+        IconButton(
           tooltip: 'Đăng xuất',
           icon: const Icon(Icons.logout),
           onPressed: _logout,
@@ -409,6 +444,8 @@ class _AdminScreenState extends State<AdminScreen> {
           ),
           AppNavigationItem(label: 'Người dùng', icon: Icons.people_outline),
           AppNavigationItem(label: 'Địa điểm', icon: Icons.place_outlined),
+          AppNavigationItem(label: 'Báo cáo', icon: Icons.report_outlined),
+          AppNavigationItem(label: 'Mẫu', icon: Icons.route_outlined),
         ],
       ),
       body: SafeArea(

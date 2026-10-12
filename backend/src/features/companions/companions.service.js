@@ -267,6 +267,7 @@ const getCompanionPostDetail = async ({ postId, userId }) => {
         title: post.title,
         content: post.content,
         myRequestStatus: myRequest?.status || null,
+        myRequestId: myRequest?.id || null,
         targetMembersCount: post.target_members_count,
         currentMembersCount: post.current_members_count,
         minAge: post.min_age,
@@ -576,9 +577,51 @@ const getMyReceivedRequests = async ({ userId, page = 1, limit = 20, status, pos
     };
 };
 
-const getPostedTripIds = async (userId) => companionsRepository.getPostedTripIds(userId);
+const getPostedTripIds = async (userId) => {
+    return companionsRepository.getPostedTripIds(userId);
+};
+
+// Yêu cầu đã gửi: trả về bài đăng, chuyến đi và trạng thái hiện tại
+const getMySentRequests = async ({ userId, page = 1, limit = 20, status }) => {
+    const offset = (page - 1) * limit;
+    const { rows, total } = await companionsRepository.getMySentRequests({
+        userId,
+        status,
+        limit,
+        offset,
+    });
+
+    const requests = rows.map((row) => ({
+        id: row.id,
+        postId: row.post_id,
+        title: row.title,
+        tripName: row.trip_name,
+        destination: row.destination,
+        postStatus: row.post_status,
+        status: row.status,
+        introduction: row.introduction,
+        createdAt: row.created_at,
+    }));
+
+    const totalPages = Math.ceil(total / limit);
+    return {
+        requests,
+        pagination: {
+            totalItems: total,
+            totalPages,
+            currentPage: page,
+            limit,
+        },
+    };
+};
+
+const getMyPosts = (userId, page, limit) => {
+    return companionsRepository.getMyPosts(userId, page, limit);
+};
 
 module.exports = {
+    getMyPosts,
+    getMySentRequests,
     getPostedTripIds,
     createCompanionPost,
     updateCompanionPost,
