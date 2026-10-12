@@ -47,13 +47,7 @@ class PlaceSearchRepository {
     });
     if (results.isEmpty) return null;
     final address = results.first;
-    return PlaceSearchResult(
-      id: address.id,
-      name: address.name,
-      formattedAddress: address.formattedAddress,
-      latitude: latitude,
-      longitude: longitude,
-    );
+    return address.copyWith(latitude: latitude, longitude: longitude);
   }
 
   Future<List<PlaceSearchResult>> _request(
