@@ -219,12 +219,15 @@ class _CompanionFeedScreenState extends State<CompanionFeedScreen> {
           final post = _vm.posts[index];
           return CompanionPostCard(
             post: post,
-            onTap: () => Navigator.push<void>(
-              context,
-              MaterialPageRoute(
-                builder: (_) => CompanionDetailScreen(postId: post.id),
-              ),
-            ),
+            onTap: () async {
+              await Navigator.push<void>(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => CompanionDetailScreen(postId: post.id),
+                ),
+              );
+              if (mounted) await _vm.load(refresh: true);
+            },
           );
         },
       ),

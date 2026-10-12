@@ -54,6 +54,14 @@ abstract class CompanionRepository {
   /// Leader xét duyệt yêu cầu (ACCEPTED | REJECTED)
   Future<void> reviewJoinRequest(String requestId, String status);
 
+  Future<void> updatePost(String postId, Map<String, dynamic> data);
+  Future<void> closePost(String postId);
+  Future<List<Map<String, dynamic>>> getMyPosts({int page = 1});
+  Future<List<Map<String, dynamic>>> getMySentRequests({
+    String? status,
+    int page = 1,
+  });
+
   /// Người gửi hủy yêu cầu
   Future<void> deleteJoinRequest(String requestId);
 }
