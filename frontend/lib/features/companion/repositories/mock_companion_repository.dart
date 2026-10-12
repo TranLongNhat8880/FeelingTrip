@@ -364,6 +364,7 @@ class MockCompanionRepository implements CompanionRepository {
         estimatedBudget: post.trip.estimatedBudget,
         coverImageUrl: post.trip.coverImageUrl,
         status: post.trip.status,
+        itinerary: post.trip.itinerary,
         members: [
           TripMemberInfo(
             userId: post.creator.id,

@@ -6,6 +6,7 @@ const money = Joi.number().integer().min(0).max(MAX_VND);
 const member = Joi.object({ userId: uuid.required() });
 const createExpenseSchema = Joi.object({
   tripId: uuid.required(), payerId: uuid,
+  itineraryItemId: uuid.allow(null),
   title: Joi.string().trim().min(1).max(255).required(),
   amount: money.min(1).required(),
   category: Joi.string().valid(...Object.values(EXPENSE_CATEGORIES)).default('OTHER'),
@@ -23,6 +24,7 @@ const createExpenseSchema = Joi.object({
 const tripIdParamSchema = Joi.object({ tripId: uuid.required() });
 const settlementIdParamSchema = Joi.object({ id: uuid.required() });
 const budgetSchema = Joi.object({ estimatedBudget: money.required() });
+const linkExpenseSchema = Joi.object({ itineraryItemId: uuid.required() });
 const webhookSchema = Joi.object({
   id: Joi.number().integer().positive().required(),
   gateway: Joi.string().trim().max(100).required(),
@@ -32,4 +34,4 @@ const webhookSchema = Joi.object({
   content: Joi.string().max(2000).allow(null, ''),
   description: Joi.string().max(2000).allow(null, ''),
 });
-module.exports = { createExpenseSchema, tripIdParamSchema, settlementIdParamSchema, budgetSchema, webhookSchema };
+module.exports = { createExpenseSchema, tripIdParamSchema, settlementIdParamSchema, budgetSchema, webhookSchema, linkExpenseSchema };

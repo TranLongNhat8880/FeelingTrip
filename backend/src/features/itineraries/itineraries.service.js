@@ -21,6 +21,8 @@ const formatItem = row => ({
   endTime: asTime(row.end_time),
   note: row.note || null,
   estimatedCost: Number(row.estimated_cost || 0),
+  expenseId: row.expense_id || null,
+  actualAmount: row.actual_amount == null ? null : Number(row.actual_amount),
   isCompleted: Boolean(row.is_completed),
   createdAt: asIso(row.created_at),
   version: String(row.row_version),

@@ -138,6 +138,16 @@ const createExpense = async (input, currentUserId) => {
     await repo.lockTrip(client, tripId);
     await repo.requireMember(tripId, currentUserId, client);
 
+    if (expense.itineraryItemId) {
+      const { rows: [item] } = await client.query(`SELECT ii.id FROM itinerary_items ii
+        JOIN itineraries i ON i.id=ii.itinerary_id WHERE ii.id=$1 AND i.trip_id=$2`,
+      [expense.itineraryItemId,tripId]);
+      if (!item) throw apiError(404, 'Hoạt động không thuộc chuyến đi này');
+      const { rowCount } = await client.query('SELECT 1 FROM expenses WHERE itinerary_item_id=$1',
+        [expense.itineraryItemId]);
+      if (rowCount) throw apiError(409, 'Hoạt động đã được ghi nhận khoản chi. Vui lòng tải lại chi phí');
+    }
+
     const involvedUsers = new Set([expense.payerId, ...participantIds]);
     for (const userId of involvedUsers) {
       await repo.requireMember(tripId, userId, client);
@@ -334,6 +344,10 @@ const getPaymentStatus = async (id, userId) => {
     id: settlement.id, status: settlement.status, amount: settlement.amount,
     fromUserId: settlement.from_user_id, toUserId: settlement.to_user_id,
     recipientName: settlement.to_user_name,
+    bankBin: settlement.bank_bin,
+    bankAccountNumber: settlement.bank_account_number,
+    bankAccountName: settlement.bank_account_name,
+    paymentReference: 'FT ' + settlement.id.replaceAll('-', '').toUpperCase(),
     automaticConfirmationAvailable: Boolean(account),
     vietqrUrl: canPay ? settlement.vietqrUrl : null,
     paidAt: settlement.paid_at,
@@ -447,3 +461,34 @@ module.exports = {
   handleSepayWebhook,
   getPaymentStatus,
 };
+
+module.exports.getTripSettlements = async (tripId, userId) => {
+  await repo.requireMember(tripId, userId);
+  const rows = await repo.findTripSettlements(tripId);
+  return rows.map(s => formatSettlement(s, {
+    [s.from_user_id]: {fullName: s.from_user_name},
+    [s.to_user_id]: {fullName: s.to_user_name},
+  }));
+};
+
+module.exports.getPlannedCosts = async (tripId, userId) => {
+  await repo.requireMember(tripId, userId);
+  return repo.findPlannedCosts(tripId);
+};
+
+module.exports.linkExpenseToItem = (id, itemId, userId) => db.transaction(async client => {
+  const { rows: [initial] } = await client.query('SELECT trip_id FROM expenses WHERE id=$1',[id]);
+  if (!initial) throw apiError(404, 'Không tìm thấy khoản chi');
+  await repo.lockTrip(client, initial.trip_id);
+  await repo.requireMember(initial.trip_id, userId, client);
+  const { rows: [expense] } = await client.query('SELECT * FROM expenses WHERE id=$1',[id]);
+  const { rows: [item] } = await client.query(`SELECT ii.id FROM itinerary_items ii
+    JOIN itineraries i ON i.id=ii.itinerary_id WHERE ii.id=$1 AND i.trip_id=$2`,[itemId,initial.trip_id]);
+  if (!item) throw apiError(404, 'Hoạt động không thuộc chuyến đi này');
+  if (expense.itinerary_item_id === itemId) return {expenseId:id,itineraryItemId:itemId};
+  if (expense.itinerary_item_id) throw apiError(409, 'Khoản chi đã liên kết với hoạt động khác');
+  const { rowCount } = await client.query('SELECT 1 FROM expenses WHERE itinerary_item_id=$1',[itemId]);
+  if (rowCount) throw apiError(409, 'Hoạt động đã có khoản chi liên kết');
+  await client.query('UPDATE expenses SET itinerary_item_id=$2 WHERE id=$1',[id,itemId]);
+  return {expenseId:id,itineraryItemId:itemId};
+});

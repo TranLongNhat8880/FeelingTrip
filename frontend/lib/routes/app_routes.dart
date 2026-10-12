@@ -74,7 +74,20 @@ class AppRoutes {
       owner: 'Nhóm AI',
       icon: Icons.auto_awesome_rounded,
     ),
-    expenses: (context) => const SplitBillScreen(),
+    expenses: (context) {
+      final args = ModalRoute.of(context)?.settings.arguments;
+      final tripId = args is String
+          ? args
+          : args is Map
+          ? args['tripId'] as String?
+          : null;
+      return SplitBillScreen(
+        tripId: tripId,
+        itineraryItemId: args is Map
+            ? args['itineraryItemId'] as String?
+            : null,
+      );
+    },
     if (kDebugMode) admin: (context) => const AdminScreen(),
     if (kDebugMode) uiKit: (context) => const UiKitGalleryScreen(),
   };

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/app_utils.dart';
 import '../../../shared/ui_kit.dart';
+import '../../../routes/app_routes.dart';
 import '../models/itinerary_model.dart';
 import '../repositories/itinerary_repository.dart';
 import '../viewmodels/itinerary_viewmodel.dart';
@@ -159,6 +160,14 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
               ? null
               : () => _moveItem(day, index, index + 1),
           onSmartSwap: item.supportsSmartSwap ? () => _smartSwap(item) : null,
+          onRecordExpense: () async {
+            await Navigator.pushNamed(
+              context,
+              AppRoutes.expenses,
+              arguments: {'tripId': widget.tripId, 'itineraryItemId': item.id},
+            );
+            if (mounted) await _viewModel.load(widget.tripId);
+          },
           reorderHandle: draggable
               ? ReorderableDragStartListener(
                   index: index,

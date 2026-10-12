@@ -120,7 +120,7 @@ void main() {
       ); // Existing mock uses nickname TuanTravel.
       final location = tester.getTopLeft(find.text('Điểm đến')).dy;
       final time = tester.getTopLeft(find.text('Thời gian')).dy;
-      final cost = tester.getTopLeft(find.text('Chi phí dự kiến')).dy;
+      final cost = tester.getTopLeft(find.text('Ngân sách chung của chuyến đi')).dy;
       final content = tester.getTopLeft(find.text('Nội dung')).dy;
       expect(location, lessThan(time));
       expect(time, lessThan(cost));

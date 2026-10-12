@@ -6,7 +6,9 @@ import '../../../shared/ui_kit.dart';
 import '../../auth/viewmodels/auth_viewmodel.dart';
 import '../models/companion_post_model.dart';
 import '../viewmodels/companion_detail_viewmodel.dart';
+import '../repositories/companion_repository.dart';
 import 'widgets/join_request_sheet.dart';
+import 'widgets/companion_itinerary_preview.dart';
 
 // ================================================================================
 // SCREEN: Companion Detail
@@ -15,8 +17,13 @@ import 'widgets/join_request_sheet.dart';
 // ================================================================================
 
 class CompanionDetailScreen extends StatefulWidget {
-  const CompanionDetailScreen({super.key, required this.postId});
+  const CompanionDetailScreen({
+    super.key,
+    required this.postId,
+    this.repository,
+  });
   final String postId;
+  final CompanionRepository? repository;
 
   @override
   State<CompanionDetailScreen> createState() => _CompanionDetailScreenState();
@@ -28,7 +35,7 @@ class _CompanionDetailScreenState extends State<CompanionDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _vm = CompanionDetailViewModel();
+    _vm = CompanionDetailViewModel(repository: widget.repository);
     _vm.addListener(_onVmChanged);
     _vm.load(widget.postId);
   }
@@ -181,7 +188,7 @@ class _CompanionDetailScreenState extends State<CompanionDetailScreen> {
                       Icons.account_balance_wallet_rounded,
                       AppColors.warningSurface,
                       AppColors.warning,
-                      'Chi phí dự kiến',
+                      'Ngân sách chung của chuyến đi',
                       trip.estimatedBudget == null
                           ? 'Chưa có dự kiến'
                           : '${NumberFormat('#,###', 'vi_VN').format(trip.estimatedBudget)} đ',
@@ -333,6 +340,8 @@ class _CompanionDetailScreenState extends State<CompanionDetailScreen> {
               const SizedBox(height: 14),
 
               // ── CARD 3: Members (Thành viên) ──────────────────────────────
+              CompanionItineraryPreview(days: trip.itinerary),
+              const SizedBox(height: 14),
               Container(
                 decoration: BoxDecoration(
                   color: Colors.white,

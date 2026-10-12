@@ -444,6 +444,17 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
             ),
           ),
           const SizedBox(height: 10),
+          CustomButton(
+            text: 'Chi phí và thanh toán',
+            icon: Icons.account_balance_wallet_outlined,
+            variant: AppButtonVariant.secondary,
+            onPressed: () => Navigator.pushNamed(
+              context,
+              AppRoutes.expenses,
+              arguments: {'tripId': trip.id},
+            ),
+          ),
+          const SizedBox(height: 10),
           Row(
             children: [
               Expanded(

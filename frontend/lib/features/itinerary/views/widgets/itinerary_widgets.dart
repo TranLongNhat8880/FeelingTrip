@@ -449,6 +449,7 @@ class ItineraryItemCard extends StatelessWidget {
     required this.onMoveDown,
     required this.onSmartSwap,
     this.reorderHandle,
+    this.onRecordExpense,
   });
 
   final ItineraryItem item;
@@ -461,6 +462,7 @@ class ItineraryItemCard extends StatelessWidget {
   final VoidCallback? onMoveDown;
   final VoidCallback? onSmartSwap;
   final Widget? reorderHandle;
+  final VoidCallback? onRecordExpense;
 
   String _formatDuration(String start, String end) {
     final startParts = start.split(':');
@@ -764,12 +766,29 @@ class ItineraryItemCard extends StatelessWidget {
                         if (item.estimatedCost > 0)
                           _DetailPill(
                             icon: Icons.payments_rounded,
-                            text: AppUtils.formatCurrency(item.estimatedCost),
+                            text: 'Dự kiến ${AppUtils.formatCurrency(item.estimatedCost)}',
                             color: const Color(0xFF008B57),
                             backgroundColor: const Color(0xFFE8F5E9),
                           ),
                       ],
                     ),
+                    if (onRecordExpense != null) ...[
+                      const SizedBox(height: 8),
+                      if (item.expenseId != null)
+                        AppStatusBadge(
+                          label:
+                              'Đã ghi khoản chi ${AppUtils.formatCurrency(item.actualAmount ?? 0)}',
+                          tone: AppStatusTone.success,
+                        ),
+                      CustomButton(
+                        text: item.expenseId == null
+                            ? 'Ghi nhận khoản chi'
+                            : 'Xem khoản đã chi',
+                        variant: AppButtonVariant.text,
+                        fullWidth: false,
+                        onPressed: onRecordExpense,
+                      ),
+                    ],
                     // Address row (if any)
                     if (item.customAddress != null &&
                         item.customAddress!.trim().isNotEmpty) ...[
