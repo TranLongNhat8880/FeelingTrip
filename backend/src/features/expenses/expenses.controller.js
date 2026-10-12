@@ -150,3 +150,23 @@ module.exports.updateBudget = async (req,res,next) => {
     return sendSuccess(res, result, 'Cập nhật ngân sách thành công');
   } catch (error) { next(error); }
 };
+
+module.exports.getTripSettlements = async (req,res,next) => {
+  try {
+    res.set('Cache-Control', 'no-store');
+    return sendSuccess(res, await expensesService.getTripSettlements(req.params.tripId, req.user.id));
+  } catch (error) { next(error); }
+};
+
+module.exports.getPlannedCosts = async (req,res,next) => {
+  try {
+    res.set('Cache-Control', 'no-store');
+    return sendSuccess(res, await expensesService.getPlannedCosts(req.params.tripId, req.user.id));
+  } catch (error) { next(error); }
+};
+
+module.exports.linkExpenseToItem = async (req,res,next) => {
+  try {
+    return sendSuccess(res, await expensesService.linkExpenseToItem(req.params.id, req.body.itineraryItemId, req.user.id));
+  } catch (error) { next(error); }
+};

@@ -16,6 +16,7 @@ class TripInfo {
   final String? coverImageUrl;
   final String? status;
   final List<TripMemberInfo> members;
+  final List<CompanionItineraryDay> itinerary;
 
   const TripInfo({
     required this.id,
@@ -28,6 +29,7 @@ class TripInfo {
     this.coverImageUrl,
     this.status,
     this.members = const [],
+    this.itinerary = const [],
   });
 
   factory TripInfo.fromJson(Map<String, dynamic> json) => TripInfo(
@@ -44,12 +46,65 @@ class TripInfo {
     estimatedBudget: double.tryParse('${json['estimatedBudget']}'),
     coverImageUrl: json['coverImageUrl'],
     status: json['status'],
+    itinerary: (json['itinerary'] as List<dynamic>? ?? [])
+        .whereType<Map>()
+        .map(
+          (d) => CompanionItineraryDay.fromJson(Map<String, dynamic>.from(d)),
+        )
+        .toList(),
     members:
         (json['members'] as List<dynamic>?)
             ?.map((m) => TripMemberInfo.fromJson(m as Map<String, dynamic>))
             .toList() ??
         [],
   );
+}
+
+class CompanionItineraryDay {
+  const CompanionItineraryDay({
+    required this.dayNumber,
+    required this.title,
+    this.date,
+    this.items = const [],
+  });
+  final int dayNumber;
+  final String title;
+  final DateTime? date;
+  final List<CompanionItineraryItem> items;
+  factory CompanionItineraryDay.fromJson(Map<String, dynamic> json) =>
+      CompanionItineraryDay(
+        dayNumber: int.tryParse('${json['dayNumber']}') ?? 1,
+        title: '${json['title'] ?? 'Lịch trình'}',
+        date: DateTime.tryParse('${json['tripDate']}'),
+        items: (json['items'] as List<dynamic>? ?? [])
+            .whereType<Map>()
+            .map(
+              (i) =>
+                  CompanionItineraryItem.fromJson(Map<String, dynamic>.from(i)),
+            )
+            .toList(),
+      );
+}
+
+class CompanionItineraryItem {
+  const CompanionItineraryItem({
+    required this.name,
+    required this.startTime,
+    required this.endTime,
+    required this.estimatedCost,
+    this.address,
+  });
+  final String name, startTime, endTime;
+  final String? address;
+  final int estimatedCost;
+  factory CompanionItineraryItem.fromJson(Map<String, dynamic> json) =>
+      CompanionItineraryItem(
+        name: '${json['customName'] ?? 'Hoạt động'}',
+        startTime: '${json['startTime'] ?? ''}',
+        endTime: '${json['endTime'] ?? ''}',
+        estimatedCost: num.tryParse('${json['estimatedCost']}')?.round() ?? 0,
+        address: json['customAddress'] as String?,
+      );
 }
 
 class TripMemberInfo {

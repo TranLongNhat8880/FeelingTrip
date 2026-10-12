@@ -8,6 +8,7 @@ const {
   budgetSchema,
   tripIdParamSchema,
   settlementIdParamSchema,
+  linkExpenseSchema,
 } = require('./expenses.validation');
 
 // ============================================================================
@@ -22,6 +23,8 @@ router.post(
   validate(createExpenseSchema),
   expensesController.createExpense
 );
+router.put('/:id/itinerary-item', authenticate,
+  validate({params:settlementIdParamSchema,body:linkExpenseSchema}),expensesController.linkExpenseToItem);
 
 router.get(
   '/trip/:tripId',
@@ -31,6 +34,10 @@ router.get(
 );
 
 // 2. Cân đối tài chính & Thuật toán rút gọn nợ (Min Cash Flow)
+router.get('/trip/:tripId/settlements', authenticate,
+  validate({ params: tripIdParamSchema }), expensesController.getTripSettlements);
+router.get('/trip/:tripId/planned-costs', authenticate,
+  validate({ params: tripIdParamSchema }), expensesController.getPlannedCosts);
 router.get(
   '/trip/:tripId/balances',
   authenticate,

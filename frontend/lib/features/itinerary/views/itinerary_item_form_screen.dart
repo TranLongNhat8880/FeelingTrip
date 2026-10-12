@@ -588,7 +588,7 @@ class _ItineraryItemFormScreenState extends State<ItineraryItemFormScreen> {
               ),
               const SizedBox(height: 8),
               AppMoneyField(
-                label: 'Chi phí dự kiến',
+                label: 'Chi phí dự kiến cho cả nhóm',
                 controller: _cost,
               ),
               const SizedBox(height: 8),

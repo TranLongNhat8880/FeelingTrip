@@ -22,10 +22,10 @@ const requireMember = async (tripId, userId, client = db, leaderOnly = false) =>
 };
 const createExpenseWithSplits = async (expense, splits, client) => {
   const { rows: [created] } = await client.query(`
-    INSERT INTO expenses (trip_id, payer_id, title, amount, category, receipt_image_url, expense_date)
-    VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+    INSERT INTO expenses (trip_id, payer_id, title, amount, category, receipt_image_url, expense_date, itinerary_item_id)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
     [expense.tripId, expense.payerId, expense.title, expense.amount, expense.category,
-      expense.receiptImageUrl || null, expense.expenseDate || new Date()]);
+      expense.receiptImageUrl || null, expense.expenseDate || new Date(), expense.itineraryItemId || null]);
   const saved = [];
   for (const split of splits) {
     const { rows: [row] } = await client.query(
@@ -44,7 +44,7 @@ const createExpenseWithSplits = async (expense, splits, client) => {
 const findExpensesByTripId = async (tripId) => {
   // Lấy các khoản chi kèm thông tin người trả
   const expensesQuery = `
-    SELECT e.id, e.trip_id, e.payer_id, e.title, e.amount, e.category,
+    SELECT e.id, e.trip_id, e.payer_id, e.itinerary_item_id, e.title, e.amount, e.category,
            e.receipt_image_url, e.expense_date, e.created_at,
            u.full_name AS payer_name, u.avatar_url AS payer_avatar
     FROM expenses e
@@ -123,6 +123,13 @@ const getTripBudgetSummary = async (tripId) => {
     ORDER BY total_amount DESC;
   `;
   const { rows: categoryRows } = await db.query(categoryQuery, [tripId]);
+  const { rows: [plan] } = await db.query(`
+    SELECT COALESCE(SUM(ii.estimated_cost),0) AS planned_total,
+      COALESCE(SUM(ii.estimated_cost) FILTER (WHERE e.id IS NULL),0) AS pending_estimated
+    FROM itineraries i JOIN itinerary_items ii ON ii.itinerary_id=i.id
+    LEFT JOIN expenses e ON e.itinerary_item_id=ii.id AND e.trip_id=i.trip_id
+    WHERE i.trip_id=$1`, [tripId]);
+  const pendingEstimated = Number(plan.pending_estimated);
 
   return {
     tripId: trip.id,
@@ -131,6 +138,10 @@ const getTripBudgetSummary = async (tripId) => {
     estimatedBudget,
     totalSpent,
     remainingBudget,
+    plannedTotal: Number(plan.planned_total),
+    pendingEstimated,
+    projectedTotal: totalSpent + pendingEstimated,
+    projectedRemaining: estimatedBudget - totalSpent - pendingEstimated,
     byCategory: categoryRows.map((cat) => ({
       category: cat.category,
       totalAmount: Number(cat.total_amount),
@@ -203,8 +214,14 @@ const updateSettlementStatus = async (id, status, client) => {
     UPDATE settlements SET status = $2::varchar,
       reported_at = CASE WHEN $2::varchar = 'REPORTED' THEN NOW() ELSE reported_at END,
       paid_at = CASE WHEN $2::varchar = 'PAID' THEN NOW() ELSE paid_at END
-    WHERE id = $1 RETURNING *`, [id, status]);
-  return row;
+    WHERE id = $1 AND status <> $2::varchar RETURNING *`, [id, status]);
+  if (row && status === 'PAID') {
+    await client.query(`INSERT INTO notifications (user_id, title, message, type, data)
+      SELECT DISTINCT user_id, 'Thanh toán thành công', 'Khoản nợ đã được xác nhận thanh toán.', 'BILL', $3::jsonb
+      FROM (VALUES ($1::uuid), ($2::uuid)) AS recipients(user_id)`,
+    [row.from_user_id, row.to_user_id, JSON.stringify({tripId: row.trip_id, settlementId: row.id})]);
+  }
+  return row || findSettlementById(id, client);
 };
 const findSettlementByReference = async (reference, client = db) => {
   // Exact full reference for new QRs; accept legacy 8-char references only when unambiguous.
@@ -240,3 +257,21 @@ module.exports = { lockTrip, requireMember, createExpenseWithSplits, findExpense
   getTripBudgetSummary, calculateTripNetBalances, findSettlementById, openSettlements,
   saveSettlements, updateSettlementStatus, findSettlementByReference, updateBudget, recordWebhook,
   findRecipientBank, attachVietQR };
+
+module.exports.findTripSettlements = async (tripId) => {
+  const { rows } = await db.query(`SELECT s.*, fu.full_name AS from_user_name, tu.full_name AS to_user_name
+    FROM settlements s JOIN users fu ON fu.id=s.from_user_id JOIN users tu ON tu.id=s.to_user_id
+    WHERE s.trip_id=$1 ORDER BY s.created_at DESC, s.id`, [tripId]);
+  return rows;
+};
+
+module.exports.findPlannedCosts = async (tripId) => {
+  const { rows } = await db.query(`SELECT ii.id,ii.custom_name,ii.category,ii.estimated_cost,
+      i.day_number,i.trip_date::text AS trip_date,e.id AS expense_id,e.amount AS actual_amount
+    FROM itineraries i JOIN itinerary_items ii ON ii.itinerary_id=i.id
+    LEFT JOIN expenses e ON e.itinerary_item_id=ii.id AND e.trip_id=i.trip_id
+    WHERE i.trip_id=$1 ORDER BY i.day_number,ii.order_index,ii.id`, [tripId]);
+  return rows.map(r => ({id:r.id,customName:r.custom_name,category:r.category,
+    dayNumber:r.day_number,tripDate:r.trip_date,estimatedCost:Number(r.estimated_cost),
+    expenseId:r.expense_id || null,actualAmount:r.actual_amount == null ? null : Number(r.actual_amount)}));
+};

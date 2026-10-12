@@ -4,6 +4,7 @@ const usersRepository = require('../users/users.repository');
 const tripRepository = require('../trips/trips.repository');
 const notificationsService = require('../notifications/notifications.service');
 const apiError = require('../../shared/utils/apiError.util');
+const itineraryRepository = require('../itineraries/itineraries.repository');
 
 
 const isVerifiedUser = (user) => Boolean(
@@ -257,6 +258,9 @@ const getCompanionPostDetail = async ({ postId, userId }) => {
 
     const members = await tripRepository.findSafeMembers(post.trip_id);
     const myRequest = userId ? await companionsRepository.getExistingRequest(postId, userId) : null;
+    // Publish only the schedule advertised by this post, never the internal ledger or notes.
+    const days = await itineraryRepository.findDays(db, post.trip_id);
+    const items = await itineraryRepository.findItemsForDays(db, days.map(day => day.id));
 
     return {
         id: post.id,
@@ -282,6 +286,19 @@ const getCompanionPostDetail = async ({ postId, userId }) => {
             estimatedBudget: post.trip_estimated_budget,
             coverImageUrl: post.trip_cover_image_url,
             status: post.trip_status,
+            itinerary: days.map(day => ({
+                dayNumber: day.day_number,
+                title: day.title,
+                tripDate: day.trip_date,
+                items: items.filter(item => item.itinerary_id === day.id).map(item => ({
+                    customName: item.custom_name,
+                    customAddress: item.custom_address || null,
+                    category: item.category,
+                    startTime: item.start_time?.slice(0,5),
+                    endTime: item.end_time?.slice(0,5),
+                    estimatedCost: Number(item.estimated_cost || 0),
+                })),
+            })),
             members: (members || []).map((m) => ({
                 userId: m.user_id,
                 displayName: m.display_name,

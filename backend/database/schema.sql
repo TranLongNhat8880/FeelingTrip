@@ -179,6 +179,7 @@ CREATE TABLE IF NOT EXISTS expenses (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     trip_id UUID NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
     payer_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE, -- Người đứng ra trả tiền trước
+    itinerary_item_id UUID REFERENCES itinerary_items(id) ON DELETE SET NULL,
     title VARCHAR(255) NOT NULL,
     amount NUMERIC(15, 2) NOT NULL CHECK (amount > 0),
     category VARCHAR(50) DEFAULT 'OTHER' CHECK (category IN (
@@ -190,6 +191,10 @@ CREATE TABLE IF NOT EXISTS expenses (
 );
 
 -- Bảng phân bổ chi phí cho từng thành viên (Ai phải chịu bao nhiêu tiền trong khoản chi đó)
+ALTER TABLE expenses ADD COLUMN IF NOT EXISTS itinerary_item_id UUID
+  REFERENCES itinerary_items(id) ON DELETE SET NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_expenses_itinerary_item
+  ON expenses(itinerary_item_id) WHERE itinerary_item_id IS NOT NULL;
 CREATE TABLE IF NOT EXISTS expense_splits (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     expense_id UUID NOT NULL REFERENCES expenses(id) ON DELETE CASCADE,

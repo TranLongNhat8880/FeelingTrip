@@ -53,9 +53,10 @@ const findItemsForDays = async (client, dayIds) => {
   if (!dayIds.length) return [];
   const { rows } = await client.query(`
     SELECT ii.*,ii.xmin::text AS row_version,
-      p.latitude,p.longitude
+      p.latitude,p.longitude,e.id AS expense_id,e.amount AS actual_amount
     FROM itinerary_items ii
     LEFT JOIN places p ON p.id=ii.place_id
+    LEFT JOIN expenses e ON e.itinerary_item_id=ii.id
     WHERE ii.itinerary_id=ANY($1::uuid[])
     ORDER BY ii.order_index,ii.start_time,ii.id`, [dayIds]);
   return rows;

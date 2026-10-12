@@ -109,6 +109,8 @@ class ItineraryItem {
     this.longitude,
     this.note,
     this.createdAt,
+    this.expenseId,
+    this.actualAmount,
   });
 
   final String id;
@@ -126,6 +128,8 @@ class ItineraryItem {
   final bool isCompleted;
   final DateTime? createdAt;
   final String version;
+  final String? expenseId;
+  final int? actualAmount;
 
   bool get supportsSmartSwap => placeId != null;
 
@@ -145,6 +149,10 @@ class ItineraryItem {
     isCompleted: json['isCompleted'] == true,
     createdAt: _date(json['createdAt']),
     version: '${json['version'] ?? ''}',
+    expenseId: _string(json['expenseId']),
+    actualAmount: json['actualAmount'] == null
+        ? null
+        : _integer(json['actualAmount']),
   );
 }
 

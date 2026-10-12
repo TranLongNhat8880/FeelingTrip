@@ -35,6 +35,7 @@ module.exports = {
     pass: process.env.EMAIL_APP_PASSWORD,
   },
   geminiApiKey: process.env.GEMINI_API_KEY,
+  geoapifyApiKey: process.env.GEOAPIFY_API_KEY?.trim() || '',
   geminiModel: process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite',
   geminiTimeoutMs: 30000,
   aiAllowFallback: process.env.AI_ALLOW_FALLBACK === 'true',
