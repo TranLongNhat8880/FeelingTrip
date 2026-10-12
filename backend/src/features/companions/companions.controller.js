@@ -141,15 +141,29 @@ const getPostedTripIds = async (req, res, next) => {
   }
 };
 
-const getMySentRequests = async (req,res,next) => {
+const getMySentRequests = async (req, res, next) => {
   try {
-    const result=await companionsService.getMySentRequests({...req.query,userId:req.user.id});
-    return sendSuccess(res,result,'Lấy yêu cầu đã gửi',HTTP_STATUS.OK);
-  } catch(error){next(error);}
+    const result = await companionsService.getMySentRequests({
+      ...req.query,
+      userId: req.user.id,
+    });
+    return sendSuccess(res, result, 'Lấy yêu cầu đã gửi', HTTP_STATUS.OK);
+  } catch (error) {
+    next(error);
+  }
 };
-const getMyPosts = async (req,res,next)=>{
-  try{return sendSuccess(res,await companionsService.getMyPosts(req.user.id,req.query.page,req.query.limit),'Bài tuyển của tôi',HTTP_STATUS.OK);}catch(error){next(error);}
+
+const getMyPosts = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const { page, limit } = req.query;
+    const result = await companionsService.getMyPosts(userId, page, limit);
+    return sendSuccess(res, result, 'Bài tuyển của tôi', HTTP_STATUS.OK);
+  } catch (error) {
+    next(error);
+  }
 };
+
 module.exports = {
   getMyPosts,
   getMySentRequests,
