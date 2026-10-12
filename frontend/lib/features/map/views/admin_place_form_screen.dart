@@ -7,8 +7,10 @@ import '../../../shared/ui_kit.dart';
 import '../models/administrative_division_model.dart';
 import '../models/place_form_data.dart';
 import '../models/place_model.dart';
+import '../models/place_search_result.dart';
 import '../repositories/administrative_division_repository.dart';
 import '../viewmodels/admin_place_viewmodel.dart';
+import 'place_location_picker_screen.dart';
 
 // ============================================================================
 // VIEW: Form Admin thêm hoặc sửa địa điểm
@@ -58,6 +60,7 @@ class _AdminPlaceFormScreenState extends State<AdminPlaceFormScreen> {
   bool _isLoadingWards = false;
   bool _addressSelectionChanged = false;
   String? _divisionErrorMessage;
+  String? _mapAddressSuggestion;
 
   Uint8List? _imageBytes;
   String? _imageFileName;
@@ -447,6 +450,55 @@ class _AdminPlaceFormScreenState extends State<AdminPlaceFormScreen> {
         return null;
       },
     );
+  }
+
+  Future<void> _openLocationPicker() async {
+    if (_viewModel.isSaving) return;
+
+    final latitude = double.tryParse(_latitudeController.text.trim());
+    final longitude = double.tryParse(_longitudeController.text.trim());
+
+    final hasValidCoordinates =
+        latitude != null &&
+        longitude != null &&
+        latitude.isFinite &&
+        longitude.isFinite &&
+        latitude >= -90 &&
+        latitude <= 90 &&
+        longitude >= -180 &&
+        longitude <= 180;
+
+    final initialLocation = hasValidCoordinates
+        ? PlaceSearchResult(
+            id: 'current-location',
+            name: _nameController.text.trim(),
+            formattedAddress: _mapAddressSuggestion ?? '',
+            latitude: latitude,
+            longitude: longitude,
+          )
+        : null;
+
+    final selected = await Navigator.push<PlaceSearchResult>(
+      context,
+      MaterialPageRoute(
+        builder: (_) =>
+            PlaceLocationPickerScreen(initialLocation: initialLocation),
+      ),
+    );
+
+    if (!mounted || selected == null) return;
+
+    setState(() {
+      _latitudeController.text = selected.latitude.toString();
+      _longitudeController.text = selected.longitude.toString();
+      _mapAddressSuggestion = selected.formattedAddress.trim();
+
+      // Giữ tên admin đã nhập; chỉ điền tên khi ô đang trống.
+      if (_nameController.text.trim().isEmpty &&
+          selected.name.trim().isNotEmpty) {
+        _nameController.text = selected.name.trim();
+      }
+    });
   }
 
   Future<void> _pickImage() async {
@@ -930,43 +982,68 @@ class _AdminPlaceFormScreenState extends State<AdminPlaceFormScreen> {
                     ),
                     const SizedBox(height: AppSizes.spaceL),
                     Text(
-                      'Tọa độ',
+                      'Vị trí trên bản đồ',
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     const SizedBox(height: AppSizes.spaceXS),
                     Text(
-                      'Có thể bỏ trống, nhưng nếu nhập thì phải nhập đủ cả hai.',
+                      'Tìm địa điểm hoặc chạm bản đồ để tự động lấy tọa độ.',
                       style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    const SizedBox(height: AppSizes.spaceM),
+                    CustomButton(
+                      text: _latitudeController.text.trim().isEmpty
+                          ? 'Chọn vị trí trên bản đồ'
+                          : 'Xem hoặc đổi vị trí',
+                      icon: Icons.map_outlined,
+                      variant: AppButtonVariant.secondary,
+                      onPressed: isSaving ? null : _openLocationPicker,
                     ),
                     const SizedBox(height: AppSizes.spaceM),
                     CustomTextField(
                       label: 'Vĩ độ',
-                      hint: 'Ví dụ: 21.028666',
+                      hint: 'Chọn vị trí trên bản đồ',
                       controller: _latitudeController,
                       prefixIcon: Icons.north_outlined,
                       enabled: !isSaving,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                        signed: true,
-                      ),
+                      readOnly: true,
+                      onTap: _openLocationPicker,
                       validator: _validateLatitude,
-                      textInputAction: TextInputAction.next,
                     ),
                     const SizedBox(height: AppSizes.spaceM),
                     CustomTextField(
                       label: 'Kinh độ',
-                      hint: 'Ví dụ: 105.852148',
+                      hint: 'Chọn vị trí trên bản đồ',
                       controller: _longitudeController,
                       prefixIcon: Icons.east_outlined,
                       enabled: !isSaving,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                        signed: true,
-                      ),
+                      readOnly: true,
+                      onTap: _openLocationPicker,
                       validator: _validateLongitude,
-                      textInputAction: TextInputAction.done,
-                      onFieldSubmitted: (_) => _submit(),
                     ),
+                    if (_mapAddressSuggestion?.isNotEmpty == true) ...[
+                      const SizedBox(height: AppSizes.spaceM),
+                      AppCard(
+                        outlined: true,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Địa chỉ tham khảo từ bản đồ',
+                              style: Theme.of(context).textTheme.titleSmall,
+                            ),
+                            const SizedBox(height: 6),
+                            Text(_mapAddressSuggestion!),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Kiểm tra tỉnh/phường và địa chỉ chi tiết phía trên '
+                              'trước khi lưu địa điểm.',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: AppSizes.spaceXL),
                   ],
                 ),
