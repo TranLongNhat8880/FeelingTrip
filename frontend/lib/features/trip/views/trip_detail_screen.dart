@@ -953,7 +953,7 @@ class _InviteCodeContentState extends State<_InviteCodeContent> {
       children: [
         const AppInlineNotice(
           message:
-              'Mỗi mã chỉ dùng được một lần. Sau khi có người tham gia, hãy sinh mã mới.',
+              'Mỗi mã chỉ dùng được một lần. Sau khi có người tham gia, hãy tạo mã mới.',
         ),
         const SizedBox(height: 18),
         AppCard(
@@ -1005,7 +1005,7 @@ class _InviteCodeContentState extends State<_InviteCodeContent> {
           ),
         ] else
           CustomButton(
-            text: 'Sinh mã mời mới',
+            text: 'Tạo mã mời mới',
             icon: Icons.refresh_rounded,
             isLoading: widget.viewModel.isSubmitting,
             onPressed: widget.viewModel.isSubmitting ? null : _generate,

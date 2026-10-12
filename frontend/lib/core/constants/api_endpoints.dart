@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 // ================================================================================
 // CẤU HÌNH API ENDPOINTS
 // ================================================================================
@@ -17,13 +16,11 @@ class ApiEndpoints {
   static const useMockData = bool.fromEnvironment('USE_MOCK_DATA');
 
   // === Base URL ===
-  // Đổi thành URL Railway khi deploy
+  // Production Railway URL
   static final String baseUrl =
       const String.fromEnvironment('API_BASE_URL', defaultValue: '').isNotEmpty
       ? const String.fromEnvironment('API_BASE_URL')
-      : (!kIsWeb && defaultTargetPlatform == TargetPlatform.android)
-      ? 'http://10.0.2.2:5000/api/v1'
-      : 'http://localhost:5000/api/v1';
+      : 'https://feelingtrip-production.up.railway.app/api/v1';
   // 10.0.2.2 = localhost khi chạy Android Emulator
   // Nếu chạy trên máy thật (qua WiFi), đổi thành IP máy tính: 'http://192.168.x.x:5000/api/v1'
 
