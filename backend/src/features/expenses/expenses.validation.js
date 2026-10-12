@@ -26,11 +26,11 @@ const settlementIdParamSchema = Joi.object({ id: uuid.required() });
 const budgetSchema = Joi.object({ estimatedBudget: money.required() });
 const linkExpenseSchema = Joi.object({ itineraryItemId: uuid.required() });
 const webhookSchema = Joi.object({
-  id: Joi.number().integer().positive().required(),
-  gateway: Joi.string().trim().max(100).required(),
-  accountNumber: Joi.string().trim().pattern(/^[a-zA-Z0-9]+$/).required(),
-  transferType: Joi.string().valid('in', 'out').required(),
-  transferAmount: money.min(1).required(),
+  id: Joi.number().integer().min(0).required(),
+  gateway: Joi.string().trim().max(100).allow(null, '').default(''),
+  accountNumber: Joi.string().trim().allow(null, '').default(''),
+  transferType: Joi.string().valid('in', 'out').allow(null, '').default('in'),
+  transferAmount: money.min(0).default(0),
   content: Joi.string().max(2000).allow(null, ''),
   description: Joi.string().max(2000).allow(null, ''),
 });
