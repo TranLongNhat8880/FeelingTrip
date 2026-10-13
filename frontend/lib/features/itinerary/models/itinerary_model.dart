@@ -105,6 +105,9 @@ class ItineraryItem {
     required this.version,
     this.placeId,
     this.customAddress,
+    this.locationSource = 'MANUAL',
+    this.externalProvider,
+    this.externalPlaceId,
     this.latitude,
     this.longitude,
     this.note,
@@ -118,6 +121,9 @@ class ItineraryItem {
   final String? placeId;
   final String customName;
   final String? customAddress;
+  final String locationSource;
+  final String? externalProvider;
+  final String? externalPlaceId;
   final double? latitude;
   final double? longitude;
   final String category;
@@ -139,6 +145,9 @@ class ItineraryItem {
     placeId: _string(json['placeId']),
     customName: '${json['customName'] ?? 'Điểm dừng'}',
     customAddress: _string(json['customAddress']),
+    locationSource: '${json['locationSource'] ?? 'MANUAL'}',
+    externalProvider: _string(json['externalProvider']),
+    externalPlaceId: _string(json['externalPlaceId']),
     latitude: json['latitude'] == null ? null : _double(json['latitude']),
     longitude: json['longitude'] == null ? null : _double(json['longitude']),
     category: '${json['category'] ?? 'OTHER'}'.toUpperCase(),
@@ -165,12 +174,22 @@ class ItineraryItemDraft {
     required this.estimatedCost,
     this.placeId,
     this.customAddress,
+    this.locationSource,
+    this.externalProvider,
+    this.externalPlaceId,
+    this.latitude,
+    this.longitude,
     this.note,
   });
 
   final String? placeId;
   final String customName;
   final String? customAddress;
+  final String? locationSource;
+  final String? externalProvider;
+  final String? externalPlaceId;
+  final double? latitude;
+  final double? longitude;
   final String category;
   final String startTime;
   final String endTime;
@@ -181,6 +200,11 @@ class ItineraryItemDraft {
     'placeId': placeId,
     'customName': customName.trim(),
     'customAddress': customAddress?.trim(),
+    if (locationSource != null) 'locationSource': locationSource,
+    if (externalProvider != null) 'externalProvider': externalProvider,
+    if (externalPlaceId != null) 'externalPlaceId': externalPlaceId,
+    if (latitude != null) 'latitude': latitude,
+    if (longitude != null) 'longitude': longitude,
     'category': category,
     'startTime': startTime,
     'endTime': endTime,
@@ -191,6 +215,11 @@ class ItineraryItemDraft {
   Map<String, dynamic> toUpdateJson(String expectedVersion) => {
     'customName': customName.trim(),
     'customAddress': customAddress?.trim(),
+    if (locationSource != null) 'locationSource': locationSource,
+    if (externalProvider != null) 'externalProvider': externalProvider,
+    if (externalPlaceId != null) 'externalPlaceId': externalPlaceId,
+    if (latitude != null) 'latitude': latitude,
+    if (longitude != null) 'longitude': longitude,
     'category': category,
     'startTime': startTime,
     'endTime': endTime,

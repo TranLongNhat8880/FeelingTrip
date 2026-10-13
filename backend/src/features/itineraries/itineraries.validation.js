@@ -33,19 +33,47 @@ const createItineraryItemSchema = Joi.object({
   customName: Joi.string().trim().min(1).max(255).required(),
   customAddress: Joi.string().trim().allow(null, ''),
   category: Joi.string().valid(...CATEGORIES).when('placeId', { is: null, then: Joi.required(), otherwise: Joi.optional() }),
+  locationSource: Joi.string().valid('CATALOG', 'GEOAPIFY', 'MANUAL').default('MANUAL'),
+  externalProvider: Joi.string().trim().max(30).allow(null, ''),
+  externalPlaceId: Joi.string().trim().max(255).allow(null, ''),
+  latitude: Joi.number().min(-90).max(90).allow(null),
+  longitude: Joi.number().min(-180).max(180).allow(null),
   startTime: TIME.required(),
   endTime: TIME.required(),
   note: Joi.string().trim().max(1000).allow(null, ''),
   estimatedCost: Joi.number().integer().min(0).max(Number.MAX_SAFE_INTEGER).default(0),
   orderIndex: Joi.forbidden(),
   isCompleted: Joi.forbidden(),
-}).custom((value, helpers) => value.startTime >= value.endTime
-  ? helpers.error('time.range') : value).messages({ 'time.range': 'Thời gian bắt đầu phải trước thời gian kết thúc' });
+}).custom((value, helpers) => {
+  if (value.startTime >= value.endTime) {
+    return helpers.error('time.range');
+  }
+  const hasLat = value.latitude != null;
+  const hasLng = value.longitude != null;
+  if (hasLat !== hasLng) {
+    return helpers.message('Vĩ độ và kinh độ phải cùng có hoặc cùng để trống');
+  }
+  if (value.placeId && value.locationSource && value.locationSource !== 'CATALOG') {
+    return helpers.message('Địa điểm từ kho phải có locationSource là CATALOG');
+  }
+  if (value.locationSource === 'GEOAPIFY') {
+    if (!value.externalProvider) value.externalProvider = 'GEOAPIFY';
+    if (!value.externalPlaceId || !hasLat || !hasLng) {
+      return helpers.message('Địa điểm Geoapify yêu cầu externalPlaceId và tọa độ');
+    }
+  }
+  return value;
+}).messages({ 'time.range': 'Thời gian bắt đầu phải trước thời gian kết thúc' });
 
 const updateItineraryItemSchema = Joi.object({
   customName: Joi.string().trim().min(1).max(255),
   customAddress: Joi.string().trim().allow(null, ''),
   category: Joi.string().valid(...CATEGORIES),
+  locationSource: Joi.string().valid('CATALOG', 'GEOAPIFY', 'MANUAL'),
+  externalProvider: Joi.string().trim().max(30).allow(null, ''),
+  externalPlaceId: Joi.string().trim().max(255).allow(null, ''),
+  latitude: Joi.number().min(-90).max(90).allow(null),
+  longitude: Joi.number().min(-180).max(180).allow(null),
   startTime: TIME,
   endTime: TIME,
   note: Joi.string().trim().max(1000).allow(null, ''),
@@ -54,7 +82,14 @@ const updateItineraryItemSchema = Joi.object({
   placeId: Joi.forbidden(),
   orderIndex: Joi.forbidden(),
   isCompleted: Joi.forbidden(),
-}).min(2);
+}).min(2).custom((value, helpers) => {
+  const hasLat = value.latitude !== undefined && value.latitude !== null;
+  const hasLng = value.longitude !== undefined && value.longitude !== null;
+  if ((value.latitude !== undefined || value.longitude !== undefined) && hasLat !== hasLng) {
+    return helpers.message('Vĩ độ và kinh độ phải cùng có hoặc cùng để trống');
+  }
+  return value;
+});
 
 const deleteItemSchema = Joi.object({ expectedVersion: ROW_VERSION.required() });
 const completionSchema = Joi.object({

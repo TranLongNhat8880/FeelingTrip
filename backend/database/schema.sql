@@ -74,6 +74,19 @@ CREATE TABLE IF NOT EXISTS trips (
     is_clone BOOLEAN DEFAULT FALSE,
     original_trip_id UUID REFERENCES trips(id) ON DELETE SET NULL,
     clone_count INT DEFAULT 0,
+
+    -- Tọa độ điểm đến Geoapify
+    destination_provider VARCHAR(30),
+    destination_external_id VARCHAR(255),
+    destination_latitude DOUBLE PRECISION,
+    destination_longitude DOUBLE PRECISION,
+    CONSTRAINT chk_trips_destination_coordinates CHECK (
+        (destination_latitude IS NULL AND destination_longitude IS NULL)
+        OR (
+            destination_latitude BETWEEN -90 AND 90
+            AND destination_longitude BETWEEN -180 AND 180
+        )
+    ),
     
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -168,7 +181,31 @@ CREATE TABLE IF NOT EXISTS itinerary_items (
     note TEXT,
     estimated_cost NUMERIC(15, 2) DEFAULT 0,
     is_completed BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    location_source VARCHAR(20) NOT NULL DEFAULT 'MANUAL',
+    external_provider VARCHAR(30),
+    external_place_id VARCHAR(255),
+    latitude DOUBLE PRECISION,
+    longitude DOUBLE PRECISION,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_itinerary_items_location_source CHECK (location_source IN ('CATALOG', 'GEOAPIFY', 'MANUAL')),
+    CONSTRAINT chk_itinerary_items_latitude_range CHECK (latitude IS NULL OR latitude BETWEEN -90 AND 90),
+    CONSTRAINT chk_itinerary_items_longitude_range CHECK (longitude IS NULL OR longitude BETWEEN -180 AND 180),
+    CONSTRAINT chk_itinerary_items_coordinates_paired CHECK (
+        (latitude IS NULL AND longitude IS NULL)
+        OR (latitude IS NOT NULL AND longitude IS NOT NULL)
+    ),
+    CONSTRAINT chk_itinerary_items_place_id_source CHECK (
+        place_id IS NULL OR location_source = 'CATALOG'
+    ),
+    CONSTRAINT chk_itinerary_items_geoapify_complete CHECK (
+        location_source <> 'GEOAPIFY'
+        OR (
+            external_provider = 'GEOAPIFY'
+            AND external_place_id IS NOT NULL
+            AND latitude IS NOT NULL
+            AND longitude IS NOT NULL
+        )
+    )
 );
 
 -- ============================================================================
@@ -320,6 +357,7 @@ CREATE INDEX IF NOT EXISTS idx_expenses_trip ON expenses(trip_id);
 CREATE INDEX IF NOT EXISTS idx_settlements_trip ON settlements(trip_id);
 CREATE INDEX IF NOT EXISTS idx_companion_posts_status ON companion_posts(status);
 CREATE INDEX IF NOT EXISTS idx_places_destination_category ON places(destination, category);
+CREATE INDEX IF NOT EXISTS idx_itinerary_items_external_place ON itinerary_items(external_provider, external_place_id) WHERE external_place_id IS NOT NULL;
 
 -- Backend integrity additions (also available as migration 001).
 -- Run via npm run db:migrate on an existing database. No application data is deleted.

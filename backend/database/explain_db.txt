@@ -98,6 +98,9 @@ PHÂN HỆ II: CHUYẾN ĐI & LẬP LỊCH TRÌNH THÔNG MINH
     - is_clone (BOOLEAN): Đánh dấu chuyến đi này được sao chép từ một lịch trình mẫu khác.
     - original_trip_id (UUID, FK -> trips): Tham chiếu đến chuyến đi gốc nếu được Fork/Clone.
     - clone_count (INTEGER): Số lượt người dùng khác đã bấm nhân bản chuyến đi này.
+    - destination_provider (VARCHAR(30), NULLABLE): Nhà cung cấp geocoding của điểm đến ('GEOAPIFY').
+    - destination_external_id (VARCHAR(255), NULLABLE): ID ngoại vi của điểm đến từ Geoapify.
+    - destination_latitude, destination_longitude (DOUBLE PRECISION, NULLABLE): Tọa độ địa lý của điểm đến phục vụ tìm kiếm/khoanh vùng lân cận (CHECK [-90, 90] và [-180, 180], đi theo cặp).
     - created_at, updated_at (TIMESTAMPTZ): Mốc thời gian tạo và cập nhật chuyến đi.
 
 [7] BẢNG trip_members (Thành viên tham gia Chuyến đi)
@@ -148,6 +151,10 @@ PHÂN HỆ II: CHUYẾN ĐI & LẬP LỊCH TRÌNH THÔNG MINH
     - note (TEXT): Ghi chú hoạt động (mua vé trước, trang phục ấm, quán đông...).
     - estimated_cost (NUMERIC): Chi phí ước lượng cho hoạt động này.
     - is_completed (BOOLEAN): Đã hoàn thành điểm check-in này chưa.
+    - location_source (VARCHAR(20), NOT NULL, DEFAULT 'MANUAL'): Nguồn gốc điểm dừng chân ('CATALOG' - kho places nội bộ, 'GEOAPIFY' - gợi ý bản đồ Geoapify, 'MANUAL' - gõ tự do/ghim tay).
+    - external_provider (VARCHAR(30), NULLABLE): Nhà cung cấp bản đồ ngoại vi ('GEOAPIFY').
+    - external_place_id (VARCHAR(255), NULLABLE): ID địa điểm chuỗi do Geoapify cấp, lưu tách biệt không ghi đè vào place_id UUID.
+    - latitude, longitude (DOUBLE PRECISION, NULLABLE): Tọa độ snapshot thực tế của điểm dừng (CHECK [-90, 90] và [-180, 180], đi theo cặp; bắt buộc khi nguồn là 'GEOAPIFY').
     - created_at (TIMESTAMPTZ): Thời điểm tạo hoạt động.
 
 [11] BẢNG places (Kho dữ liệu địa điểm du lịch & Smart Swap)
