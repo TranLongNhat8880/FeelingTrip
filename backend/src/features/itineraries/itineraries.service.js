@@ -15,6 +15,9 @@ const formatItem = row => ({
   customName: row.custom_name,
   customAddress: row.custom_address || null,
   category: row.category,
+  locationSource: row.location_source || 'MANUAL',
+  externalProvider: row.external_provider || null,
+  externalPlaceId: row.external_place_id || null,
   latitude: row.latitude != null ? Number(row.latitude) : null,
   longitude: row.longitude != null ? Number(row.longitude) : null,
   startTime: asTime(row.start_time),
@@ -193,13 +196,24 @@ const getItem = async (itemId, userId) => {
 };
 
 const resolveItemInput = async (client, data) => {
-  if (!data.placeId) {
-    if (!data.category) throw apiError(400, 'Category là bắt buộc cho hoạt động tùy chỉnh');
-    return data;
+  if (data.placeId) {
+    const place = await repo.findPlace(client, data.placeId);
+    if (!place || !place.is_active) throw apiError(404, 'Không tìm thấy địa điểm đang hoạt động');
+    return {
+      ...data,
+      locationSource: 'CATALOG',
+      customName: place.name,
+      customAddress: place.address,
+      category: place.category,
+      latitude: place.latitude != null ? Number(place.latitude) : null,
+      longitude: place.longitude != null ? Number(place.longitude) : null,
+    };
   }
-  const place = await repo.findPlace(client, data.placeId);
-  if (!place || !place.is_active) throw apiError(404, 'Không tìm thấy địa điểm đang hoạt động');
-  return { ...data, customName: place.name, customAddress: place.address, category: place.category };
+  if (data.locationSource === 'GEOAPIFY' && !data.externalProvider) {
+    data.externalProvider = 'GEOAPIFY';
+  }
+  if (!data.category) throw apiError(400, 'Category là bắt buộc cho hoạt động tùy chỉnh');
+  return data;
 };
 
 const addItem = (dayId, userId, data) => db.transaction(async client => {

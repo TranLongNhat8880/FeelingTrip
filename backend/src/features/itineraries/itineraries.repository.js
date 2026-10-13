@@ -53,7 +53,9 @@ const findItemsForDays = async (client, dayIds) => {
   if (!dayIds.length) return [];
   const { rows } = await client.query(`
     SELECT ii.*,ii.xmin::text AS row_version,
-      p.latitude,p.longitude,e.id AS expense_id,e.amount AS actual_amount
+      COALESCE(ii.latitude, p.latitude) AS latitude,
+      COALESCE(ii.longitude, p.longitude) AS longitude,
+      e.id AS expense_id,e.amount AS actual_amount
     FROM itinerary_items ii
     LEFT JOIN places p ON p.id=ii.place_id
     LEFT JOIN expenses e ON e.itinerary_item_id=ii.id
@@ -82,6 +84,8 @@ const findItem = async (client, itemId, forUpdate = false) => {
     SELECT ii.*,ii.xmin::text AS row_version,
       i.trip_id,i.day_number,i.trip_date,t.status AS trip_status,
       t.destination AS trip_destination,t.start_date,t.end_date,t.duration_days,
+      COALESCE(ii.latitude, p.latitude) AS latitude,
+      COALESCE(ii.longitude, p.longitude) AS longitude,
       p.latitude AS place_latitude,p.longitude AS place_longitude,p.destination AS place_destination,
       p.price_level AS place_price_level,p.avg_duration_minutes AS place_duration,
       p.rating AS place_rating,p.is_active AS place_active
@@ -151,11 +155,16 @@ const createItem = async (client, dayId, data) => {
   const { rows: [row] } = await client.query(`
     INSERT INTO itinerary_items (
       itinerary_id,place_id,custom_name,custom_address,category,start_time,end_time,
-      order_index,note,estimated_cost,is_completed
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,FALSE)
+      order_index,note,estimated_cost,is_completed,
+      location_source,external_provider,external_place_id,latitude,longitude
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,FALSE,$11,$12,$13,$14,$15)
     RETURNING *,xmin::text AS row_version`,
     [dayId, data.placeId || null, data.customName, data.customAddress || null, data.category,
-      data.startTime, data.endTime, data.orderIndex, data.note || null, data.estimatedCost ?? 0]);
+      data.startTime, data.endTime, data.orderIndex, data.note || null, data.estimatedCost ?? 0,
+      data.locationSource || (data.placeId ? 'CATALOG' : 'MANUAL'),
+      data.externalProvider || null, data.externalPlaceId || null,
+      data.latitude != null ? data.latitude : null,
+      data.longitude != null ? data.longitude : null]);
   return row;
 };
 
@@ -166,6 +175,8 @@ const updateItem = async (client, itemId, data, expectedVersion) => {
   const map = {
     customName: 'custom_name', customAddress: 'custom_address', category: 'category',
     startTime: 'start_time', endTime: 'end_time', note: 'note', estimatedCost: 'estimated_cost',
+    locationSource: 'location_source', externalProvider: 'external_provider',
+    externalPlaceId: 'external_place_id', latitude: 'latitude', longitude: 'longitude',
   };
   const params = [itemId];
   const sets = [];
