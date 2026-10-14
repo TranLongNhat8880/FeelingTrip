@@ -214,6 +214,12 @@ const emergencySosSchema = Joi.object({
     }),
 });
 
+const activeSosQuerySchema = Joi.object({ tripId: uuidSchema });
+const sosHistoryQuerySchema = Joi.object({
+  limit: Joi.number().integer().min(1).max(50).default(20),
+  offset: Joi.number().integer().min(0).max(1000000).default(0),
+});
+
 /**
  * Kết thúc cảnh báo SOS.
  *
@@ -247,6 +253,8 @@ module.exports = {
   createEmergencyContactSchema,
   updateEmergencyContactSchema,
   emergencySosSchema,
+  activeSosQuerySchema,
+  sosHistoryQuerySchema,
   updateSosStatusSchema,
   idParamSchema,
 };

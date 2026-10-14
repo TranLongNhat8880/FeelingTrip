@@ -13,6 +13,8 @@ const {
     createEmergencyContactSchema,
     updateEmergencyContactSchema,
     emergencySosSchema,
+    activeSosQuerySchema,
+    sosHistoryQuerySchema,
     updateSosStatusSchema,
     idParamSchema,
 } = require('./reviews.validation');
@@ -112,6 +114,9 @@ router.delete(
 // ============================================================================
 // SOS
 // ============================================================================
+
+router.get('/sos/active', validate({ query: activeSosQuerySchema }), reviewsController.getActiveSos);
+router.get('/sos/history', validate({ query: sosHistoryQuerySchema }), reviewsController.getSosHistory);
 
 router.post(
     '/sos',

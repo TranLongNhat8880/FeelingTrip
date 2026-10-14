@@ -13,6 +13,8 @@ import '../features/itinerary/views/itinerary_screen.dart';
 import '../features/itinerary/views/public_itineraries_screen.dart';
 import '../features/map/views/place_list_screen.dart';
 import '../features/profile/views/profile_screen.dart';
+import '../features/profile/views/public_profile_screen.dart';
+import '../features/profile/repositories/profile_repository.dart';
 import '../features/trip/models/trip_model.dart';
 import '../features/trip/repositories/trip_repository.dart';
 import '../features/trip/views/trip_detail_screen.dart';
@@ -39,6 +41,7 @@ class AppRoutes {
   static const String itinerary = '/itineraries';
   static const String publicItineraries = '/itineraries/public';
   static const String profile = '/profile';
+  static const String publicProfile = '/profile/public';
   static const String uiKit = '/ui-kit';
   static const String places = '/places';
   static const String admin = '/admin';
@@ -95,6 +98,27 @@ class AppRoutes {
   /// Xử lý các routes có truyền tham số động (arguments) hoặc fallback
   static Route<dynamic>? onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {
+      case publicProfile:
+        {
+          final args = settings.arguments;
+          final String? id = args is String
+              ? args
+              : args is Map && args['userId'] is String
+              ? args['userId'] as String
+              : null;
+          final repository =
+              args is Map && args['repository'] is ProfileRepository
+              ? args['repository'] as ProfileRepository
+              : null;
+          if (id == null || id.trim().isEmpty) {
+            return _errorRoute('Thiếu mã người dùng (userId).');
+          }
+          return MaterialPageRoute(
+            settings: settings,
+            builder: (_) =>
+                PublicProfileScreen(userId: id.trim(), repository: repository),
+          );
+        }
       case tripDetail:
         {
           final args = settings.arguments;

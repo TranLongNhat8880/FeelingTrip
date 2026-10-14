@@ -8,10 +8,12 @@ import '../../../shared/ui_kit.dart';
 import '../../auth/viewmodels/auth_viewmodel.dart';
 import '../../companion/repositories/companion_trip_repository.dart';
 import '../../itinerary/views/itinerary_screen.dart';
+import '../../profile/views/public_profile_screen.dart';
 import '../../review/models/review_model.dart';
 import '../../review/viewmodels/review_viewmodel.dart';
 import '../../review/views/report_screen.dart';
 import '../../review/views/review_form_screen.dart';
+import '../../review/views/sos_screen.dart';
 import '../models/trip_model.dart';
 import '../repositories/trip_repository.dart';
 import '../viewmodels/trip_viewmodel.dart';
@@ -352,6 +354,18 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     return AppScaffold(
       title: trip?.name ?? 'Chi tiết chuyến đi',
       actions: [
+        if (trip?.status == 'ONGOING' && trip?.membershipStatus == 'ACTIVE')
+          TextButton.icon(
+            icon: const Icon(Icons.sos, color: Colors.red),
+            label: const Text('SOS', style: TextStyle(color: Colors.red)),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) =>
+                    SosScreen(tripId: trip!.id, tripName: trip.name),
+              ),
+            ),
+          ),
         if (trip?.isEditable == true)
           IconButton(
             tooltip: 'Chỉnh sửa chuyến đi',
@@ -852,6 +866,12 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                 for (var index = 0; index < trip.members.length; index++) ...[
                   TripMemberTile(
                     member: trip.members[index],
+                    onViewProfile: trip.members[index].userId.trim().isEmpty
+                        ? null
+                        : () => PublicProfileScreen.open(
+                            context,
+                            userId: trip.members[index].userId,
+                          ),
                     onReview:
                         trip.status == 'COMPLETED' &&
                             trip.members[index].userId != currentUserId &&

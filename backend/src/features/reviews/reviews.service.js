@@ -433,21 +433,20 @@ const createSos = async ({
     message,
 }) => {
     if (tripId) {
-        const trip = await reviewsRepository.findTripContext({
-            tripId,
-            reviewerId: userId,
-            revieweeId: null,
-        });
+        const trip = await reviewsRepository.findSosTripContext({ tripId, userId });
 
         if (!trip) {
             throw apiError(HTTP_STATUS.NOT_FOUND, 'Không tìm thấy chuyến đi');
         }
 
-        if (!trip.reviewer_is_member) {
+        if (!trip.is_member) {
             throw apiError(
                 HTTP_STATUS.FORBIDDEN,
                 'Bạn không phải thành viên của chuyến đi này'
             );
+        }
+        if (trip.status !== 'ONGOING') {
+            throw apiError(HTTP_STATUS.CONFLICT, 'Chỉ ghi nhận SOS cho chuyến đi đang diễn ra');
         }
     }
 
@@ -501,6 +500,29 @@ const updateSosStatus = async ({ sosId, userId, status }) => {
     return mapSos(updatedSos);
 };
 
+const getActiveSos = async ({ userId, tripId }) => {
+    const sos = await reviewsRepository.findActiveSos({ userId, tripId: tripId || null });
+    return sos ? mapSos(sos) : null;
+};
+
+const getSosHistory = async ({ userId, limit = 20, offset = 0 }) => {
+    const rows = await reviewsRepository.findSosHistory({ userId, limit: limit + 1, offset });
+    return {
+        items: rows.slice(0, limit).map(sos => ({
+            id: sos.id,
+            tripId: sos.trip_id,
+            tripName: sos.trip_name || null,
+            latitude: sos.latitude,
+            longitude: sos.longitude,
+            message: sos.message,
+            status: sos.status,
+            createdAt: sos.created_at,
+            resolvedAt: sos.resolved_at,
+        })),
+        hasMore: rows.length > limit,
+    };
+};
+
 module.exports = {
     reviewMember,
     reviewTrip,
@@ -513,5 +535,7 @@ module.exports = {
     updateEmergencyContact,
     deleteEmergencyContact,
     createSos,
+    getActiveSos,
+    getSosHistory,
     updateSosStatus,
 };
