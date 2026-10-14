@@ -132,6 +132,54 @@ const sendOtpEmail = async (toEmail, otpCode, type = 'VERIFY_EMAIL') => {
     `,
   };
 
+  // Gửi qua HTTP API (Port 443) nếu có API key của Resend hoặc Brevo
+  // Giải pháp vượt qua việc các nền tảng đám mây như Railway chặn cổng SMTP (465/587).
+  if (process.env.RESEND_API_KEY) {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: process.env.RESEND_FROM || 'FeelingTrip <onboarding@resend.dev>',
+        to: [toEmail],
+        subject: mailOptions.subject,
+        html: mailOptions.html,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`Resend API error (${res.status}): ${err}`);
+    }
+    return res.json();
+  }
+
+  if (process.env.BREVO_API_KEY) {
+    const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'api-key': process.env.BREVO_API_KEY,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({
+        sender: {
+          name: 'FeelingTrip Support',
+          email: env.email.user || 'contact@feelingtrip.vn',
+        },
+        to: [{ email: toEmail }],
+        subject: mailOptions.subject,
+        htmlContent: mailOptions.html,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`Brevo API error (${res.status}): ${err}`);
+    }
+    return res.json();
+  }
+
   return transporter.sendMail(mailOptions);
 };
 
