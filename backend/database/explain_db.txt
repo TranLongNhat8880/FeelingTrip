@@ -1,11 +1,11 @@
 ================================================================================
 TÀI LIỆU CHI TIẾT CƠ SỞ DỮ LIỆU POSTGRESQL (SUPABASE) - FEELINGTRIP
 Mã nguồn DDL: backend/database/schema.sql
-Migrations: backend/database/migrations/ (001_backend_integrity, 002_bankhub, 003_invite_code_status, 004_member_feature_contracts, 005_registration_terms, 006_trip_invitation_membership)
+Migrations: backend/database/migrations/ (001_backend_integrity, 002_bankhub, 003_invite_code_status, 004_member_feature_contracts, 005_registration_terms, 006_trip_invitation_membership, 007_itinerary_expense_link, 008_itinerary_location_coordinates, 009_admin_itinerary_templates)
 ================================================================================
 
 Dự án sử dụng chung 1 cơ sở dữ liệu PostgreSQL trên Supabase. Toàn bộ hệ thống
-gồm 26 bảng chính và 1 bảng quản lý migration (tổng cộng 27 bảng), được chia theo 6 phân hệ nghiệp vụ.
+gồm 28 bảng chính và 1 bảng quản lý migration (tổng cộng 29 bảng), được chia theo 7 phân hệ nghiệp vụ.
 
 ================================================================================
 DANH SÁCH CHI TIẾT CÁC BẢNG VÀ Ý NGHĨA TỪNG TRƯỜNG DỮ LIỆU (FIELDS)
@@ -193,6 +193,7 @@ PHÂN HỆ III: QUẢN LÝ TÀI CHÍNH, CHIA TIỀN (SPLIT BILL) & VIETQR
     - id (UUID, PK): Khóa chính khoản chi tiêu.
     - trip_id (UUID, FK -> trips): Chuyến đi phát sinh chi phí.
     - payer_id (UUID, FK -> users): Thành viên nhóm đứng ra quẹt thẻ/trả tiền trước.
+    - itinerary_item_id (UUID, FK -> itinerary_items, NULLABLE): Liên kết khoản chi tiêu thực tế với một điểm dừng/hoạt động trong lịch trình (migration 007). Partial UNIQUE index đảm bảo 1 hoạt động chỉ gắn tối đa 1 khoản chi.
     - title (VARCHAR): Tên khoản chi (VD: "Thuê xe máy 3 ngày", "Ăn trưa lẩu cá hồi").
     - amount (NUMERIC): Tổng số tiền thanh toán thực tế (VND).
     - category (VARCHAR): Nhóm chi phí ('FOOD', 'TRANSPORTATION', 'ACCOMMODATION', 'TICKETS', 'SHOPPING', 'OTHER').
@@ -329,8 +330,33 @@ PHÂN HỆ VI: THÔNG BÁO IN-APP & AN TOÀN KHẨN CẤP SOS
     - status (TEXT): Tiến trình cứu hộ ('ACTIVE' - đang cần giúp đỡ, 'RESOLVED' - đã an toàn, 'FALSE_ALARM' - bấm nhầm).
     - created_at (TIMESTAMPTZ): Thời điểm gửi tín hiệu kêu cứu SOS.
 
-[27] BẢNG schema_migrations (Lịch sử thực thi Migration)
-    - name (TEXT, PK): Tên file migration đã được áp dụng thành công (001, 002, 003, 004, 005...).
+--------------------------------------------------------------------------------
+PHÂN HỆ VII: QUẢN TRỊ VIÊN & KHO LỊCH TRÌNH MẪU (ADMIN ITINERARY TEMPLATES)
+--------------------------------------------------------------------------------
+
+[27] BẢNG admin_itinerary_templates (Lịch trình mẫu do Quản trị viên quản lý, migration 009)
+    - id (UUID, PK): Khóa chính định danh lịch trình mẫu.
+    - name (VARCHAR(255)): Tên lịch trình mẫu (VD: "Khám phá Hà Giang 3N2Đ mùa hoa tam giác mạch").
+    - destination (VARCHAR(100)): Điểm đến / Địa danh chính (Hà Giang, Đà Lạt, Sa Pa...).
+    - duration_days (INT): Thời lượng chuyến đi (1 - 30 ngày, CHECK duration_days BETWEEN 1 AND 30).
+    - estimated_budget (NUMERIC(15,2)): Dự toán ngân sách mẫu cho toàn chuyến đi (CHECK estimated_budget >= 0).
+    - description (TEXT): Mô tả chi tiết, điểm nhấn tour hoặc lưu ý quan trọng.
+    - cover_image_url (TEXT): Ảnh bìa đại diện cho lịch trình mẫu.
+    - days (JSONB): Toàn bộ cấu trúc chi tiết lịch trình theo từng ngày (mảng JSON các ngày cùng danh sách items, thời gian, chi phí dự kiến, địa điểm). CHECK jsonb_typeof(days) = 'array'.
+    - is_active (BOOLEAN): Trạng thái hiển thị trong Kho lịch trình công khai (TRUE: đang hoạt động, FALSE: tạm ẩn).
+    - created_by (UUID, FK -> users): Quản trị viên (Admin) tạo hoặc duyệt mẫu này.
+    - source_trip_id (UUID, FK -> trips, NULLABLE): ID chuyến đi cộng đồng gốc nếu được Admin import/sao chép thành mẫu (ON DELETE SET NULL).
+    - created_at, updated_at (TIMESTAMPTZ): Thời điểm khởi tạo và cập nhật gần nhất.
+
+[28] BẢNG admin_template_uses (Nhật ký áp dụng lịch trình mẫu vào chuyến đi, migration 009)
+    - id (UUID, PK): Khóa chính lượt áp dụng.
+    - template_id (UUID, FK -> admin_itinerary_templates): Mẫu lịch trình được người dùng chọn sử dụng (ON DELETE RESTRICT).
+    - trip_id (UUID, FK -> trips): Chuyến đi mới mà người dùng tạo ra từ mẫu này (ON DELETE CASCADE).
+    - user_id (UUID, FK -> users): Người dùng thực hiện thao tác áp dụng mẫu (ON DELETE CASCADE).
+    - used_at (TIMESTAMPTZ): Thời điểm người dùng nhân bản/áp dụng mẫu vào chuyến đi.
+
+[29] BẢNG schema_migrations (Lịch sử thực thi Migration)
+    - name (TEXT, PK): Tên file migration đã được áp dụng thành công (001, 002, 003, 004, 005, 006, 007, 008, 009...).
     - applied_at (TIMESTAMPTZ): Mốc thời gian migration được chạy vào hệ thống.
 ================================================================================
 LƯU Ý HỢP ĐỒNG DỮ LIỆU SAU MIGRATION 004
@@ -376,4 +402,33 @@ Bổ sung vòng đời thành viên nhóm và cơ chế gửi lời mời đích
    - Khi tạo lời mời đích danh: Thêm bản ghi vào trip_invitations (status: 'PENDING') đồng thời bắn thông báo qua notifications (type: 'INVITE').
    - Khi phản hồi: Cập nhật status ('ACCEPTED'/'REJECTED'), ghi nhận responded_at. Nếu ACCEPTED -> UPSERT vào trip_members với status 'ACTIVE'.
    - Chỉ duy nhất 1 lời mời PENDING được tồn tại đồng thời giữa 1 chuyến đi và 1 người dùng.
+================================================================================
+LƯU Ý HỢP ĐỒNG DỮ LIỆU SAU MIGRATION 007 (007_itinerary_expense_link)
+================================================================================
+Liên kết khoản chi tiêu chia tiền (expenses) với hoạt động trong lịch trình (itinerary_items):
+- expenses.itinerary_item_id (UUID, NULLABLE, FK -> itinerary_items ON DELETE SET NULL).
+- Partial UNIQUE index idx_expenses_itinerary_item ON expenses(itinerary_item_id) WHERE itinerary_item_id IS NOT NULL.
+- Giúp tự động đối soát ngân sách dự kiến của điểm dừng so với chi tiêu thực tế của nhóm.
+================================================================================
+LƯU Ý HỢP ĐỒNG DỮ LIỆU SAU MIGRATION 008 (008_itinerary_location_coordinates)
+================================================================================
+Hỗ trợ tọa độ định vị và nguồn gốc địa điểm cho Chuyến đi và Hoạt động lịch trình:
+1. trips:
+   - destination_provider (VARCHAR(30)), destination_external_id (VARCHAR(255)).
+   - destination_latitude, destination_longitude (DOUBLE PRECISION): Cặp tọa độ điểm đến.
+2. itinerary_items:
+   - location_source: 'CATALOG' (kho places), 'GEOAPIFY' (gợi ý Geoapify), 'MANUAL' (tự nhập).
+   - external_provider, external_place_id: Chuỗi ID địa điểm Geoapify.
+   - latitude, longitude: Snapshot tọa độ GPS của điểm dừng, phục vụ Smart Swap và bản đồ.
+================================================================================
+LƯU Ý HỢP ĐỒNG DỮ LIỆU SAU MIGRATION 009 (009_admin_itinerary_templates)
+================================================================================
+Quản trị lịch trình mẫu và kho lịch trình (Library):
+1. admin_itinerary_templates:
+   - Lưu trữ lịch trình mẫu chuẩn do Admin biên soạn hoặc import từ chuyến đi công khai hoàn thành (`trips.status = 'COMPLETED' AND trips.privacy_type = 'PUBLIC'`).
+   - Cột `days` kiểu JSONB lưu mảng các ngày và hoạt động chi tiết.
+   - Trạng thái `is_active` cho phép ẩn/hiện mẫu trên kho lịch trình người dùng.
+2. admin_template_uses:
+   - Ghi nhận lịch sử người dùng áp dụng mẫu vào chuyến đi thực tế.
+   - Hỗ trợ thống kê độ phổ biến (lượt sử dụng - usage_count) của từng mẫu lịch trình.
 ================================================================================
