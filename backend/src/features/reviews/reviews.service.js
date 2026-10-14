@@ -193,7 +193,9 @@ const reviewTrip = async ({
 };
 
 /**
- * Gửi báo cáo vi phạm.
+ * Gửi báo cáo vi phạm, không yêu cầu chuyến đi COMPLETED.
+ * Có tripId: kiểm tra quyền theo bối cảnh chuyến đi tại BE, không tin UI.
+ * Không có tripId: giữ luồng báo cáo tài khoản độc lập hiện có.
  */
 const createReport = async ({
     reporterId,
@@ -221,13 +223,34 @@ const createReport = async ({
     }
 
     if (reportedTripId) {
-        const reportedTrip = await reviewsRepository.findTripById(reportedTripId);
+        const reportedTrip = await reviewsRepository.findReportTripContext({
+            tripId: reportedTripId,
+            reporterId,
+            reportedUserId: reportedUserId || null,
+        });
 
         if (!reportedTrip) {
             throw apiError(
                 HTTP_STATUS.NOT_FOUND,
                 'Không tìm thấy chuyến đi bị báo cáo'
             );
+        }
+
+        if (reportedUserId) {
+            // A public trip/post grants the right to report its content, not
+            // the right to submit a member-specific accusation in that trip.
+            if (reportedTrip.reporter_was_member !== true) {
+                throw apiError(HTTP_STATUS.FORBIDDEN,
+                    'Bạn phải đang hoặc từng tham gia chuyến đi để báo cáo thành viên trong chuyến');
+            }
+            if (reportedTrip.reported_user_was_member !== true) {
+                throw apiError(HTTP_STATUS.BAD_REQUEST,
+                    'Người bị báo cáo không phải người đang hoặc từng tham gia chuyến đi này');
+            }
+        } else if (reportedTrip.reporter_was_member !== true &&
+            reportedTrip.is_publicly_reportable !== true) {
+            throw apiError(HTTP_STATUS.FORBIDDEN,
+                'Chỉ người đang hoặc từng tham gia mới được báo cáo chuyến đi riêng tư chưa có bài tuyển công khai');
         }
     }
 

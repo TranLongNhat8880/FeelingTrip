@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../shared/ui_kit.dart';
 import '../models/admin_content_model.dart';
+import '../models/admin_trip_report_resolution.dart';
 import '../repositories/admin_content_repository.dart';
 import '../viewmodels/admin_content_viewmodel.dart';
 import 'admin_moderation_screen.dart';
+import 'admin_trip_report_actions.dart';
 
 class AdminReportsContent extends StatefulWidget {
   const AdminReportsContent({super.key});
@@ -119,22 +121,25 @@ class _AdminReportsContentState extends State<AdminReportsContent> {
 }
 
 class AdminReportDetailScreen extends StatefulWidget {
-  const AdminReportDetailScreen({super.key, required this.id});
+  const AdminReportDetailScreen({super.key, required this.id, this.repository});
   final String id;
+  final AdminContentRepository? repository;
   @override
   State<AdminReportDetailScreen> createState() =>
       _AdminReportDetailScreenState();
 }
 
 class _AdminReportDetailScreenState extends State<AdminReportDetailScreen> {
-  final repo = AdminContentRepository();
+  late final AdminContentRepository repo;
   final notes = TextEditingController();
   AdminReport? report;
   bool loading = true, busy = false;
+  bool confirmingTripProcessing = false;
   String? error;
   @override
   void initState() {
     super.initState();
+    repo = widget.repository ?? AdminContentRepository();
     load();
   }
 
@@ -168,10 +173,11 @@ class _AdminReportDetailScreenState extends State<AdminReportDetailScreen> {
 
   Future<void> resolve(String action) async {
     if (busy) return;
-    if (notes.text.trim().length < 3) {
+    if (notes.text.trim().length < 3 || notes.text.trim().length > 1000) {
       setState(() => error = 'Nhập ghi chú kết luận từ 3 đến 1000 ký tự.');
       return;
     }
+    if (report?.isTripReport == true && action == 'RESOLVED') return;
     setState(() {
       busy = true;
       error = null;
@@ -186,12 +192,71 @@ class _AdminReportDetailScreenState extends State<AdminReportDetailScreen> {
                   ? '[Chưa đủ bằng chứng] ${notes.text.trim()}'
                   : notes.text.trim(),
             );
-      if (mounted) setState(() => report = row);
+      if (mounted) {
+        setState(() {
+          report = row;
+          notes.text = row.notes ?? '';
+        });
+      }
     } catch (e) {
       if (mounted) {
         setState(() => error = e.toString().replaceFirst('Exception: ', ''));
       }
     } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
+  Future<void> processTripReport(TripReportResolution resolution) async {
+    if (busy ||
+        confirmingTripProcessing ||
+        report?.isTripReport != true ||
+        report?.supportsTripProcessing != true) {
+      return;
+    }
+    final internalNotes = notes.text.trim();
+    if (internalNotes.length < 3 || internalNotes.length > 1000) {
+      setState(
+        () => error = 'Nhập ghi chú kết luận nội bộ từ 3 đến 1000 ký tự.',
+      );
+      return;
+    }
+    confirmingTripProcessing = true;
+    try {
+      final confirmed = await AppConfirmDialog.show(
+        context,
+        title: 'Xác nhận xử lý báo cáo chuyến đi?',
+        message:
+            '${resolution.actions.map((action) => '• ${action.label}').join('\n')}\n\n'
+            'Các hành động sẽ được áp dụng và đơn sẽ chuyển sang Đã xử lý. '
+            'Ghi chú nội bộ không được gửi cho người bị xử lý.',
+        confirmLabel: 'Áp dụng và kết luận',
+        destructive: resolution.actions.any(
+          (action) => action.type == 'BAN_USER',
+        ),
+      );
+      if (!confirmed || !mounted) return;
+      setState(() {
+        busy = true;
+        error = null;
+      });
+      final row = await repo.processTripReport(
+        widget.id,
+        internalNotes,
+        resolution,
+      );
+      if (mounted) {
+        setState(() {
+          report = row;
+          notes.text = row.notes ?? '';
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => error = e.toString().replaceFirst('Exception: ', ''));
+      }
+    } finally {
+      confirmingTripProcessing = false;
       if (mounted) setState(() => busy = false);
     }
   }
@@ -278,6 +343,13 @@ class _AdminReportDetailScreenState extends State<AdminReportDetailScreen> {
   @override
   Widget build(BuildContext context) => AppScaffold(
     title: 'Chi tiết báo cáo',
+    actions: [
+      IconButton(
+        tooltip: 'Tải lại báo cáo',
+        icon: const Icon(Icons.refresh),
+        onPressed: busy || loading ? null : load,
+      ),
+    ],
     scrollable: true,
     body: loading
         ? const LoadingIndicator()
@@ -362,11 +434,18 @@ class _AdminReportDetailScreenState extends State<AdminReportDetailScreen> {
               ],
               const SizedBox(height: 16),
               if (report!.status == 'PENDING') ...[
-                CustomButton(
-                  text: 'Đánh dấu đã xử lý',
-                  isLoading: busy,
-                  onPressed: busy ? null : () => resolve('RESOLVED'),
-                ),
+                if (report!.isTripReport)
+                  AdminTripReportActions(
+                    report: report!,
+                    busy: busy,
+                    onSubmit: processTripReport,
+                  )
+                else
+                  CustomButton(
+                    text: 'Đánh dấu đã xử lý',
+                    isLoading: busy,
+                    onPressed: busy ? null : () => resolve('RESOLVED'),
+                  ),
                 const SizedBox(height: 10),
                 CustomButton(
                   text: 'Bác bỏ báo cáo',
