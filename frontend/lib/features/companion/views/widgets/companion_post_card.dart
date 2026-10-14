@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_sizes.dart';
 import '../../../../shared/ui_kit.dart';
+import '../../../profile/views/public_profile_screen.dart';
 import '../../models/companion_post_model.dart';
 
 class CompanionPostCard extends StatelessWidget {
@@ -69,10 +70,22 @@ class CompanionPostCard extends StatelessWidget {
                 // 1. Header: Avatar, Tên & Thời gian đăng, Trạng thái chỗ
                 Row(
                   children: [
-                    AvatarPlaceholder(
-                      name: post.creator.displayName,
-                      imageUrl: post.creator.avatarUrl,
-                      radius: 20,
+                    Tooltip(
+                      message: 'Xem hồ sơ ${post.creator.displayName}',
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(24),
+                        onTap: post.creator.id.trim().isEmpty
+                            ? null
+                            : () => PublicProfileScreen.open(
+                                context,
+                                userId: post.creator.id,
+                              ),
+                        child: AvatarPlaceholder(
+                          name: post.creator.displayName,
+                          imageUrl: post.creator.avatarUrl,
+                          radius: 20,
+                        ),
+                      ),
                     ),
                     const SizedBox(width: 10),
                     Expanded(

@@ -198,6 +198,8 @@ const getTrustScore = async (userId) => {
     trustScore: user.trust_score,
     reviewCount: user.review_count,
     memberSince: user.created_at,
+    // Only the derived age is public. Never spread the repository row here.
+    age: Number.isInteger(user.age) && user.age >= 0 ? user.age : null,
   };
 };
 

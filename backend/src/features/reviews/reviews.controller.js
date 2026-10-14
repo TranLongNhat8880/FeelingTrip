@@ -239,7 +239,7 @@ const createSos = async (req, res, next) => {
         return sendSuccess(
             res,
             result,
-            'Đã kích hoạt cảnh báo SOS',
+            'Đã ghi nhận SOS; người dùng cần chủ động gọi hoặc gửi tin nhắn',
             HTTP_STATUS.CREATED
         );
     } catch (error) {
@@ -271,6 +271,24 @@ const updateSosStatus = async (req, res, next) => {
     }
 };
 
+const getSosHistory = async (req, res, next) => {
+    try {
+        const result = await reviewsService.getSosHistory({
+            userId: req.user.id,
+            limit: req.query.limit,
+            offset: req.query.offset,
+        });
+        return sendSuccess(res, result, 'Lịch sử SOS của bạn', HTTP_STATUS.OK);
+    } catch (error) { next(error); }
+};
+
+const getActiveSos = async (req, res, next) => {
+    try {
+        const result = await reviewsService.getActiveSos({ userId: req.user.id, tripId: req.query.tripId });
+        return sendSuccess(res, result, 'Trạng thái SOS của bạn', HTTP_STATUS.OK);
+    } catch (error) { next(error); }
+};
+
 module.exports = {
     reviewMember,
     reviewTrip,
@@ -283,5 +301,7 @@ module.exports = {
     updateEmergencyContact,
     deleteEmergencyContact,
     createSos,
+    getActiveSos,
+    getSosHistory,
     updateSosStatus,
 };

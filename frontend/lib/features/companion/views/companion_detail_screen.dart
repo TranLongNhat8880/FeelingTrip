@@ -4,6 +4,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_sizes.dart';
 import '../../../shared/ui_kit.dart';
 import '../../auth/viewmodels/auth_viewmodel.dart';
+import '../../profile/views/public_profile_screen.dart';
 import '../models/companion_post_model.dart';
 import '../viewmodels/companion_detail_viewmodel.dart';
 import '../repositories/companion_repository.dart';
@@ -470,6 +471,11 @@ class _CompanionDetailScreenState extends State<CompanionDetailScreen> {
                         color: AppColors.textPrimary,
                       ),
                     ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Nhấn vào ảnh hoặc tên để xem hồ sơ.',
+                      style: text.bodySmall,
+                    ),
                     const SizedBox(height: 14),
                     if (trip.members.isEmpty)
                       Text(
@@ -484,45 +490,61 @@ class _CompanionDetailScreenState extends State<CompanionDetailScreen> {
                           for (final member in trip.members)
                             SizedBox(
                               width: 80,
-                              child: Column(
-                                children: [
-                                  AvatarPlaceholder(
-                                    name: member.displayName ?? 'Thành viên',
-                                    imageUrl: member.avatarUrl,
-                                    radius: 24,
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    member.displayName ?? 'Thành viên',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    textAlign: TextAlign.center,
-                                    style: text.labelSmall?.copyWith(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  if (member.role == 'LEADER') ...[
-                                    const SizedBox(height: 2),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 6,
-                                        vertical: 2,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(12),
+                                onTap: member.userId.trim().isEmpty
+                                    ? null
+                                    : () => PublicProfileScreen.open(
+                                        context,
+                                        userId: member.userId,
                                       ),
-                                      decoration: BoxDecoration(
-                                        color: AppColors.warningSurface,
-                                        borderRadius: BorderRadius.circular(6),
+                                child: Tooltip(
+                                  message:
+                                      'Xem hồ sơ ${member.displayName ?? 'thành viên'}',
+                                  child: Column(
+                                    children: [
+                                      AvatarPlaceholder(
+                                        name:
+                                            member.displayName ?? 'Thành viên',
+                                        imageUrl: member.avatarUrl,
+                                        radius: 24,
                                       ),
-                                      child: const Text(
-                                        'Trưởng nhóm',
-                                        style: TextStyle(
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.w700,
-                                          color: AppColors.warning,
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        member.displayName ?? 'Thành viên',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        textAlign: TextAlign.center,
+                                        style: text.labelSmall?.copyWith(
+                                          fontWeight: FontWeight.w600,
                                         ),
                                       ),
-                                    ),
-                                  ],
-                                ],
+                                      if (member.role == 'LEADER') ...[
+                                        const SizedBox(height: 2),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 6,
+                                            vertical: 2,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: AppColors.warningSurface,
+                                            borderRadius: BorderRadius.circular(
+                                              6,
+                                            ),
+                                          ),
+                                          child: const Text(
+                                            'Trưởng nhóm',
+                                            style: TextStyle(
+                                              fontSize: 9,
+                                              fontWeight: FontWeight.w700,
+                                              color: AppColors.warning,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
                               ),
                             ),
                         ],

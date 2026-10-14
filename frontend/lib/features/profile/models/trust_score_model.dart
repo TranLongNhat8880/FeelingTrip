@@ -14,6 +14,7 @@ class TrustScoreModel {
     this.avatarUrl,
     this.bio,
     this.memberSince,
+    this.age,
   });
 
   final String id;
@@ -25,6 +26,9 @@ class TrustScoreModel {
   final double trustScore;
   final int reviewCount;
   final DateTime? memberSince;
+
+  /// Age computed by the backend; the public API does not expose date of birth.
+  final int? age;
 
   String get displayName {
     final normalizedNickname = nickname?.trim();
@@ -47,6 +51,7 @@ class TrustScoreModel {
       trustScore: _toDouble(json['trustScore']) ?? 0,
       reviewCount: _toInt(json['reviewCount']) ?? 0,
       memberSince: _toDateTime(json['memberSince']),
+      age: _toAge(json['age']),
     );
   }
 
@@ -85,6 +90,11 @@ class TrustScoreModel {
     if (value is int) return value;
     if (value is num) return value.toInt();
     return int.tryParse(value?.toString() ?? '');
+  }
+
+  static int? _toAge(Object? value) {
+    final age = int.tryParse(value?.toString() ?? '');
+    return age != null && age >= 0 ? age : null;
   }
 
   static DateTime? _toDateTime(Object? value) {

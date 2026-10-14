@@ -27,6 +27,26 @@ PHÂN HỆ: REVIEWS (ĐÁNH GIÁ, BÁO CÁO VI PHẠM & AN TOÀN SOS) - src/feat
    - POST /api/v1/reviews/report       : Báo cáo tài khoản xấu hoặc hành vi lừa đảo
    - POST /api/v1/reviews/block        : Chặn người dùng khác
    - POST /api/v1/reviews/sos          : Kích hoạt tín hiệu khẩn cấp SOS (lưu tọa độ hiện tại)
+   - GET /api/v1/reviews/sos/active?tripId=<id>: đọc lại SOS đang ACTIVE của chính chủ.
+   - PUT /api/v1/reviews/sos/:id/status: chính chủ kết thúc bằng RESOLVED/FALSE_ALARM.
+   - SOS gắn trip yêu cầu membership ACTIVE và trip ONGOING; không dùng quyền
+     lịch sử dành cho đánh giá để cho người đã LEFT/REMOVED tạo SOS của trip.
+   - Ghi SOS lặp lại khi còn ACTIVE trả lại bản ghi đó, khóa transaction theo user
+     để hạn chế ghi trùng khi thử lại. Không đổi cấu trúc DB.
+   - BE chỉ lưu cảnh báo, không tự gửi SMS/push hay gọi cứu hộ. FE cho người dùng
+     chủ động mở điện thoại/soạn SMS hoặc sao chép vị trí để tự gửi. Không coi mở
+     trình soạn tin nhắn là bằng chứng SMS đã được gửi/đã được nhận.
+
+   - GET /reviews/sos/history?limit=20&offset=0: lịch sử của chính người đăng
+     nhập (lấy userId từ JWT, không nhận userId của người khác). Trả data gồm
+     items và hasMore; limit 1–50, offset >= 0; mới nhất trước.
+   - Bao gồm ACTIVE/RESOLVED/FALSE_ALARM, tripId/tripName, nội dung, tọa độ,
+     createdAt/resolvedAt. Giữ quyền đọc bản ghi của mình sau khi kết thúc/rời
+     chuyến đi. LEFT JOIN để không loại SOS không còn thông tin chuyến đi.
+   - FE: Cá nhân > Lịch sử SOS của tôi hoặc nút cùng tên trong màn SOS.
+     Lịch sử chỉ đọc; bản đồ mở tọa độ lúc ghi nhận, không lấy GPS hiện tại.
+     Không thêm quyền admin/thành viên khác, không tự gửi thông báo, không
+     đổi DB/migration. Trạng thái ACTIVE không chứng minh có người tiếp nhận.
 
 5. HỢP ĐỒNG LƯU TRỮ SAU MIGRATION 004_member_feature_contracts.sql:
    Sau migration 006, findTripContext kiểm tra người đã từng tham gia: giữ cả

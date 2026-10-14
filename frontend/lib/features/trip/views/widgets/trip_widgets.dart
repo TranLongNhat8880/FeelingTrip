@@ -124,6 +124,7 @@ class TripMemberTile extends StatelessWidget {
   const TripMemberTile({
     super.key,
     required this.member,
+    this.onViewProfile,
     this.onRemove,
     this.onTransfer,
     this.onReview,
@@ -131,6 +132,7 @@ class TripMemberTile extends StatelessWidget {
     this.onBlock,
   });
   final TripMember member;
+  final VoidCallback? onViewProfile;
   final VoidCallback? onRemove;
   final VoidCallback? onTransfer;
   final VoidCallback? onReview;
@@ -148,13 +150,16 @@ class TripMemberTile extends StatelessWidget {
 
     return ListTile(
       contentPadding: EdgeInsets.zero,
+      onTap: onViewProfile,
       leading: AvatarPlaceholder(
         name: member.displayName,
         imageUrl: member.avatarUrl,
         radius: 22,
       ),
       title: Text(member.displayName),
-      subtitle: Text(member.isLeader ? 'Trưởng nhóm' : 'Thành viên'),
+      subtitle: Text(
+        '${member.isLeader ? 'Trưởng nhóm' : 'Thành viên'}${onViewProfile == null ? '' : ' · Nhấn để xem hồ sơ'}',
+      ),
       trailing: !hasActions
           ? AppStatusBadge(
               label: member.isLeader ? 'Trưởng nhóm' : 'Thành viên',

@@ -439,15 +439,47 @@ const createSos = async ({
       resolved_at;
   `;
 
-    const { rows } = await db.query(query, [
-        userId,
-        tripId,
-        latitude,
-        longitude,
-        message,
-    ]);
+    return db.transaction(async client => {
+        // Serialize retries for this user's SOS without changing the DB schema.
+        await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`sos:${userId}`]);
+        const existing = await findActiveSos({ userId, tripId }, client);
+        if (existing) return existing;
+        const { rows } = await client.query(query, [
+            userId, tripId, latitude, longitude, message,
+        ]);
 
-    return rows[0];
+        return rows[0];
+    });
+};
+
+const findActiveSos = async ({ userId, tripId = null }, client = db) => {
+    const { rows } = await client.query(`SELECT id, user_id, trip_id, latitude,
+      longitude, message, status, created_at, resolved_at FROM sos_alerts
+      WHERE user_id = $1 AND trip_id IS NOT DISTINCT FROM $2::UUID AND status = 'ACTIVE'
+      ORDER BY created_at DESC LIMIT 1`, [userId, tripId]);
+    return rows[0] || null;
+};
+
+// History remains visible to its owner even after leaving/completing a trip.
+const findSosHistory = async ({ userId, limit, offset }) => {
+    const { rows } = await db.query(`
+      SELECT s.id, s.trip_id, s.latitude, s.longitude, s.message,
+        s.status, s.created_at, s.resolved_at, t.name AS trip_name
+      FROM sos_alerts s
+      LEFT JOIN trips t ON t.id = s.trip_id
+      WHERE s.user_id = $1
+      ORDER BY s.created_at DESC, s.id DESC
+      LIMIT $2 OFFSET $3`, [userId, limit, offset]);
+    return rows;
+};
+
+const findSosTripContext = async ({ tripId, userId }) => {
+    const { rows } = await db.query(`SELECT t.id, t.status,
+      (EXISTS (SELECT 1 FROM trip_members m WHERE m.trip_id=t.id AND m.user_id=$2
+        AND m.membership_status='ACTIVE') OR (t.creator_id=$2 AND NOT EXISTS
+        (SELECT 1 FROM trip_members m WHERE m.trip_id=t.id AND m.user_id=$2))) AS is_member
+      FROM trips t WHERE t.id=$1 LIMIT 1`, [tripId, userId]);
+    return rows[0] || null;
 };
 
 /**
@@ -524,6 +556,9 @@ module.exports = {
     updateEmergencyContact,
     deleteEmergencyContact,
     createSos,
+    findActiveSos,
+    findSosHistory,
+    findSosTripContext,
     findSosByIdForUser,
     updateSosStatus,
 };
