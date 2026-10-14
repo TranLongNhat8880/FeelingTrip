@@ -24,6 +24,7 @@ const sendCode = async (user, type) => {
   try { await emailService.sendOtpEmail(user.email, otp, type); }
   catch (error) {
     console.error('OTP email delivery failed', {
+      message: error.message,
       code: error.code || 'UNKNOWN',
       command: error.command,
       responseCode: error.responseCode,

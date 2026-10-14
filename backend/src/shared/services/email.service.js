@@ -2,10 +2,13 @@ const nodemailer = require('nodemailer');
 const env = require('../../config/env');
 
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  connectionTimeout: 10000,
-  greetingTimeout: 10000,
-  socketTimeout: 15000,
+  host: 'smtp.gmail.com',
+  port: 465,
+  secure: true,
+  family: 4, // Force IPv4 to prevent ETIMEDOUT on cloud containers like Railway
+  connectionTimeout: 15000,
+  greetingTimeout: 15000,
+  socketTimeout: 20000,
   auth: {
     user: env.email.user,
     pass: env.email.pass,
