@@ -46,6 +46,10 @@ const createCompanionPost = async ({
             throw apiError(403, 'Chỉ trưởng nhóm chuyến đi mới có quyền tạo bài tuyển bạn đồng hành');
         }
 
+        if (trip.privacy_type !== 'PUBLIC') {
+            throw apiError(400, 'Hãy chuyển chuyến đi sang công khai trước khi đăng tuyển bạn đồng hành');
+        }
+
         const existsPost = await companionsRepository.checkExistsPostByTripId(tripId, client);
         if (existsPost) {
             throw apiError(409, 'Chuyến đi này đã có bài viết đang hoạt động');

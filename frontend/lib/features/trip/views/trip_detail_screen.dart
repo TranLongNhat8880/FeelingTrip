@@ -495,6 +495,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                 ),
               ),
               if (trip.isLeader &&
+                  trip.isPublic &&
                   !_hasCompanionPost &&
                   !['COMPLETED', 'CANCELLED'].contains(trip.status)) ...[
                 const SizedBox(width: 10),

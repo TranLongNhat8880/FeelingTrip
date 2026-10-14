@@ -15,6 +15,12 @@ class CompanionTripRepository {
     return (response['data'] as List).any((id) => id.toString() == tripId);
   }
 
+  Future<bool> isPublicTrip(String tripId) async {
+    if (ApiEndpoints.useMockData) return true;
+    final response = await ApiClient.get('${ApiEndpoints.trips}/$tripId');
+    return response['data']['privacyType'] == 'PUBLIC';
+  }
+
   Future<List<Map<String, String>>> getMyTrips() async {
     final response = await ApiClient.get(
       '${ApiEndpoints.companions}/posted-trips',
@@ -30,7 +36,8 @@ class CompanionTripRepository {
       );
       final data = response['data'] as Map<String, dynamic>;
       for (final trip in data['items'] as List) {
-        if (trip['memberRole'] != 'LEADER' ||
+        if (trip['privacyType'] != 'PUBLIC' ||
+            trip['memberRole'] != 'LEADER' ||
             ['COMPLETED', 'CANCELLED'].contains(trip['status'])) {
           continue;
         }

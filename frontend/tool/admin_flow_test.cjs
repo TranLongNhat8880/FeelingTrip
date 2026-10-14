@@ -141,6 +141,7 @@ test('catalog links: trusted snapshot, persisted placeId, hidden/missing places 
 });
 
 async function companionPost(){
+ await db.query("UPDATE trips SET privacy_type='PUBLIC' WHERE id=$1",[ids.trip]);
  const response=await req('/companions/posts','POST',{tripId:ids.trip,title:'Tìm bạn đồng hành test',content:'Nội dung kiểm thử đầy đủ',targetMembersCount:3},'leader');
  assert.equal(response.status,201);
  return response.data.data.id;
@@ -274,4 +275,138 @@ test('companion counts reflect direct membership changes and never reopen a clos
   assert.equal((await req('/companions/posts/' + postId, 'GET', undefined, 'other')).status, 404);
   assert.equal((await req('/companions/join-request', 'POST', { postId }, 'other')).status, 400);
   assert.equal((await req('/companions/feed?status=OPEN', 'GET', undefined, 'other')).data.data.posts.length, 0);
+});
+
+async function tripReport(tripId = ids.trip, reporterId = ids.other) {
+  const { rows } = await db.query(`
+    INSERT INTO user_reports(reporter_id,reported_trip_id,reason)
+    VALUES($1,$2,'Báo cáo chuyến đi để kiểm thử') RETURNING id
+  `, [reporterId, tripId]);
+  return rows[0].id;
+}
+
+function processBody(actions) {
+  return {adminNotes:'Ghi chú nội bộ bí mật để đối chiếu',reason:'Lý do thông báo cho người bị xử lý',actions};
+}
+
+test('trip report processing: capability, related users, validation and legacy resolve guard', async () => {
+  const postId = await companionPost();
+  await db.query("INSERT INTO trip_members(trip_id,user_id,role,membership_status) VALUES($1,$2,'MEMBER','REMOVED')", [ids.trip,ids.other]);
+  const id = await tripReport();
+  const detail = (await req('/admin/reports/'+id)).data.data;
+  assert.equal(detail.context.tripReportProcessing,true);
+  assert.ok(detail.context.users.some(user=>user.id===ids.other));
+  assert.equal(detail.context.posts[0].creator_id,ids.leader);
+  assert.ok(!JSON.stringify(detail.context.users).includes('password_hash'));
+  const actions = [{type:'HIDE_POST',targetId:postId}];
+  const body = processBody(actions);
+  assert.equal((await req('/admin/reports/'+id+'/process','PUT',body,'leader')).status,403);
+  assert.equal((await req('/admin/reports/'+id+'/process','PUT',body,null)).status,401);
+  for (const invalid of [[],[{type:'WARN_USER',targetId:'wrong'}],[...actions,...actions],
+    [{type:'WARN_USER',targetId:ids.other},{type:'BAN_USER',targetId:ids.other}],
+    [{type:'DELETE_TRIP',targetId:ids.trip}],Array(11).fill(actions[0])]) {
+    assert.equal((await req('/admin/reports/'+id+'/process','PUT',processBody(invalid))).status,400);
+  }
+  assert.equal((await req('/admin/reports/'+id+'/resolve','PUT',{action:'RESOLVED',adminNotes:'Không được đóng đơn mà chưa xử lý'})).status,400);
+  assert.equal((await req('/admin/reports/'+id)).data.data.status,'PENDING');
+  assert.equal((await db.query('SELECT COUNT(*)::int AS count FROM notifications')).rows[0].count,0);
+  assert.equal((await req('/admin/reports/'+id+'/resolve','PUT',{action:'DISMISSED',adminNotes:'[Chưa đủ bằng chứng] Chưa thể kết luận'})).status,200);
+});
+
+test('trip report processing: reject unrelated targets, admins and already closed/banned targets', async () => {
+  const postId = await companionPost();
+  const id = await tripReport();
+  // Người báo cáo chưa từng tham gia không mặc định trở thành đối tượng được xử lý.
+  assert.equal((await req('/admin/reports/'+id+'/process','PUT',processBody([{type:'WARN_USER',targetId:ids.other}]))).status,403);
+  const unrelatedPost = (await db.query(`
+    INSERT INTO companion_posts(trip_id,creator_id,title,content,target_members_count,current_members_count)
+    VALUES($1,$2,'Bài tuyển chuyến khác','Nội dung đầy đủ',3,1) RETURNING id
+  `,[ids.trip2,ids.leader])).rows[0].id;
+  assert.equal((await req('/admin/reports/'+id+'/process','PUT',processBody([{type:'HIDE_POST',targetId:unrelatedPost}]))).status,403);
+  await db.query("INSERT INTO trip_members(trip_id,user_id,role,membership_status) VALUES($1,$2,'MEMBER','ACTIVE')",[ids.trip,ids.admin]);
+  assert.equal((await req('/admin/reports/'+id+'/process','PUT',processBody([{type:'BAN_USER',targetId:ids.admin}]))).status,403);
+  await db.query("UPDATE users SET status='BANNED' WHERE id=$1",[ids.leader]);
+  assert.equal((await req('/admin/reports/'+id+'/process','PUT',processBody([{type:'BAN_USER',targetId:ids.leader}]))).status,409);
+  await db.query("UPDATE companion_posts SET status='CLOSED' WHERE id=$1",[postId]);
+  assert.equal((await req('/admin/reports/'+id+'/process','PUT',processBody([{type:'HIDE_POST',targetId:postId}]))).status,409);
+  assert.equal((await req('/admin/reports/'+id)).data.data.status,'PENDING');
+  assert.equal((await db.query('SELECT COUNT(*)::int AS count FROM notifications')).rows[0].count,0);
+});
+
+test('trip report processing: hide and warn commit once, private notes and unrelated trip data preserved', async () => {
+  const postId = await companionPost();
+  await db.query("INSERT INTO trip_members(trip_id,user_id,role,membership_status) VALUES($1,$2,'MEMBER','LEFT')",[ids.trip,ids.other]);
+  const id = await tripReport();
+  const body = processBody([{type:'HIDE_POST',targetId:postId},{type:'WARN_USER',targetId:ids.other}]);
+  const results = await Promise.all([
+    req('/admin/reports/'+id+'/process','PUT',body),
+    req('/admin/reports/'+id+'/process','PUT',body),
+  ]);
+  assert.deepEqual(results.map(result=>result.status).sort(),[200,409]);
+  const saved = (await req('/admin/reports/'+id)).data.data;
+  assert.equal(saved.status,'RESOLVED');
+  assert.ok(saved.adminNotes.includes(body.adminNotes));
+  assert.ok(saved.adminNotes.includes(ids.admin));
+  assert.ok(saved.adminNotes.includes('Ẩn bài tuyển'));
+  assert.equal((await db.query('SELECT status FROM companion_posts WHERE id=$1',[postId])).rows[0].status,'CLOSED');
+  const notices = (await db.query('SELECT * FROM notifications')).rows;
+  assert.equal(notices.length,3);
+  assert.ok(!JSON.stringify(notices).includes(body.adminNotes));
+  assert.ok(notices.some(notice=>notice.user_id===ids.other&&notice.message===body.reason));
+  assert.equal((await db.query('SELECT status FROM trips WHERE id=$1',[ids.trip])).rows[0].status,'UPCOMING');
+  assert.equal((await db.query('SELECT COUNT(*)::int AS count FROM trip_members WHERE trip_id=$1',[ids.trip])).rows[0].count,2);
+  assert.equal((await db.query('SELECT status FROM users WHERE id=$1',[ids.other])).rows[0].status,'ACTIVE');
+});
+
+test('trip report processing: ban revokes token and failed last notification rolls back all actions', async () => {
+  const postId = await companionPost();
+  const id = await tripReport();
+  const before = (await db.query('SELECT token_version FROM users WHERE id=$1',[ids.leader])).rows[0].token_version;
+  // Chỉ tạo trigger trong schema test riêng, không đụng dữ liệu local đang dùng.
+  await db.query(`CREATE FUNCTION fail_report_notice() RETURNS trigger LANGUAGE plpgsql AS $$
+    BEGIN IF NEW.user_id='${ids.other}'::uuid THEN RAISE EXCEPTION 'Simulated final notification failure'; END IF; RETURN NEW; END;
+  $$`);
+  await db.query('CREATE TRIGGER fail_report_notice BEFORE INSERT ON notifications FOR EACH ROW EXECUTE FUNCTION fail_report_notice()');
+  const body = processBody([{type:'HIDE_POST',targetId:postId},{type:'BAN_USER',targetId:ids.leader}]);
+  try {
+    assert.equal((await req('/admin/reports/'+id+'/process','PUT',body)).status,500);
+    assert.equal((await req('/admin/reports/'+id)).data.data.status,'PENDING');
+    assert.equal((await db.query('SELECT status FROM companion_posts WHERE id=$1',[postId])).rows[0].status,'OPEN');
+    const account = (await db.query('SELECT status,token_version FROM users WHERE id=$1',[ids.leader])).rows[0];
+    assert.equal(account.status,'ACTIVE');
+    assert.equal(account.token_version,before);
+    assert.equal((await db.query('SELECT COUNT(*)::int AS count FROM notifications')).rows[0].count,0);
+  } finally {
+    await db.query('DROP TRIGGER fail_report_notice ON notifications');
+    await db.query('DROP FUNCTION fail_report_notice()');
+  }
+  assert.equal((await req('/admin/reports/'+id+'/process','PUT',body)).status,200);
+  const banned = (await db.query('SELECT status,token_version FROM users WHERE id=$1',[ids.leader])).rows[0];
+  assert.equal(banned.status,'BANNED');
+  assert.ok(banned.token_version>before);
+  assert.equal((await req('/users/profile','GET',undefined,'leader')).status,401);
+});
+
+test('trip report processing: concurrent cross-recipient warnings do not deadlock', async () => {
+  await db.query("INSERT INTO trip_members(trip_id,user_id,role,membership_status) VALUES($1,$2,'MEMBER','ACTIVE')",[ids.trip2,ids.other]);
+  const first = await tripReport(ids.trip,ids.other);
+  const second = await tripReport(ids.trip2,ids.leader);
+  const results = await Promise.all([
+    req('/admin/reports/'+first+'/process','PUT',processBody([{type:'WARN_USER',targetId:ids.leader}])),
+    req('/admin/reports/'+second+'/process','PUT',processBody([{type:'WARN_USER',targetId:ids.other}])),
+  ]);
+  assert.deepEqual(results.map(result=>result.status),[200,200]);
+  assert.equal((await db.query('SELECT COUNT(*)::int AS count FROM notifications')).rows[0].count,4);
+});
+
+test('companion publishing requires explicit public trip privacy', async () => {
+  const payload = {tripId: ids.trip, title: 'Tìm bạn đồng hành test', content: 'Nội dung kiểm thử đầy đủ', targetMembersCount: 3};
+  assert.equal((await req('/companions/posts', 'POST', payload, 'leader')).status, 400);
+  assert.equal((await db.query('SELECT privacy_type FROM trips WHERE id=$1', [ids.trip])).rows[0].privacy_type, 'PRIVATE');
+  assert.equal((await db.query('SELECT id FROM companion_posts WHERE trip_id=$1', [ids.trip])).rowCount, 0);
+  const trip = (await req('/trips/' + ids.trip, 'GET', undefined, 'leader')).data.data;
+  const changed = await req('/trips/' + ids.trip, 'PATCH', {privacyType: 'PUBLIC', expectedUpdatedAt: trip.updatedAt}, 'leader');
+  assert.equal(changed.status, 200, JSON.stringify(changed.data));
+  assert.equal((await req('/companions/posts', 'POST', payload, 'leader')).status, 201);
+  assert.equal((await db.query('SELECT privacy_type FROM trips WHERE id=$1', [ids.trip])).rows[0].privacy_type, 'PUBLIC');
 });
