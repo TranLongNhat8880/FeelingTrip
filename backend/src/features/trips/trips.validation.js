@@ -18,28 +18,25 @@ const limit = max => Joi.number().integer().min(1).max(max).default(20);
 const createTripSchema = Joi.object({
   name: Joi.string().trim().min(2).max(255),
   destination: Joi.string().trim().min(2).max(255).required(),
-  destinationProvider: Joi.string().trim().max(30).allow(null, ''),
-  destinationExternalId: Joi.string().trim().max(255).allow(null, ''),
-  destinationLatitude: Joi.number().min(-90).max(90).allow(null),
-  destinationLongitude: Joi.number().min(-180).max(180).allow(null),
   startDate: date.required(),
   endDate: date.required(),
   estimatedBudget: Joi.number().integer().min(0).max(Number.MAX_SAFE_INTEGER).default(0),
   coverImageUrl: Joi.string().uri().allow(null, ''),
   description: Joi.string().trim().max(2000).allow(null, ''),
   privacyType: Joi.string().valid('PRIVATE', 'PUBLIC').default('PRIVATE'),
+  destinationProvider: Joi.string().trim().max(50).allow(null),
+  destinationExternalId: Joi.string().trim().max(500).allow(null),
+  destinationLatitude: Joi.number().min(-90).max(90).allow(null),
+  destinationLongitude: Joi.number().min(-180).max(180).allow(null),
   status: Joi.forbidden(),
   creatorId: Joi.forbidden(),
   inviteCode: Joi.forbidden(),
   tripType: Joi.forbidden(),
 }).custom((value, helpers) => {
-  if (value.endDate < value.startDate) {
-    return helpers.error('date.range');
-  }
-  const hasLat = value.destinationLatitude != null;
-  const hasLng = value.destinationLongitude != null;
-  if (hasLat !== hasLng) {
-    return helpers.message('Vĩ độ và kinh độ điểm đến phải cùng có hoặc cùng để trống');
+  if (value.endDate < value.startDate) return helpers.error('date.range');
+  // Tọa độ phải đi theo cặp
+  if ((value.destinationLatitude == null) !== (value.destinationLongitude == null)) {
+    return helpers.message('destinationLatitude và destinationLongitude phải đi theo cặp');
   }
   return value;
 }).messages({ 'date.range': 'Ngày kết thúc không thể trước ngày khởi hành' });
@@ -47,24 +44,24 @@ const createTripSchema = Joi.object({
 const updateTripSchema = Joi.object({
   name: Joi.string().trim().min(2).max(255),
   destination: Joi.string().trim().min(2).max(255),
-  destinationProvider: Joi.string().trim().max(30).allow(null, ''),
-  destinationExternalId: Joi.string().trim().max(255).allow(null, ''),
-  destinationLatitude: Joi.number().min(-90).max(90).allow(null),
-  destinationLongitude: Joi.number().min(-180).max(180).allow(null),
   startDate: date,
   endDate: date,
   estimatedBudget: Joi.number().integer().min(0).max(Number.MAX_SAFE_INTEGER),
   coverImageUrl: Joi.string().uri().allow(null, ''),
   description: Joi.string().trim().max(2000).allow(null, ''),
   privacyType: Joi.string().valid('PRIVATE', 'PUBLIC'),
+  destinationProvider: Joi.string().trim().max(50).allow(null),
+  destinationExternalId: Joi.string().trim().max(500).allow(null),
+  destinationLatitude: Joi.number().min(-90).max(90).allow(null),
+  destinationLongitude: Joi.number().min(-180).max(180).allow(null),
   expectedUpdatedAt: version.required(),
   status: Joi.forbidden(),
   tripType: Joi.forbidden(),
 }).min(2).custom((value, helpers) => {
-  const hasLat = value.destinationLatitude !== undefined && value.destinationLatitude !== null;
-  const hasLng = value.destinationLongitude !== undefined && value.destinationLongitude !== null;
-  if ((value.destinationLatitude !== undefined || value.destinationLongitude !== undefined) && hasLat !== hasLng) {
-    return helpers.message('Vĩ độ và kinh độ điểm đến phải cùng có hoặc cùng để trống');
+  if (value.destinationLatitude !== undefined || value.destinationLongitude !== undefined) {
+    if ((value.destinationLatitude == null) !== (value.destinationLongitude == null)) {
+      return helpers.message('destinationLatitude và destinationLongitude phải đi theo cặp');
+    }
   }
   return value;
 });

@@ -24,6 +24,10 @@ void main() {
         'privacyType': 'PUBLIC',
         'status': 'UPCOMING',
         'memberRole': 'LEADER',
+        'destinationProvider': 'GEOAPIFY',
+        'destinationExternalId': 'ext-danang-123',
+        'destinationLatitude': 16.0544,
+        'destinationLongitude': 108.2022,
         'members': [
           {
             'userId': 'user-1',
@@ -38,10 +42,40 @@ void main() {
       expect(trip.id, 'trip-101');
       expect(trip.name, 'Du lịch Đà Nẵng');
       expect(trip.destination, 'Đà Nẵng');
+      expect(trip.destinationProvider, 'GEOAPIFY');
+      expect(trip.destinationExternalId, 'ext-danang-123');
+      expect(trip.destinationLatitude, 16.0544);
+      expect(trip.destinationLongitude, 108.2022);
       expect(trip.isLeader, isTrue);
       expect(trip.isPublic, isTrue);
       expect(trip.isEditable, isTrue);
       expect(trip.members.length, 1);
+    });
+
+    test('TripFormData serializes destination coordinates', () {
+      final data = TripFormData(
+        destination: 'Đà Lạt',
+        startDate: DateTime(2026, 11, 1),
+        endDate: DateTime(2026, 11, 3),
+        estimatedBudget: 3000000,
+        privacyType: 'PRIVATE',
+        destinationProvider: 'GEOAPIFY',
+        destinationExternalId: 'ext-dalat-1',
+        destinationLatitude: 11.9404,
+        destinationLongitude: 108.4583,
+      );
+
+      final json = data.toJson();
+      expect(json['destinationProvider'], 'GEOAPIFY');
+      expect(json['destinationExternalId'], 'ext-dalat-1');
+      expect(json['destinationLatitude'], 11.9404);
+      expect(json['destinationLongitude'], 108.4583);
+
+      final multipart = data.toMultipartFields();
+      expect(multipart['destinationProvider'], 'GEOAPIFY');
+      expect(multipart['destinationExternalId'], 'ext-dalat-1');
+      expect(multipart['destinationLatitude'], '11.9404');
+      expect(multipart['destinationLongitude'], '108.4583');
     });
 
     test('MockTripRepository creates, updates and fetches trips', () async {
@@ -112,6 +146,86 @@ void main() {
 
       expect(createdItem.id, isNotEmpty);
       expect(createdItem.customName, 'Cà phê sáng');
+    });
+
+    test('ItineraryItem parses locationSource and coordinates, gates Smart Swap', () {
+      final catalogItem = ItineraryItem.fromJson({
+        'id': 'item-1',
+        'itineraryId': 'day-1',
+        'placeId': 'place-uuid-1',
+        'customName': 'Hồ Xuân Hương',
+        'category': 'ATTRACTION',
+        'startTime': '08:00',
+        'endTime': '09:30',
+        'locationSource': 'CATALOG',
+        'latitude': 11.9404,
+        'longitude': 108.4583,
+      });
+      expect(catalogItem.locationSource, 'CATALOG');
+      expect(catalogItem.latitude, 11.9404);
+      expect(catalogItem.longitude, 108.4583);
+      expect(catalogItem.canSmartSwap, isTrue);
+      expect(catalogItem.supportsSmartSwap, isTrue);
+
+      final geoapifyItem = ItineraryItem.fromJson({
+        'id': 'item-2',
+        'itineraryId': 'day-1',
+        'customName': 'Quảng trường Lâm Viên',
+        'category': 'SIGHTSEEING',
+        'startTime': '10:00',
+        'endTime': '11:00',
+        'locationSource': 'GEOAPIFY',
+        'externalProvider': 'GEOAPIFY',
+        'externalPlaceId': 'geo-123',
+        'latitude': 11.9366,
+        'longitude': 108.4452,
+      });
+      expect(geoapifyItem.locationSource, 'GEOAPIFY');
+      expect(geoapifyItem.externalProvider, 'GEOAPIFY');
+      expect(geoapifyItem.externalPlaceId, 'geo-123');
+      expect(geoapifyItem.canSmartSwap, isFalse);
+      expect(geoapifyItem.supportsSmartSwap, isFalse);
+
+      final manualItem = ItineraryItem.fromJson({
+        'id': 'item-3',
+        'itineraryId': 'day-1',
+        'customName': 'Ghé quán ven đường',
+        'category': 'RESTAURANT',
+        'startTime': '12:00',
+        'endTime': '13:00',
+        'locationSource': 'MANUAL',
+      });
+      expect(manualItem.locationSource, 'MANUAL');
+      expect(manualItem.canSmartSwap, isFalse);
+      expect(manualItem.supportsSmartSwap, isFalse);
+    });
+
+    test('ItineraryItemDraft serializes locationSource and coordinates', () {
+      const draft = ItineraryItemDraft(
+        customName: 'Chợ đêm',
+        category: 'SHOPPING',
+        startTime: '19:00',
+        endTime: '21:00',
+        estimatedCost: 0,
+        locationSource: 'GEOAPIFY',
+        externalProvider: 'GEOAPIFY',
+        externalPlaceId: 'geo-456',
+        latitude: 11.9412,
+        longitude: 108.4378,
+      );
+
+      final json = draft.toCreateJson();
+      expect(json['locationSource'], 'GEOAPIFY');
+      expect(json['externalProvider'], 'GEOAPIFY');
+      expect(json['externalPlaceId'], 'geo-456');
+      expect(json['latitude'], 11.9412);
+      expect(json['longitude'], 108.4378);
+
+      final updateJson = draft.toUpdateJson('v1');
+      expect(updateJson['expectedVersion'], 'v1');
+      expect(updateJson['locationSource'], 'GEOAPIFY');
+      expect(updateJson['latitude'], 11.9412);
+      expect(updateJson['longitude'], 108.4378);
     });
 
     test('PublicItineraryViewModel loads and clones plan', () async {

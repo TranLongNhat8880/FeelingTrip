@@ -54,6 +54,10 @@ class MockTripRepository implements TripRepository {
     required String role,
     String status = 'UPCOMING',
     String? image,
+    String? destinationProvider,
+    String? destinationExternalId,
+    double? destinationLatitude,
+    double? destinationLongitude,
   }) {
     final now = DateTime.now();
     final members = [
@@ -88,6 +92,10 @@ class MockTripRepository implements TripRepository {
       members: members,
       inviteCode: role == 'LEADER' ? 'A1B2C3' : null,
       inviteCodeStatus: role == 'LEADER' ? 'ACTIVE' : null,
+      destinationProvider: destinationProvider,
+      destinationExternalId: destinationExternalId,
+      destinationLatitude: destinationLatitude,
+      destinationLongitude: destinationLongitude,
       createdAt: now.subtract(const Duration(days: 20)),
       updatedAt: now,
     );
@@ -128,6 +136,10 @@ class MockTripRepository implements TripRepository {
       budget: data.estimatedBudget,
       role: 'LEADER',
       image: data.coverImageUrl,
+      destinationProvider: data.destinationProvider,
+      destinationExternalId: data.destinationExternalId,
+      destinationLatitude: data.destinationLatitude,
+      destinationLongitude: data.destinationLongitude,
     );
     _trips.insert(0, trip);
     return trip;
@@ -146,6 +158,10 @@ class MockTripRepository implements TripRepository {
       privacyType: data.privacyType,
       description: data.description,
       coverImageUrl: data.coverImageUrl,
+      destinationProvider: data.destinationProvider,
+      destinationExternalId: data.destinationExternalId,
+      destinationLatitude: data.destinationLatitude,
+      destinationLongitude: data.destinationLongitude,
     );
     _replace(updated);
     return updated;
@@ -288,6 +304,10 @@ class MockTripRepository implements TripRepository {
     String? coverImageUrl,
     String? memberRole,
     List<TripMember>? members,
+    String? destinationProvider,
+    String? destinationExternalId,
+    double? destinationLatitude,
+    double? destinationLongitude,
   }) => TripModel(
     id: trip.id,
     name: name ?? trip.name,
@@ -305,6 +325,11 @@ class MockTripRepository implements TripRepository {
     members: members ?? trip.members,
     inviteCode: trip.inviteCode,
     inviteCodeStatus: trip.inviteCodeStatus,
+    destinationProvider: destinationProvider ?? trip.destinationProvider,
+    destinationExternalId:
+        destinationExternalId ?? trip.destinationExternalId,
+    destinationLatitude: destinationLatitude ?? trip.destinationLatitude,
+    destinationLongitude: destinationLongitude ?? trip.destinationLongitude,
     createdAt: trip.createdAt,
     updatedAt: DateTime.now(),
   );

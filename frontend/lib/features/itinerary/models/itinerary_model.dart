@@ -105,11 +105,11 @@ class ItineraryItem {
     required this.version,
     this.placeId,
     this.customAddress,
+    this.latitude,
+    this.longitude,
     this.locationSource = 'MANUAL',
     this.externalProvider,
     this.externalPlaceId,
-    this.latitude,
-    this.longitude,
     this.note,
     this.createdAt,
     this.expenseId,
@@ -121,11 +121,11 @@ class ItineraryItem {
   final String? placeId;
   final String customName;
   final String? customAddress;
+  final double? latitude;
+  final double? longitude;
   final String locationSource;
   final String? externalProvider;
   final String? externalPlaceId;
-  final double? latitude;
-  final double? longitude;
   final String category;
   final String startTime;
   final String endTime;
@@ -137,7 +137,9 @@ class ItineraryItem {
   final String? expenseId;
   final int? actualAmount;
 
-  bool get supportsSmartSwap => placeId != null;
+  bool get canSmartSwap => locationSource == 'CATALOG' && placeId != null;
+
+  bool get supportsSmartSwap => canSmartSwap;
 
   factory ItineraryItem.fromJson(Map<String, dynamic> json) => ItineraryItem(
     id: '${json['id'] ?? ''}',
@@ -145,11 +147,11 @@ class ItineraryItem {
     placeId: _string(json['placeId']),
     customName: '${json['customName'] ?? 'Điểm dừng'}',
     customAddress: _string(json['customAddress']),
-    locationSource: '${json['locationSource'] ?? 'MANUAL'}',
-    externalProvider: _string(json['externalProvider']),
-    externalPlaceId: _string(json['externalPlaceId']),
     latitude: json['latitude'] == null ? null : _double(json['latitude']),
     longitude: json['longitude'] == null ? null : _double(json['longitude']),
+    locationSource: '${json['locationSource'] ?? 'MANUAL'}'.toUpperCase(),
+    externalProvider: _string(json['externalProvider']),
+    externalPlaceId: _string(json['externalPlaceId']),
     category: '${json['category'] ?? 'OTHER'}'.toUpperCase(),
     startTime: '${json['startTime'] ?? ''}',
     endTime: '${json['endTime'] ?? ''}',
@@ -174,58 +176,58 @@ class ItineraryItemDraft {
     required this.estimatedCost,
     this.placeId,
     this.customAddress,
-    this.locationSource,
+    this.note,
+    this.locationSource = 'MANUAL',
     this.externalProvider,
     this.externalPlaceId,
     this.latitude,
     this.longitude,
-    this.note,
   });
 
   final String? placeId;
   final String customName;
   final String? customAddress;
-  final String? locationSource;
-  final String? externalProvider;
-  final String? externalPlaceId;
-  final double? latitude;
-  final double? longitude;
   final String category;
   final String startTime;
   final String endTime;
   final String? note;
   final int estimatedCost;
+  final String locationSource;
+  final String? externalProvider;
+  final String? externalPlaceId;
+  final double? latitude;
+  final double? longitude;
 
   Map<String, dynamic> toCreateJson() => {
     'placeId': placeId,
     'customName': customName.trim(),
     'customAddress': customAddress?.trim(),
-    if (locationSource != null) 'locationSource': locationSource,
-    if (externalProvider != null) 'externalProvider': externalProvider,
-    if (externalPlaceId != null) 'externalPlaceId': externalPlaceId,
-    if (latitude != null) 'latitude': latitude,
-    if (longitude != null) 'longitude': longitude,
     'category': category,
     'startTime': startTime,
     'endTime': endTime,
     'note': note?.trim(),
     'estimatedCost': estimatedCost,
+    'locationSource': locationSource,
+    'externalProvider': ?externalProvider,
+    'externalPlaceId': ?externalPlaceId,
+    'latitude': ?latitude,
+    'longitude': ?longitude,
   };
 
   Map<String, dynamic> toUpdateJson(String expectedVersion) => {
     'customName': customName.trim(),
     'customAddress': customAddress?.trim(),
-    if (locationSource != null) 'locationSource': locationSource,
-    if (externalProvider != null) 'externalProvider': externalProvider,
-    if (externalPlaceId != null) 'externalPlaceId': externalPlaceId,
-    if (latitude != null) 'latitude': latitude,
-    if (longitude != null) 'longitude': longitude,
     'category': category,
     'startTime': startTime,
     'endTime': endTime,
     'note': note?.trim(),
     'estimatedCost': estimatedCost,
     'expectedVersion': expectedVersion,
+    'locationSource': locationSource,
+    'externalProvider': ?externalProvider,
+    'externalPlaceId': ?externalPlaceId,
+    'latitude': ?latitude,
+    'longitude': ?longitude,
   };
 }
 

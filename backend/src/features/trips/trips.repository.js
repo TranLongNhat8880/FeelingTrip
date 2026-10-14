@@ -43,8 +43,7 @@ const createTrip = async (client, userId, data) => {
     data.estimatedBudget ?? 0, data.coverImageUrl || null, data.description || null,
     data.privacyType || 'PRIVATE',
     data.destinationProvider || null, data.destinationExternalId || null,
-    data.destinationLatitude != null ? data.destinationLatitude : null,
-    data.destinationLongitude != null ? data.destinationLongitude : null]);
+    data.destinationLatitude ?? null, data.destinationLongitude ?? null]);
   await client.query(`
     INSERT INTO trip_members (trip_id,user_id,role,membership_status)
     VALUES ($1,$2,'LEADER','ACTIVE')`, [trip.id, userId]);

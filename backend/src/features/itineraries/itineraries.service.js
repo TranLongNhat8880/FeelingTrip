@@ -196,7 +196,9 @@ const getItem = async (itemId, userId) => {
 };
 
 const resolveItemInput = async (client, data) => {
-  if (data.placeId) {
+  const source = data.locationSource || (data.placeId ? 'CATALOG' : 'MANUAL');
+  if (source === 'CATALOG') {
+    if (!data.placeId) throw apiError(400, 'placeId bắt buộc cho CATALOG');
     const place = await repo.findPlace(client, data.placeId);
     if (!place || !place.is_active) throw apiError(404, 'Không tìm thấy địa điểm đang hoạt động');
     return {
@@ -207,13 +209,28 @@ const resolveItemInput = async (client, data) => {
       category: place.category,
       latitude: place.latitude != null ? Number(place.latitude) : null,
       longitude: place.longitude != null ? Number(place.longitude) : null,
+      externalProvider: null,
+      externalPlaceId: null,
     };
   }
-  if (data.locationSource === 'GEOAPIFY' && !data.externalProvider) {
-    data.externalProvider = 'GEOAPIFY';
+  if (source === 'GEOAPIFY') {
+    if (!data.category) throw apiError(400, 'Category là bắt buộc cho hoạt động GEOAPIFY');
+    return {
+      ...data,
+      locationSource: 'GEOAPIFY',
+      externalProvider: data.externalProvider || 'GEOAPIFY',
+      placeId: null,
+    };
   }
+  // MANUAL
   if (!data.category) throw apiError(400, 'Category là bắt buộc cho hoạt động tùy chỉnh');
-  return data;
+  return {
+    ...data,
+    locationSource: 'MANUAL',
+    placeId: null,
+    externalProvider: null,
+    externalPlaceId: null,
+  };
 };
 
 const addItem = (dayId, userId, data) => db.transaction(async client => {
@@ -372,7 +389,9 @@ const verifyCandidate = token => {
 };
 
 const candidateRows = async (client, item, radiusKm, limit, withTokens) => {
-  if (!item.place_id || item.place_latitude == null || item.place_longitude == null
+  // Smart Swap chỉ hỗ trợ item CATALOG có place nội bộ hợp lệ
+  if (!item.place_id || item.location_source !== 'CATALOG'
+      || item.place_latitude == null || item.place_longitude == null
       || !item.place_active || !item.place_duration || item.place_duration <= 0) {
     throw apiError(422, 'Hoạt động không đủ điều kiện Smart Swap');
   }
@@ -496,5 +515,5 @@ const clonePlan = (sourceTripId, userId, data) => db.transaction(async client =>
 module.exports = {
   getItineraries, createDay, getDay, updateDay, getItem, addItem, updateItem,
   deleteItem, setCompletion, reorderItems, getSwapCandidates, applySmartSwap,
-  listPublic, getPublic, clonePlan,
+  listPublic, getPublic, clonePlan, resolveItemInput,
 };

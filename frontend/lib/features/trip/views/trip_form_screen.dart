@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/app_utils.dart';
 import '../../../shared/ui_kit.dart';
+import '../../map/models/place_search_result.dart';
+import '../../map/views/place_location_picker_screen.dart';
 import '../models/trip_model.dart';
 import '../repositories/trip_repository.dart';
 import '../viewmodels/trip_viewmodel.dart';
@@ -36,6 +39,10 @@ class _TripFormScreenState extends State<TripFormScreen> {
   String? _coverImageFileName;
   bool _removeExistingCover = false;
   bool _showExtras = false;
+  String? _destinationProvider;
+  String? _destinationExternalId;
+  double? _destinationLatitude;
+  double? _destinationLongitude;
 
   bool get _editing => widget.trip != null;
 
@@ -48,6 +55,10 @@ class _TripFormScreenState extends State<TripFormScreen> {
       ..addListener(_onChanged);
     _name = TextEditingController(text: trip?.name);
     _destination = TextEditingController(text: trip?.destination);
+    _destinationProvider = trip?.destinationProvider;
+    _destinationExternalId = trip?.destinationExternalId;
+    _destinationLatitude = trip?.destinationLatitude;
+    _destinationLongitude = trip?.destinationLongitude;
     _budget = TextEditingController(
       text: VndInputFormatter.format('${trip?.estimatedBudget ?? 0}'),
     );
@@ -214,6 +225,86 @@ class _TripFormScreenState extends State<TripFormScreen> {
     return null;
   }
 
+  Future<void> _pickDestinationFromMap() async {
+    PlaceSearchResult? initial;
+    if (_destinationLatitude != null && _destinationLongitude != null) {
+      initial = PlaceSearchResult(
+        id: _destinationExternalId ?? '',
+        name: _destination.text,
+        formattedAddress: _destination.text,
+        latitude: _destinationLatitude!,
+        longitude: _destinationLongitude!,
+      );
+    }
+    final result = await Navigator.push<PlaceSearchResult>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PlaceLocationPickerScreen(initialLocation: initial),
+      ),
+    );
+    if (result == null || !mounted) return;
+    setState(() {
+      _destination.text = result.name;
+      _destinationProvider = 'GEOAPIFY';
+      _destinationExternalId = result.id;
+      _destinationLatitude = result.latitude;
+      _destinationLongitude = result.longitude;
+    });
+  }
+
+  Widget _destinationCoordinatesBadge() {
+    if (_destinationLatitude == null || _destinationLongitude == null) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: AppColors.primarySurface,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppColors.primaryBorder),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.pin_drop_rounded,
+                    size: 13, color: AppColors.primary),
+                const SizedBox(width: 4),
+                Text(
+                  'Tọa độ: ${_destinationLatitude!.toStringAsFixed(4)}, ${_destinationLongitude!.toStringAsFixed(4)}',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primaryDark,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                InkWell(
+                  onTap: () {
+                    setState(() {
+                      _destinationProvider = null;
+                      _destinationExternalId = null;
+                      _destinationLatitude = null;
+                      _destinationLongitude = null;
+                    });
+                  },
+                  child: const Icon(
+                    Icons.close_rounded,
+                    size: 13,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _pickDate({required bool start}) async {
     final today = DateUtils.dateOnly(DateTime.now());
     final minStartDate =
@@ -286,6 +377,10 @@ class _TripFormScreenState extends State<TripFormScreen> {
       coverImageUrl: _removeExistingCover ? '' : widget.trip?.coverImageUrl,
       coverImageBytes: _coverImageBytes,
       coverImageFileName: _coverImageFileName,
+      destinationProvider: _destinationProvider,
+      destinationExternalId: _destinationExternalId,
+      destinationLatitude: _destinationLatitude,
+      destinationLongitude: _destinationLongitude,
     );
     final result = _editing
         ? await _viewModel.updateTrip(widget.trip!, data)
@@ -350,10 +445,20 @@ class _TripFormScreenState extends State<TripFormScreen> {
               hint: 'Ví dụ: Đà Lạt, Phú Quốc, Hội An',
               controller: _destination,
               prefixIcon: Icons.location_on_outlined,
+              suffixIcon: IconButton(
+                tooltip: 'Chọn trên bản đồ',
+                icon: const Icon(
+                  Icons.map_rounded,
+                  color: AppColors.primary,
+                  size: 20,
+                ),
+                onPressed: _pickDestinationFromMap,
+              ),
               validator: (value) => (value ?? '').trim().length < 2
                   ? 'Vui lòng nhập điểm đến'
                   : null,
             ),
+            _destinationCoordinatesBadge(),
             const SizedBox(height: 12),
             Row(
               children: [
