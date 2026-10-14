@@ -628,6 +628,65 @@ class ItineraryItemCard extends StatelessWidget {
                                       ),
                                     ),
                                   ],
+                                  if (item.locationSource == 'GEOAPIFY') ...[
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFEFF6FF),
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(
+                                            color: const Color(0xFFBFDBFE)),
+                                      ),
+                                      child: const Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.map_rounded,
+                                              size: 11,
+                                              color: Color(0xFF2563EB)),
+                                          SizedBox(width: 3),
+                                          Text(
+                                            'Bản đồ',
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w700,
+                                              color: Color(0xFF2563EB),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ] else if (item.locationSource == 'MANUAL') ...[
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFF8FAFC),
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(
+                                            color: AppColors.border),
+                                      ),
+                                      child: const Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.edit_note_rounded,
+                                              size: 11,
+                                              color: AppColors.textSecondary),
+                                          SizedBox(width: 3),
+                                          Text(
+                                            'Tự nhập',
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w700,
+                                              color: AppColors.textSecondary,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 ],
                               ),
                               const SizedBox(height: 5),

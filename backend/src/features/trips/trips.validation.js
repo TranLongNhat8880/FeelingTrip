@@ -24,12 +24,22 @@ const createTripSchema = Joi.object({
   coverImageUrl: Joi.string().uri().allow(null, ''),
   description: Joi.string().trim().max(2000).allow(null, ''),
   privacyType: Joi.string().valid('PRIVATE', 'PUBLIC').default('PRIVATE'),
+  destinationProvider: Joi.string().trim().max(50).allow(null),
+  destinationExternalId: Joi.string().trim().max(500).allow(null),
+  destinationLatitude: Joi.number().min(-90).max(90).allow(null),
+  destinationLongitude: Joi.number().min(-180).max(180).allow(null),
   status: Joi.forbidden(),
   creatorId: Joi.forbidden(),
   inviteCode: Joi.forbidden(),
   tripType: Joi.forbidden(),
-}).custom((value, helpers) => value.endDate < value.startDate
-  ? helpers.error('date.range') : value).messages({ 'date.range': 'Ngày kết thúc không thể trước ngày khởi hành' });
+}).custom((value, helpers) => {
+  if (value.endDate < value.startDate) return helpers.error('date.range');
+  // Tọa độ phải đi theo cặp
+  if ((value.destinationLatitude == null) !== (value.destinationLongitude == null)) {
+    return helpers.message('destinationLatitude và destinationLongitude phải đi theo cặp');
+  }
+  return value;
+}).messages({ 'date.range': 'Ngày kết thúc không thể trước ngày khởi hành' });
 
 const updateTripSchema = Joi.object({
   name: Joi.string().trim().min(2).max(255),
@@ -40,10 +50,21 @@ const updateTripSchema = Joi.object({
   coverImageUrl: Joi.string().uri().allow(null, ''),
   description: Joi.string().trim().max(2000).allow(null, ''),
   privacyType: Joi.string().valid('PRIVATE', 'PUBLIC'),
+  destinationProvider: Joi.string().trim().max(50).allow(null),
+  destinationExternalId: Joi.string().trim().max(500).allow(null),
+  destinationLatitude: Joi.number().min(-90).max(90).allow(null),
+  destinationLongitude: Joi.number().min(-180).max(180).allow(null),
   expectedUpdatedAt: version.required(),
   status: Joi.forbidden(),
   tripType: Joi.forbidden(),
-}).min(2);
+}).min(2).custom((value, helpers) => {
+  if (value.destinationLatitude !== undefined || value.destinationLongitude !== undefined) {
+    if ((value.destinationLatitude == null) !== (value.destinationLongitude == null)) {
+      return helpers.message('destinationLatitude và destinationLongitude phải đi theo cặp');
+    }
+  }
+  return value;
+});
 
 const updateStatusSchema = Joi.object({
   status: Joi.string().valid('UPCOMING', 'ONGOING', 'COMPLETED').required(),

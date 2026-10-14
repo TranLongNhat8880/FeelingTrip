@@ -15,6 +15,9 @@ const formatItem = row => ({
   customName: row.custom_name,
   customAddress: row.custom_address || null,
   category: row.category,
+  locationSource: row.location_source || 'MANUAL',
+  externalProvider: row.external_provider || null,
+  externalPlaceId: row.external_place_id || null,
   latitude: row.latitude != null ? Number(row.latitude) : null,
   longitude: row.longitude != null ? Number(row.longitude) : null,
   startTime: asTime(row.start_time),
@@ -193,13 +196,30 @@ const getItem = async (itemId, userId) => {
 };
 
 const resolveItemInput = async (client, data) => {
-  if (!data.placeId) {
-    if (!data.category) throw apiError(400, 'Category là bắt buộc cho hoạt động tùy chỉnh');
-    return data;
+  const source = data.locationSource || (data.placeId ? 'CATALOG' : 'MANUAL');
+  if (source === 'CATALOG') {
+    if (!data.placeId) throw apiError(400, 'placeId bắt buộc cho CATALOG');
+    const place = await repo.findPlace(client, data.placeId);
+    if (!place || !place.is_active) throw apiError(404, 'Không tìm thấy địa điểm đang hoạt động');
+    return {
+      ...data,
+      locationSource: 'CATALOG',
+      customName: place.name,
+      customAddress: place.address,
+      category: place.category,
+      latitude: place.latitude ?? null,
+      longitude: place.longitude ?? null,
+      externalProvider: null,
+      externalPlaceId: null,
+    };
   }
-  const place = await repo.findPlace(client, data.placeId);
-  if (!place || !place.is_active) throw apiError(404, 'Không tìm thấy địa điểm đang hoạt động');
-  return { ...data, customName: place.name, customAddress: place.address, category: place.category };
+  if (source === 'GEOAPIFY') {
+    if (!data.category) throw apiError(400, 'Category là bắt buộc cho hoạt động GEOAPIFY');
+    return { ...data, locationSource: 'GEOAPIFY', placeId: null };
+  }
+  // MANUAL
+  if (!data.category) throw apiError(400, 'Category là bắt buộc cho hoạt động tùy chỉnh');
+  return { ...data, locationSource: 'MANUAL', placeId: null, externalProvider: null, externalPlaceId: null };
 };
 
 const addItem = (dayId, userId, data) => db.transaction(async client => {
@@ -358,7 +378,9 @@ const verifyCandidate = token => {
 };
 
 const candidateRows = async (client, item, radiusKm, limit, withTokens) => {
-  if (!item.place_id || item.place_latitude == null || item.place_longitude == null
+  // Smart Swap chỉ hỗ trợ item CATALOG có place nội bộ hợp lệ
+  if (!item.place_id || item.location_source !== 'CATALOG'
+      || item.place_latitude == null || item.place_longitude == null
       || !item.place_active || !item.place_duration || item.place_duration <= 0) {
     throw apiError(422, 'Hoạt động không đủ điều kiện Smart Swap');
   }
@@ -482,5 +504,5 @@ const clonePlan = (sourceTripId, userId, data) => db.transaction(async client =>
 module.exports = {
   getItineraries, createDay, getDay, updateDay, getItem, addItem, updateItem,
   deleteItem, setCompletion, reorderItems, getSwapCandidates, applySmartSwap,
-  listPublic, getPublic, clonePlan,
+  listPublic, getPublic, clonePlan, resolveItemInput,
 };

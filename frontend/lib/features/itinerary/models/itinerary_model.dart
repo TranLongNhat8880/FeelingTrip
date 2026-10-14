@@ -107,6 +107,9 @@ class ItineraryItem {
     this.customAddress,
     this.latitude,
     this.longitude,
+    this.locationSource = 'MANUAL',
+    this.externalProvider,
+    this.externalPlaceId,
     this.note,
     this.createdAt,
     this.expenseId,
@@ -120,6 +123,9 @@ class ItineraryItem {
   final String? customAddress;
   final double? latitude;
   final double? longitude;
+  final String locationSource;
+  final String? externalProvider;
+  final String? externalPlaceId;
   final String category;
   final String startTime;
   final String endTime;
@@ -131,7 +137,9 @@ class ItineraryItem {
   final String? expenseId;
   final int? actualAmount;
 
-  bool get supportsSmartSwap => placeId != null;
+  bool get canSmartSwap => locationSource == 'CATALOG' && placeId != null;
+
+  bool get supportsSmartSwap => canSmartSwap;
 
   factory ItineraryItem.fromJson(Map<String, dynamic> json) => ItineraryItem(
     id: '${json['id'] ?? ''}',
@@ -141,6 +149,9 @@ class ItineraryItem {
     customAddress: _string(json['customAddress']),
     latitude: json['latitude'] == null ? null : _double(json['latitude']),
     longitude: json['longitude'] == null ? null : _double(json['longitude']),
+    locationSource: '${json['locationSource'] ?? 'MANUAL'}'.toUpperCase(),
+    externalProvider: _string(json['externalProvider']),
+    externalPlaceId: _string(json['externalPlaceId']),
     category: '${json['category'] ?? 'OTHER'}'.toUpperCase(),
     startTime: '${json['startTime'] ?? ''}',
     endTime: '${json['endTime'] ?? ''}',
@@ -166,6 +177,11 @@ class ItineraryItemDraft {
     this.placeId,
     this.customAddress,
     this.note,
+    this.locationSource = 'MANUAL',
+    this.externalProvider,
+    this.externalPlaceId,
+    this.latitude,
+    this.longitude,
   });
 
   final String? placeId;
@@ -176,6 +192,11 @@ class ItineraryItemDraft {
   final String endTime;
   final String? note;
   final int estimatedCost;
+  final String locationSource;
+  final String? externalProvider;
+  final String? externalPlaceId;
+  final double? latitude;
+  final double? longitude;
 
   Map<String, dynamic> toCreateJson() => {
     'placeId': placeId,
@@ -186,6 +207,11 @@ class ItineraryItemDraft {
     'endTime': endTime,
     'note': note?.trim(),
     'estimatedCost': estimatedCost,
+    'locationSource': locationSource,
+    'externalProvider': ?externalProvider,
+    'externalPlaceId': ?externalPlaceId,
+    'latitude': ?latitude,
+    'longitude': ?longitude,
   };
 
   Map<String, dynamic> toUpdateJson(String expectedVersion) => {
@@ -197,6 +223,11 @@ class ItineraryItemDraft {
     'note': note?.trim(),
     'estimatedCost': estimatedCost,
     'expectedVersion': expectedVersion,
+    'locationSource': locationSource,
+    'externalProvider': ?externalProvider,
+    'externalPlaceId': ?externalPlaceId,
+    'latitude': ?latitude,
+    'longitude': ?longitude,
   };
 }
 

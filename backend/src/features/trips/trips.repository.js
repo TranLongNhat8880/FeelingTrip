@@ -36,11 +36,14 @@ const createTrip = async (client, userId, data) => {
   const { rows: [trip] } = await client.query(`
     INSERT INTO trips (
       creator_id, name, destination, start_date, end_date, estimated_budget,
-      cover_image_url, description, privacy_type, status
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'UPCOMING')
+      cover_image_url, description, privacy_type, status,
+      destination_provider, destination_external_id, destination_latitude, destination_longitude
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'UPCOMING',$10,$11,$12,$13)
     RETURNING *`, [userId, data.name, data.destination, data.startDate, data.endDate,
     data.estimatedBudget ?? 0, data.coverImageUrl || null, data.description || null,
-    data.privacyType || 'PRIVATE']);
+    data.privacyType || 'PRIVATE',
+    data.destinationProvider || null, data.destinationExternalId || null,
+    data.destinationLatitude ?? null, data.destinationLongitude ?? null]);
   await client.query(`
     INSERT INTO trip_members (trip_id,user_id,role,membership_status)
     VALUES ($1,$2,'LEADER','ACTIVE')`, [trip.id, userId]);
@@ -136,6 +139,8 @@ const updateTrip = async (client, tripId, data) => {
     name: 'name', destination: 'destination', startDate: 'start_date', endDate: 'end_date',
     estimatedBudget: 'estimated_budget', coverImageUrl: 'cover_image_url',
     description: 'description', privacyType: 'privacy_type',
+    destinationProvider: 'destination_provider', destinationExternalId: 'destination_external_id',
+    destinationLatitude: 'destination_latitude', destinationLongitude: 'destination_longitude',
   };
   const sets = [];
   const params = [tripId];

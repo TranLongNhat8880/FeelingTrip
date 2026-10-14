@@ -17,6 +17,10 @@ const DATE = Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).custom((value, helpers)
  * @description Thực thi logic nghiệp vụ cho lịch trình.
  */
 const CATEGORIES = ['ATTRACTION', 'RESTAURANT', 'CAFE', 'HOTEL', 'ENTERTAINMENT', 'NATURE', 'CULTURE', 'SHOPPING', 'OTHER'];
+const LOCATION_SOURCES = ['CATALOG', 'GEOAPIFY', 'MANUAL'];
+
+const LATITUDE = Joi.number().min(-90).max(90);
+const LONGITUDE = Joi.number().min(-180).max(180);
 
 const createDaySchema = Joi.object({
   dayNumber: Joi.number().integer().min(1).required(),
@@ -28,8 +32,23 @@ const updateDaySchema = Joi.object({
   expectedVersion: ROW_VERSION.required(),
 });
 
+/**
+ * Quy ước locationSource:
+ *   - CATALOG  : item liên kết với bảng places nội bộ (placeId UUID bắt buộc)
+ *   - GEOAPIFY : item từ kết quả tìm kiếm Geoapify (cần externalProvider, externalPlaceId, lat/lng)
+ *   - MANUAL   : nhập tay (tọa độ tùy chọn, nếu có phải đi theo cặp)
+ *
+ * Backward-compatibility:
+ *   - Request có placeId nhưng không có locationSource → hiểu là CATALOG
+ *   - Request không có placeId và không có locationSource → hiểu là MANUAL
+ */
 const createItineraryItemSchema = Joi.object({
   placeId: UUID.allow(null),
+  locationSource: Joi.string().valid(...LOCATION_SOURCES).allow(null),
+  externalProvider: Joi.string().trim().max(50).allow(null),
+  externalPlaceId: Joi.string().trim().max(500).allow(null),
+  latitude: LATITUDE.allow(null),
+  longitude: LONGITUDE.allow(null),
   customName: Joi.string().trim().min(1).max(255).required(),
   customAddress: Joi.string().trim().allow(null, ''),
   category: Joi.string().valid(...CATEGORIES).when('placeId', { is: null, then: Joi.required(), otherwise: Joi.optional() }),
@@ -39,8 +58,30 @@ const createItineraryItemSchema = Joi.object({
   estimatedCost: Joi.number().integer().min(0).max(Number.MAX_SAFE_INTEGER).default(0),
   orderIndex: Joi.forbidden(),
   isCompleted: Joi.forbidden(),
-}).custom((value, helpers) => value.startTime >= value.endTime
-  ? helpers.error('time.range') : value).messages({ 'time.range': 'Thời gian bắt đầu phải trước thời gian kết thúc' });
+}).custom((value, helpers) => {
+  if (value.startTime >= value.endTime) return helpers.error('time.range');
+  // Backward-compat: infer locationSource
+  if (!value.locationSource) {
+    value.locationSource = value.placeId ? 'CATALOG' : 'MANUAL';
+  }
+  // CATALOG: placeId bắt buộc
+  if (value.locationSource === 'CATALOG') {
+    if (!value.placeId) return helpers.message('placeId bắt buộc khi nguồn là CATALOG');
+  }
+  // GEOAPIFY: placeId phải null; externalProvider, externalPlaceId, lat/lng bắt buộc
+  if (value.locationSource === 'GEOAPIFY') {
+    if (value.placeId) return helpers.message('placeId phải null khi nguồn là GEOAPIFY');
+    if (value.externalProvider !== 'GEOAPIFY') return helpers.message('externalProvider phải là GEOAPIFY');
+    if (!value.externalPlaceId) return helpers.message('externalPlaceId bắt buộc khi nguồn là GEOAPIFY');
+    if (value.latitude == null || value.longitude == null) return helpers.message('Tọa độ bắt buộc khi nguồn là GEOAPIFY');
+  }
+  // MANUAL: tọa độ tùy chọn nhưng phải đi theo cặp
+  if (value.locationSource === 'MANUAL') {
+    if (value.placeId) return helpers.message('placeId phải null khi nguồn là MANUAL');
+    if ((value.latitude == null) !== (value.longitude == null)) return helpers.message('latitude và longitude phải đi theo cặp');
+  }
+  return value;
+}).messages({ 'time.range': 'Thời gian bắt đầu phải trước thời gian kết thúc' });
 
 const updateItineraryItemSchema = Joi.object({
   customName: Joi.string().trim().min(1).max(255),
@@ -50,11 +91,29 @@ const updateItineraryItemSchema = Joi.object({
   endTime: TIME,
   note: Joi.string().trim().max(1000).allow(null, ''),
   estimatedCost: Joi.number().integer().min(0).max(Number.MAX_SAFE_INTEGER),
+  locationSource: Joi.string().valid(...LOCATION_SOURCES),
+  externalProvider: Joi.string().trim().max(50).allow(null),
+  externalPlaceId: Joi.string().trim().max(500).allow(null),
+  latitude: LATITUDE.allow(null),
+  longitude: LONGITUDE.allow(null),
   expectedVersion: ROW_VERSION.required(),
-  placeId: Joi.forbidden(),
   orderIndex: Joi.forbidden(),
   isCompleted: Joi.forbidden(),
-}).min(2);
+}).min(2).custom((value, helpers) => {
+  // Tọa độ phải đi theo cặp
+  if (value.latitude !== undefined || value.longitude !== undefined) {
+    if ((value.latitude == null) !== (value.longitude == null)) {
+      return helpers.message('latitude và longitude phải đi theo cặp');
+    }
+  }
+  // GEOAPIFY constraints khi cập nhật source
+  if (value.locationSource === 'GEOAPIFY') {
+    if (value.externalProvider !== 'GEOAPIFY') return helpers.message('externalProvider phải là GEOAPIFY');
+    if (!value.externalPlaceId) return helpers.message('externalPlaceId bắt buộc khi nguồn là GEOAPIFY');
+    if (value.latitude == null || value.longitude == null) return helpers.message('Tọa độ bắt buộc khi nguồn là GEOAPIFY');
+  }
+  return value;
+});
 
 const deleteItemSchema = Joi.object({ expectedVersion: ROW_VERSION.required() });
 const completionSchema = Joi.object({
@@ -99,9 +158,10 @@ const itemIdParamSchema = Joi.object({ itemId: UUID.required() });
 const sourceTripIdParamSchema = Joi.object({ sourceTripId: UUID.required() });
 
 module.exports = {
-  CATEGORIES, createDaySchema, updateDaySchema, createItineraryItemSchema,
+  CATEGORIES, LOCATION_SOURCES, createDaySchema, updateDaySchema, createItineraryItemSchema,
   updateItineraryItemSchema, deleteItemSchema, completionSchema, swapQuerySchema,
   smartSwapApplySchema, legacySmartSwapApplySchema, clonePlanSchema, reorderItemsSchema,
   publicListQuerySchema,
   tripIdParamSchema, dayIdParamSchema, itemIdParamSchema, sourceTripIdParamSchema,
 };
+

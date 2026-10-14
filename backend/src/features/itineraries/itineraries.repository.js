@@ -53,7 +53,9 @@ const findItemsForDays = async (client, dayIds) => {
   if (!dayIds.length) return [];
   const { rows } = await client.query(`
     SELECT ii.*,ii.xmin::text AS row_version,
-      p.latitude,p.longitude,e.id AS expense_id,e.amount AS actual_amount
+      COALESCE(ii.latitude,p.latitude) AS latitude,
+      COALESCE(ii.longitude,p.longitude) AS longitude,
+      e.id AS expense_id,e.amount AS actual_amount
     FROM itinerary_items ii
     LEFT JOIN places p ON p.id=ii.place_id
     LEFT JOIN expenses e ON e.itinerary_item_id=ii.id
@@ -151,11 +153,14 @@ const createItem = async (client, dayId, data) => {
   const { rows: [row] } = await client.query(`
     INSERT INTO itinerary_items (
       itinerary_id,place_id,custom_name,custom_address,category,start_time,end_time,
-      order_index,note,estimated_cost,is_completed
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,FALSE)
+      order_index,note,estimated_cost,is_completed,
+      location_source,external_provider,external_place_id,latitude,longitude
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,FALSE,$11,$12,$13,$14,$15)
     RETURNING *,xmin::text AS row_version`,
     [dayId, data.placeId || null, data.customName, data.customAddress || null, data.category,
-      data.startTime, data.endTime, data.orderIndex, data.note || null, data.estimatedCost ?? 0]);
+      data.startTime, data.endTime, data.orderIndex, data.note || null, data.estimatedCost ?? 0,
+      data.locationSource || 'MANUAL', data.externalProvider || null,
+      data.externalPlaceId || null, data.latitude ?? null, data.longitude ?? null]);
   return row;
 };
 
@@ -166,6 +171,8 @@ const updateItem = async (client, itemId, data, expectedVersion) => {
   const map = {
     customName: 'custom_name', customAddress: 'custom_address', category: 'category',
     startTime: 'start_time', endTime: 'end_time', note: 'note', estimatedCost: 'estimated_cost',
+    locationSource: 'location_source', externalProvider: 'external_provider',
+    externalPlaceId: 'external_place_id', latitude: 'latitude', longitude: 'longitude',
   };
   const params = [itemId];
   const sets = [];
@@ -210,7 +217,9 @@ const deleteItem = async (client, itemId, expectedVersion) => {
 const findDayItemsWithPlaces = async (client, dayId) => {
   const { rows } = await client.query(`
     SELECT ii.*,ii.xmin::text AS row_version,
-      p.latitude,p.longitude,p.price_level,p.avg_duration_minutes,p.rating,p.is_active,
+      COALESCE(ii.latitude,p.latitude) AS latitude,
+      COALESCE(ii.longitude,p.longitude) AS longitude,
+      p.price_level,p.avg_duration_minutes,p.rating,p.is_active,
       p.destination AS place_destination
     FROM itinerary_items ii LEFT JOIN places p ON p.id=ii.place_id
     WHERE ii.itinerary_id=$1 ORDER BY ii.order_index,ii.start_time,ii.id`, [dayId]);
@@ -253,10 +262,13 @@ const findSwapCandidates = async (client, item, radiusKm) => {
  */
 const applySmartSwap = async (client, itemId, place, expectedVersion) => {
   const { rows: [row] } = await client.query(`
-    UPDATE itinerary_items SET place_id=$2,custom_name=$3,custom_address=$4,category=$5
+    UPDATE itinerary_items SET place_id=$2,custom_name=$3,custom_address=$4,category=$5,
+      location_source='CATALOG',external_provider=NULL,external_place_id=NULL,
+      latitude=$7,longitude=$8
     WHERE id=$1 AND xmin::text=$6
     RETURNING *,xmin::text AS row_version`,
-  [itemId, place.id, place.name, place.address, place.category, expectedVersion]);
+  [itemId, place.id, place.name, place.address, place.category, expectedVersion,
+    place.latitude ?? null, place.longitude ?? null]);
   return row || null;
 };
 
@@ -340,11 +352,14 @@ const createClonedTrip = async (client, userId, source, data) => {
   const { rows: [trip] } = await client.query(`
     INSERT INTO trips (
       creator_id,name,destination,start_date,end_date,estimated_budget,
-      cover_image_url,description,privacy_type,status,is_clone,original_trip_id
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'PRIVATE','UPCOMING',TRUE,$9)
+      cover_image_url,description,privacy_type,status,is_clone,original_trip_id,
+      destination_provider,destination_external_id,destination_latitude,destination_longitude
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'PRIVATE','UPCOMING',TRUE,$9,$10,$11,$12,$13)
     RETURNING *`, [userId, data.name, source.destination, data.startDate, data.endDate,
     source.estimated_budget || 0, source.cover_image_url || null,
-    source.description || null, source.id]);
+    source.description || null, source.id,
+    source.destination_provider || null, source.destination_external_id || null,
+    source.destination_latitude ?? null, source.destination_longitude ?? null]);
   await client.query(`
     INSERT INTO trip_members (trip_id,user_id,role,membership_status)
     VALUES ($1,$2,'LEADER','ACTIVE')`, [trip.id, userId]);
@@ -369,9 +384,11 @@ const insertClonedItems = async (client, sourceDayId, targetDayId) => {
   const { rows } = await client.query(`
     INSERT INTO itinerary_items (
       itinerary_id,place_id,custom_name,custom_address,category,start_time,end_time,
-      order_index,note,estimated_cost,is_completed
+      order_index,note,estimated_cost,is_completed,
+      location_source,external_provider,external_place_id,latitude,longitude
     ) SELECT $2,place_id,custom_name,custom_address,category,start_time,end_time,
-      order_index,note,estimated_cost,FALSE
+      order_index,note,estimated_cost,FALSE,
+      location_source,external_provider,external_place_id,latitude,longitude
     FROM itinerary_items WHERE itinerary_id=$1
     ORDER BY order_index,start_time,id RETURNING *,xmin::text AS row_version`,
   [sourceDayId, targetDayId]);

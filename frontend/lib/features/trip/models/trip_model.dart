@@ -57,6 +57,10 @@ class TripModel {
     this.members = const [],
     this.inviteCode,
     this.inviteCodeStatus,
+    this.destinationProvider,
+    this.destinationExternalId,
+    this.destinationLatitude,
+    this.destinationLongitude,
   });
 
   final String id;
@@ -81,6 +85,10 @@ class TripModel {
   final List<TripMember> members;
   final String? inviteCode;
   final String? inviteCodeStatus;
+  final String? destinationProvider;
+  final String? destinationExternalId;
+  final double? destinationLatitude;
+  final double? destinationLongitude;
 
   bool get isLeader => memberRole == 'LEADER';
   bool get isEditable => isLeader && ['UPCOMING', 'ONGOING'].contains(status);
@@ -116,6 +124,14 @@ class TripModel {
       members: members,
       inviteCode: _string(json['inviteCode']),
       inviteCodeStatus: _string(json['inviteCodeStatus']),
+      destinationProvider: _string(json['destinationProvider']),
+      destinationExternalId: _string(json['destinationExternalId']),
+      destinationLatitude: json['destinationLatitude'] == null
+          ? null
+          : _double(json['destinationLatitude']),
+      destinationLongitude: json['destinationLongitude'] == null
+          ? null
+          : _double(json['destinationLongitude']),
     );
   }
 }
@@ -132,6 +148,10 @@ class TripFormData {
     this.coverImageUrl,
     this.coverImageBytes,
     this.coverImageFileName,
+    this.destinationProvider,
+    this.destinationExternalId,
+    this.destinationLatitude,
+    this.destinationLongitude,
   });
 
   final String? name;
@@ -144,6 +164,10 @@ class TripFormData {
   final String? coverImageUrl;
   final List<int>? coverImageBytes;
   final String? coverImageFileName;
+  final String? destinationProvider;
+  final String? destinationExternalId;
+  final double? destinationLatitude;
+  final double? destinationLongitude;
 
   Map<String, dynamic> toJson() => {
     if (name?.trim().isNotEmpty == true) 'name': name!.trim(),
@@ -154,6 +178,10 @@ class TripFormData {
     'privacyType': privacyType,
     'description': description?.trim(),
     'coverImageUrl': coverImageUrl?.trim(),
+    'destinationProvider': ?destinationProvider,
+    'destinationExternalId': ?destinationExternalId,
+    'destinationLatitude': ?destinationLatitude,
+    'destinationLongitude': ?destinationLongitude,
   };
 
   Map<String, String> toMultipartFields({String? expectedUpdatedAt}) => {
@@ -165,6 +193,12 @@ class TripFormData {
     'privacyType': privacyType,
     if (description != null) 'description': description!.trim(),
     if (coverImageUrl != null) 'coverImageUrl': coverImageUrl!.trim(),
+    'destinationProvider': ?destinationProvider,
+    'destinationExternalId': ?destinationExternalId,
+    if (destinationLatitude != null)
+      'destinationLatitude': '$destinationLatitude',
+    if (destinationLongitude != null)
+      'destinationLongitude': '$destinationLongitude',
     'expectedUpdatedAt': ?expectedUpdatedAt,
   };
 }
@@ -249,6 +283,11 @@ DateTime? _date(dynamic value) {
 int _integer(dynamic value) {
   if (value is num) return value.round();
   return num.tryParse('$value')?.round() ?? 0;
+}
+
+double _double(dynamic value) {
+  if (value is num) return value.toDouble();
+  return double.tryParse('$value') ?? 0;
 }
 
 Map<String, dynamic> _map(dynamic value) =>
