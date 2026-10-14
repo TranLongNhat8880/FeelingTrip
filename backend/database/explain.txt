@@ -51,6 +51,20 @@ THƯ MỤC: DATABASE & MIGRATIONS - backend/database/
      + Bật RLS cho bảng lời mời; quyền API và vòng đời do feature kiểm tra.
      + Đọc HUONG_DAN_DB_PHU.md để nối API, transaction và các hợp đồng liên quan.
 
+   - migrations/007_itinerary_expense_link.sql:
+     + expenses.itinerary_item_id: Liên kết khoản chi tiêu chia tiền với một điểm dừng/hoạt động trong lịch trình.
+     + idx_expenses_itinerary_item: Unique partial index đảm bảo 1 hoạt động chỉ gắn tối đa 1 khoản chi.
+
+   - migrations/008_itinerary_location_coordinates.sql:
+     + trips: Thêm destination_provider, destination_external_id, destination_latitude, destination_longitude.
+     + itinerary_items: Thêm location_source ('CATALOG', 'GEOAPIFY', 'MANUAL'), external_provider, external_place_id, latitude, longitude.
+     + Ràng buộc CHECK tọa độ hợp lệ và partial index phục vụ Smart Swap và bản đồ.
+
+   - migrations/009_admin_itinerary_templates.sql:
+     + Tạo bảng admin_itinerary_templates: Lưu lịch trình mẫu do Admin quản lý với cột days JSONB.
+     + Tạo bảng admin_template_uses: Lưu lịch sử áp dụng mẫu của người dùng vào chuyến đi.
+     + Bổ sung index tìm kiếm theo destination, lọc is_active và thống kê lượt sử dụng.
+
 3. HƯỚNG DẪN CHẠY MIGRATION:
    - Chạy lệnh sau tại thư mục `backend/`:
      ```bash

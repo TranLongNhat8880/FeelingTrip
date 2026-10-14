@@ -443,3 +443,39 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_trip_reviews_member_unique
   ON trip_reviews (trip_id, reviewer_id, reviewee_id) WHERE reviewee_id IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_trip_reviews_trip_unique
   ON trip_reviews (trip_id, reviewer_id) WHERE reviewee_id IS NULL;
+
+-- ============================================================
+-- Admin Itinerary Templates (migration 009)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS admin_itinerary_templates (
+  id               UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+  name             VARCHAR(255)  NOT NULL,
+  destination      VARCHAR(100)  NOT NULL,
+  duration_days    INT           NOT NULL CHECK (duration_days BETWEEN 1 AND 30),
+  estimated_budget NUMERIC(15,2) NOT NULL DEFAULT 0 CHECK (estimated_budget >= 0),
+  description      TEXT,
+  cover_image_url  TEXT,
+  days             JSONB         NOT NULL CHECK (jsonb_typeof(days) = 'array'),
+  is_active        BOOLEAN       NOT NULL DEFAULT TRUE,
+  created_by       UUID          NOT NULL REFERENCES users(id),
+  source_trip_id   UUID          REFERENCES trips(id) ON DELETE SET NULL,
+  created_at       TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  updated_at       TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS admin_template_uses (
+  id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  template_id UUID        NOT NULL REFERENCES admin_itinerary_templates(id) ON DELETE RESTRICT,
+  trip_id     UUID        NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
+  user_id     UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  used_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_ait_destination
+  ON admin_itinerary_templates (LOWER(destination));
+CREATE INDEX IF NOT EXISTS idx_ait_is_active
+  ON admin_itinerary_templates (is_active, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_atu_template_id
+  ON admin_template_uses (template_id);
+CREATE INDEX IF NOT EXISTS idx_atu_user_template
+  ON admin_template_uses (user_id, template_id);
