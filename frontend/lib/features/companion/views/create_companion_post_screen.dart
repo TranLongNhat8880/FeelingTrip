@@ -55,6 +55,7 @@ class _CreateCompanionPostScreenState extends State<CreateCompanionPostScreen> {
   List<Map<String, String>> _availableTrips = [];
   bool _loadingTrips = false;
   bool _alreadyPosted = false;
+  bool _privateTrip = false;
   String? _tripError;
   static const List<Map<String, String>> _mockTrips = [
     {
@@ -138,7 +139,15 @@ class _CreateCompanionPostScreenState extends State<CreateCompanionPostScreen> {
         final exists = await CompanionTripRepository().hasPostForTrip(
           widget.tripId!,
         );
-        if (mounted) setState(() => _alreadyPosted = exists);
+        final isPublic = await CompanionTripRepository().isPublicTrip(
+          widget.tripId!,
+        );
+        if (mounted) {
+          setState(() {
+            _alreadyPosted = exists;
+            _privateTrip = !isPublic;
+          });
+        }
       } else {
         final trips = ApiEndpoints.useMockData
             ? List<Map<String, String>>.of(_mockTrips)
@@ -179,6 +188,7 @@ class _CreateCompanionPostScreenState extends State<CreateCompanionPostScreen> {
     if (_isSubmitting ||
         _loadingTrips ||
         _alreadyPosted ||
+        _privateTrip ||
         _tripError != null ||
         !_formKey.currentState!.validate()) {
       return;
@@ -268,6 +278,8 @@ class _CreateCompanionPostScreenState extends State<CreateCompanionPostScreen> {
       bottomAction: CustomButton(
         text: _alreadyPosted
             ? 'Đã đăng bài'
+            : _privateTrip
+            ? 'Chuyến đi đang riêng tư'
             : widget.post == null
             ? 'Đăng bài'
             : 'Lưu thay đổi',
@@ -275,6 +287,7 @@ class _CreateCompanionPostScreenState extends State<CreateCompanionPostScreen> {
         onPressed:
             _loadingTrips ||
                 _alreadyPosted ||
+                _privateTrip ||
                 _tripError != null ||
                 (widget.post == null && _selectedTripId.isEmpty)
             ? null
@@ -295,6 +308,12 @@ class _CreateCompanionPostScreenState extends State<CreateCompanionPostScreen> {
                 const AppInlineNotice(
                   message:
                       'Chuyến đi này đã có bài tuyển đang hoạt động. Bạn có thể sửa hoặc đóng bài trong Bài tuyển của tôi.',
+                  tone: AppStatusTone.info,
+                ),
+              if (widget.post == null)
+                const AppInlineNotice(
+                  message:
+                      'Chỉ chuyến đi công khai mới được đăng tuyển. Nếu chuyến đang riêng tư, hãy đổi quyền riêng tư trong phần quản lý chuyến đi trước.',
                   tone: AppStatusTone.info,
                 ),
               if (_tripError != null)

@@ -298,6 +298,10 @@ const resolveReport = async (id, data) => {
       throw apiError(409, 'Báo cáo đã được xử lý');
     }
 
+    if (row.reported_trip_id && !row.reported_user_id && data.action === 'RESOLVED') {
+      throw apiError(400, 'Báo cáo chuyến đi cần chọn biện pháp xử lý qua endpoint /process');
+    }
+
     await adminRepository.resolveReport(id, data.action, data.adminNotes, client);
 
     let message = 'Báo cáo của bạn đã được xem xét và bác bỏ.';
@@ -649,7 +653,143 @@ const warnReportedUser = async (id, reason) => {
   });
 };
 
+// Áp dụng biện pháp xử lý trước khi kết luận báo cáo chuyến đi
+const processTripReport = async (id, data, adminId) => {
+  return db.transaction(async (client) => {
+    // Khóa chuyến trước báo cáo và tài khoản, cùng thứ tự với luồng quản lý nhóm.
+    const initial = await adminRepository.getReport(id, client);
+    if (!initial) {
+      throw apiError(404, 'Báo cáo không tồn tại');
+    }
+    if (!initial.reported_trip_id || initial.reported_user_id) {
+      throw apiError(400, 'Luồng này chỉ xử lý báo cáo chuyến đi');
+    }
+    await adminRepository.lockModerationTrip(initial.reported_trip_id, client);
+    const report = await adminRepository.getReport(id, client, true);
+    if (!report || report.reported_trip_id !== initial.reported_trip_id || report.reported_user_id) {
+      throw apiError(409, 'Đối tượng báo cáo đã thay đổi, hãy tải lại');
+    }
+    if (report.status !== 'PENDING') {
+      throw apiError(409, 'Báo cáo đã được xử lý');
+    }
+    if (!adminId) {
+      throw apiError(403, 'Không xác định được quản trị viên');
+    }
+    const context = await adminRepository.getReportContext(report, client);
+    if (!context.trip) {
+      throw apiError(404, 'Chuyến đi không còn tồn tại');
+    }
+    const actions = data.actions;
+    if (!Array.isArray(actions) || actions.length < 1 || actions.length > 10) {
+      throw apiError(400, 'Chọn từ 1 đến 10 hành động xử lý');
+    }
+    const seen = new Set();
+    const relatedUsers = new Set(context.users.map((user) => user.id));
+    const posts = new Map(context.posts.map((post) => [post.id, post]));
+    for (const action of actions) {
+      if (!['HIDE_POST', 'WARN_USER', 'BAN_USER'].includes(action.type)) {
+        throw apiError(400, 'Hành động không hợp lệ');
+      }
+      const key = `${action.type === 'HIDE_POST' ? 'post' : 'user'}:${action.targetId}`;
+      if (seen.has(key)) {
+        throw apiError(400, 'Đối tượng xử lý bị trùng');
+      }
+      seen.add(key);
+      if (action.type === 'HIDE_POST') {
+        const post = posts.get(action.targetId);
+        if (!post) {
+          throw apiError(403, 'Bài tuyển không thuộc chuyến đi bị báo cáo');
+        }
+        if (!['OPEN', 'FULL'].includes(post.status)) {
+          throw apiError(409, 'Bài tuyển đã đóng/ẩn, hãy tải lại và chọn hành động khác');
+        }
+      } else if (!relatedUsers.has(action.targetId)) {
+        throw apiError(403, 'Tài khoản không liên quan đến chuyến đi bị báo cáo');
+      }
+    }
+    // Khóa tài khoản theo cùng thứ tự khi nhiều admin xử lý đồng thời.
+    const userIds = actions.filter((action) => action.type !== 'HIDE_POST')
+      .map((action) => action.targetId).sort();
+    const accounts = new Map();
+    if (userIds.length) {
+      const { rows } = await client.query(`
+        SELECT id, full_name, role, status FROM users
+        WHERE id=ANY($1::uuid[]) ORDER BY id FOR NO KEY UPDATE`, [userIds]);
+      for (const user of rows) {
+        accounts.set(user.id, user);
+      }
+    }
+    // Kiểm tra tất cả đối tượng trước khi thực hiện hành động.
+    for (const action of actions.filter((action) => action.type !== 'HIDE_POST')) {
+      const user = accounts.get(action.targetId);
+      if (!user) {
+        throw apiError(404, 'Tài khoản không còn tồn tại');
+      }
+      if (user.id === adminId || user.role === 'ADMIN') {
+        throw apiError(403, 'Không xử lý tài khoản quản trị ở luồng này');
+      }
+      if (action.type === 'BAN_USER' && user.status === 'BANNED') {
+        throw apiError(409, 'Tài khoản đã bị khóa, hãy chọn hành động khác');
+      }
+    }
+    // Lưu kết quả từng hành động vào ghi chú nội bộ của báo cáo.
+    const receipt = [];
+    for (const action of actions) {
+      if (action.type === 'HIDE_POST') {
+        const post = posts.get(action.targetId);
+        await adminRepository.hideModerationPost(post.id, client);
+        if (post.creator_id) {
+          await notificationsService.createNotification({
+            recipientId: post.creator_id,
+            title: 'Bài tuyển đã bị ẩn',
+            message: data.reason,
+            type: 'SYSTEM',
+            data: {
+              reportId: id,
+              postId: post.id,
+              tripId: report.reported_trip_id,
+              action: action.type,
+            },
+          }, client);
+        }
+        receipt.push(`Ẩn bài tuyển: ${post.title} (${post.id})`);
+      } else {
+        const user = accounts.get(action.targetId);
+        const banned = action.type === 'BAN_USER';
+        if (banned) {
+          await adminRepository.updateUserStatus(user.id, 'BANNED', client);
+        }
+        await notificationsService.createNotification({
+          recipientId: user.id,
+          title: banned ? 'Tài khoản bị khóa' : 'Cảnh cáo từ quản trị viên',
+          message: data.reason,
+          type: 'SYSTEM',
+          data: { reportId: id, tripId: report.reported_trip_id, action: action.type },
+        }, client);
+        receipt.push(`${banned ? 'Khóa' : 'Cảnh cáo'} tài khoản: ${user.full_name} (${user.id})`);
+      }
+    }
+    const notes = `${data.adminNotes}\n\n[Hành động xử lý]\nAdmin: ${adminId}\n` +
+      `Thời điểm: ${new Date().toISOString()}\n${receipt.join('\n')}\n` +
+      `Nội dung thông báo: ${data.reason}`;
+    const saved = await adminRepository.resolveReport(id, 'RESOLVED', notes, client);
+    if (!saved) {
+      throw apiError(409, 'Báo cáo vừa được xử lý bởi người khác');
+    }
+    await notificationsService.createNotification({
+      recipientId: report.reporter_id,
+      title: 'Kết quả báo cáo vi phạm',
+      message: 'Báo cáo chuyến đi của bạn đã được xử lý và áp dụng biện pháp phù hợp.',
+      type: 'SYSTEM',
+      data: { reportId: id, status: 'RESOLVED' },
+    }, client);
+    const updated = await adminRepository.getReport(id, client);
+    return mapReport(updated);
+  });
+};
+
 module.exports = {
+  processTripReport,
   getModerationPosts,
   getModerationPost,
   moderatePost,

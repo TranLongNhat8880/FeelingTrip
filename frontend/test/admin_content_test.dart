@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'package:feeling_trip/features/trip/models/trip_model.dart';
+import 'package:feeling_trip/features/trip/repositories/mock_trip_repository.dart';
 import 'dart:ui' as ui;
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -341,11 +343,39 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+  testWidgets('Private trip hides recruitment entry', (tester) async {
+    await mount(
+      tester,
+      const TripDetailScreen(tripId: '11111111-1111-4111-8111-111111111111'),
+      user: true,
+    );
+    expect(find.text('Tìm bạn đồng hành'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
   testWidgets(
     'Posting from trip detail hides the entry and reopening the pinned form blocks duplicates',
     (tester) async {
       const tripId = '11111111-1111-4111-8111-111111111111';
-      await mount(tester, const TripDetailScreen(tripId: tripId), user: true);
+      final trips = MockTripRepository();
+      final trip = await tester.runAsync(() => trips.getTripById(tripId));
+      await tester.runAsync(
+        () => trips.updateTrip(
+          trip!,
+          TripFormData(
+            name: trip.name,
+            destination: trip.destination,
+            startDate: trip.startDate,
+            endDate: trip.endDate,
+            estimatedBudget: trip.estimatedBudget,
+            privacyType: 'PUBLIC',
+          ),
+        ),
+      );
+      await mount(
+        tester,
+        TripDetailScreen(tripId: tripId, repository: trips),
+        user: true,
+      );
       await tester.ensureVisible(find.text('Tìm bạn đồng hành'));
       await tester.tap(find.text('Tìm bạn đồng hành'));
       await tester.pumpAndSettle();
