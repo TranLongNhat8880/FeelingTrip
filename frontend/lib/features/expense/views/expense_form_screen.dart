@@ -181,7 +181,7 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
               AppMoneyField(
                 label: 'Tổng số tiền',
                 controller: _amount,
-                allowZero: false,
+                allowZero: true,
                 maxAmount: 9999999999999,
                 onChanged: (_) => setState(() {}),
               ),

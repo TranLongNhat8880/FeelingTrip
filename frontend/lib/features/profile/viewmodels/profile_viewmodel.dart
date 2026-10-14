@@ -235,6 +235,11 @@ class ProfileViewModel extends ChangeNotifier {
 
   String _messageFor(Object error, String fallback) {
     if (error is ApiException) {
+      if (error.statusCode >= 500 &&
+          (error.message.trim().isEmpty ||
+              error.message == 'An unexpected error occurred')) {
+        return fallback;
+      }
       return error.message;
     }
 

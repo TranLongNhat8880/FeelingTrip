@@ -102,9 +102,16 @@ class ApiProfileRepository implements ProfileRepository {
 
   @override
   Future<List<BankAccountModel>> getBankAccounts() async {
-    final response = await ApiClient.get(
-      '${ApiEndpoints.users}/me/bank/accounts',
-    );
+    Map<String, dynamic> response;
+    try {
+      response = await ApiClient.get('${ApiEndpoints.users}/me/bank/accounts');
+    } on ApiException catch (error) {
+      // A read can recover from a temporary server/gateway failure during deployment.
+      // Never retry account mutations or authentication failures.
+      if (!{500, 502, 503, 504}.contains(error.statusCode)) rethrow;
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+      response = await ApiClient.get('${ApiEndpoints.users}/me/bank/accounts');
+    }
 
     final data = response['data'];
 

@@ -81,6 +81,29 @@ class ApiExpenseRepository implements ExpenseRepository {
         vnd(raw['amount']) <= 0) {
       throw const FormatException('Dữ liệu thanh toán không hợp lệ');
     }
-    return PaymentStatus.fromJson(object(raw));
+    final map = object(raw);
+    if (map['vietqrUrl'] == null && map['status'] == 'PENDING') {
+      try {
+        final qrRes = await ApiClient.get('$_base/settlement/$settlementId/vietqr');
+        final qrData = object(qrRes['data']);
+        if (qrData['vietqrUrl'] != null) {
+          map['vietqrUrl'] = qrData['vietqrUrl'];
+          if (map['bankAccountNumber'] == null || '${map['bankAccountNumber']}'.isEmpty) {
+            map['bankAccountNumber'] =
+                qrData['bank_account_number'] ?? qrData['bankAccountNumber'];
+          }
+          if (map['bankAccountName'] == null || '${map['bankAccountName']}'.isEmpty) {
+            map['bankAccountName'] =
+                qrData['bank_account_name'] ?? qrData['bankAccountName'];
+          }
+          if (map['bankName'] == null || '${map['bankName']}'.isEmpty) {
+            map['bankName'] = qrData['bank_name'] ?? qrData['bankName'];
+          }
+        }
+      } catch (_) {
+        // Fallback gracefully to payment status response
+      }
+    }
+    return PaymentStatus.fromJson(map);
   }
 }

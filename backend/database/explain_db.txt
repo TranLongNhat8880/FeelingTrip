@@ -432,3 +432,10 @@ Quản trị lịch trình mẫu và kho lịch trình (Library):
    - Ghi nhận lịch sử người dùng áp dụng mẫu vào chuyến đi thực tế.
    - Hỗ trợ thống kê độ phổ biến (lượt sử dụng - usage_count) của từng mẫu lịch trình.
 ================================================================================
+LƯU Ý HỢP ĐỒNG DỮ LIỆU SAU MIGRATION 010 (010_zero_amount_expenses)
+================================================================================
+Cho phép ghi nhận hoạt động miễn phí hoặc chi tiêu 0 đồng trong chuyến đi:
+1. expenses:
+   - Sửa ràng buộc CHECK (amount > 0) thành CHECK (amount >= 0).
+   - Hỗ trợ lưu trữ các hoạt động/chi tiêu không tốn phí mà không phát sinh công nợ quyết toán rác.
+================================================================================

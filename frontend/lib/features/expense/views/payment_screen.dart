@@ -185,20 +185,20 @@ class _PaymentScreenState extends State<PaymentScreen>
                   'Khoản này đã được báo chuyển. Hệ thống đang chờ xác nhận nhận tiền; không chuyển thêm lần nữa.',
               tone: AppStatusTone.warning,
             )
-          else if (!payment.automatic) ...[
+          else if (payment.qrUrl == null) ...[
             AppInlineNotice(
               message:
-                  '${widget.settlement.toName} cần liên kết đúng tài khoản nhận với SePay Bank Hub trước khi thanh toán tự động.',
+                  '${widget.settlement.toName} chưa cập nhật thông tin tài khoản ngân hàng nhận tiền.',
               tone: AppStatusTone.warning,
             ),
             if (creditor) ...[
               const SizedBox(height: 20),
               CustomButton(
-                text: 'Liên kết ngân hàng nhận tiền',
+                text: 'Thiết lập ngân hàng nhận tiền',
                 onPressed: _bank,
               ),
             ],
-          ] else if (payment.qrUrl != null) ...[
+          ] else ...[
             AppCard(
               child: Column(
                 children: [
@@ -259,12 +259,7 @@ class _PaymentScreenState extends State<PaymentScreen>
               message:
                   'Sau khi chuyển khoản, quay lại màn hình này. App tự kiểm tra và chỉ báo thành công khi hệ thống xác nhận nhận tiền.',
             ),
-          ] else
-            const AppInlineNotice(
-              message:
-                  'Chưa có QR khả dụng cho khoản này. Hãy kiểm tra trạng thái hoặc liên kết ngân hàng nhận tiền.',
-              tone: AppStatusTone.warning,
-            ),
+          ],
           const SizedBox(height: 24),
         ],
       ),

@@ -62,7 +62,17 @@ const updateProfile = async ({ userId, profileData, avatarUrl }) => {
   const updateData = { ...profileData };
 
   // Chuẩn hóa chuỗi rỗng thành NULL để dữ liệu DB nhất quán.
-  for (const field of ['nickname', 'phone', 'bio', 'gender', 'dob']) {
+  for (const field of [
+    'nickname',
+    'phone',
+    'bio',
+    'gender',
+    'dob',
+    'bankBin',
+    'bankName',
+    'bankAccountNumber',
+    'bankAccountName',
+  ]) {
     if (updateData[field] === '') {
       updateData[field] = null;
     }

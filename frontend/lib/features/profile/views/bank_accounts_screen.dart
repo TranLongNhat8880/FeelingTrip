@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../shared/ui_kit.dart';
 import '../models/bank_account_model.dart';
+import '../models/profile_form_data.dart';
 import '../viewmodels/profile_viewmodel.dart';
 
 class BankAccountsScreen extends StatefulWidget {
@@ -18,13 +19,199 @@ class _BankAccountsScreenState extends State<BankAccountsScreen> {
   BankHostedLink? _activeHostedLink;
   String _activeLinkLabel = 'Mở SePay Bank Hub';
 
+  static const Map<String, String> _bankList = {
+    '970422': 'MBBank (Ngân hàng Quân đội)',
+    '970436': 'Vietcombank',
+    '970407': 'Techcombank',
+    '970415': 'VietinBank',
+    '970418': 'BIDV',
+    '970405': 'Agribank',
+    '970416': 'ACB',
+    '970432': 'VPBank',
+    '970423': 'TPBank',
+    '970403': 'Sacombank',
+    '970441': 'VIB',
+    '970437': 'HDBank',
+    '970443': 'SHB',
+    '970426': 'MSB',
+    '970448': 'OCB',
+    '970440': 'SeABank',
+    '546034': 'Cake by VPBank',
+    '963388': 'Timo by BVBank',
+  };
+
   @override
   void initState() {
     super.initState();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (widget.viewModel.profile == null) {
+        widget.viewModel.loadProfile();
+      }
       widget.viewModel.loadBankAccounts();
     });
+  }
+
+  Future<void> _showManualBankBottomSheet() async {
+    final profile = widget.viewModel.profile;
+    String selectedBin = profile?.bankBin ?? '970422';
+    if (!_bankList.containsKey(selectedBin)) {
+      selectedBin = '970422';
+    }
+
+    final numberController = TextEditingController(
+      text: profile?.bankAccountNumber ?? '',
+    );
+    final nameController = TextEditingController(
+      text: profile?.bankAccountName ?? profile?.fullName ?? '',
+    );
+    final formKey = GlobalKey<FormState>();
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (bottomSheetContext) {
+        return StatefulBuilder(
+          builder: (modalContext, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(modalContext).viewInsets.bottom,
+                left: 20,
+                right: 20,
+                top: 20,
+              ),
+              child: SingleChildScrollView(
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Thiết lập tài khoản nhận tiền',
+                            style: Theme.of(modalContext).textTheme.titleLarge,
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close_rounded),
+                            onPressed: () => Navigator.pop(bottomSheetContext),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Thông tin này dùng để tạo mã VietQR chuyển tiền tự động khi chia hoá đơn nhóm.',
+                        style: Theme.of(modalContext).textTheme.bodyMedium?.copyWith(
+                              color: Theme.of(modalContext).hintColor,
+                            ),
+                      ),
+                      const SizedBox(height: 20),
+                      AppDropdownField<String>(
+                        label: 'Ngân hàng',
+                        value: selectedBin,
+                        items: _bankList.entries
+                            .map(
+                              (e) => DropdownMenuItem(
+                                value: e.key,
+                                child: Text(e.value),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            setModalState(() => selectedBin = val);
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      CustomTextField(
+                        label: 'Số tài khoản',
+                        hint: 'Nhập số tài khoản ngân hàng',
+                        controller: numberController,
+                        keyboardType: TextInputType.number,
+                        prefixIcon: Icons.pin_outlined,
+                        validator: (val) {
+                          if (val == null || val.trim().isEmpty) {
+                            return 'Vui lòng nhập số tài khoản';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      CustomTextField(
+                        label: 'Tên chủ tài khoản (viết hoa không dấu)',
+                        hint: 'Ví dụ: NGUYEN VAN A',
+                        controller: nameController,
+                        prefixIcon: Icons.person_outline,
+                        validator: (val) {
+                          if (val == null || val.trim().isEmpty) {
+                            return 'Vui lòng nhập tên chủ tài khoản';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 24),
+                      CustomButton(
+                        text: 'Lưu tài khoản',
+                        icon: Icons.check_circle_outline_rounded,
+                        onPressed: () async {
+                          if (!formKey.currentState!.validate()) return;
+                          final currentProfile = widget.viewModel.profile;
+                          if (currentProfile == null) return;
+
+                          final success = await widget.viewModel.updateProfile(
+                            data: ProfileFormData(
+                              fullName: currentProfile.fullName ?? '',
+                              nickname: currentProfile.nickname,
+                              phone: currentProfile.phone,
+                              bio: currentProfile.bio,
+                              gender: currentProfile.gender,
+                              dob: currentProfile.dob,
+                              bankBin: selectedBin,
+                              bankName: _bankList[selectedBin] ?? 'MBBank',
+                              bankAccountNumber: numberController.text.trim(),
+                              bankAccountName:
+                                  nameController.text.trim().toUpperCase(),
+                            ),
+                          );
+
+                          if (success) {
+                            await widget.viewModel.loadBankAccounts();
+                            if (bottomSheetContext.mounted) {
+                              Navigator.of(bottomSheetContext).pop();
+                            }
+                            if (mounted) {
+                              AppFeedback.show(
+                                context,
+                                'Đã lưu tài khoản ngân hàng nhận tiền thành công.',
+                                tone: AppStatusTone.success,
+                              );
+                            }
+                          } else {
+                            if (mounted) {
+                              AppFeedback.show(
+                                context,
+                                widget.viewModel.errorMessage ??
+                                    'Không thể lưu thông tin tài khoản.',
+                                tone: AppStatusTone.error,
+                              );
+                            }
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   Future<void> _prepareHostedLink({
@@ -53,10 +240,16 @@ class _BankAccountsScreenState extends State<BankAccountsScreen> {
     if (!mounted) return;
 
     if (link == null) {
+      final err = widget.viewModel.errorMessage ?? '';
+      final isConfigErr = err.contains('Chưa cấu hình') ||
+          err.contains('Cần cấu hình') ||
+          err.contains('chưa được cấu hình');
       AppFeedback.show(
         context,
-        widget.viewModel.errorMessage ?? 'Không thể tạo liên kết Bank Hub.',
-        tone: AppStatusTone.error,
+        isConfigErr
+            ? 'Cổng SePay Bank Hub tự động chưa bật. Vui lòng bấm "Cập nhật tài khoản nhận tiền" để nhập số tài khoản trực tiếp.'
+            : (widget.viewModel.errorMessage ?? 'Không thể tạo liên kết Bank Hub.'),
+        tone: AppStatusTone.warning,
       );
       return;
     }
@@ -336,9 +529,14 @@ class _BankAccountsScreenState extends State<BankAccountsScreen> {
                 ),
                 const SizedBox(height: 6),
                 const Text(
-                  'Liên kết tài khoản để sử dụng các chức năng '
-                  'thanh toán và quyết toán chuyến đi.',
+                  'Thiết lập tài khoản ngân hàng để nhận tiền chia sẻ chi phí và tự động tạo mã VietQR.',
                   textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                CustomButton(
+                  text: 'Thiết lập tài khoản ngân hàng',
+                  icon: Icons.account_balance_rounded,
+                  onPressed: _showManualBankBottomSheet,
                 ),
               ],
             ),
@@ -354,8 +552,16 @@ class _BankAccountsScreenState extends State<BankAccountsScreen> {
         const SizedBox(height: 12),
 
         CustomButton(
-          text: 'Liên kết tài khoản mới',
+          text: 'Cập nhật tài khoản nhận tiền',
+          icon: Icons.edit_note_rounded,
+          onPressed: _showManualBankBottomSheet,
+        ),
+        const SizedBox(height: 10),
+
+        CustomButton(
+          text: 'Mở SePay Bank Hub (Nâng cao)',
           icon: Icons.add_link_rounded,
+          variant: AppButtonVariant.secondary,
           isLoading: viewModel.isCreatingBankLink,
           onPressed: viewModel.isCreatingBankLink
               ? null
