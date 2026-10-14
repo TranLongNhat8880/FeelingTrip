@@ -51,8 +51,61 @@ class _BankAccountsScreenState extends State<BankAccountsScreen> {
     });
   }
 
+  Future<void> _confirmAndDeleteBank() async {
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: 'Xóa tài khoản nhận tiền?',
+      message:
+          'Bạn sẽ không còn nhận được tiền tự động qua mã VietQR khi các thành viên quyết toán chuyến đi. Bạn có thể thiết lập lại bất cứ lúc nào.',
+      confirmLabel: 'Xóa tài khoản',
+      destructive: true,
+    );
+
+    if (!confirmed || !mounted) return;
+
+    final currentProfile = widget.viewModel.profile;
+    if (currentProfile == null) return;
+
+    final success = await widget.viewModel.updateProfile(
+      data: ProfileFormData(
+        fullName: currentProfile.fullName ?? '',
+        nickname: currentProfile.nickname,
+        phone: currentProfile.phone,
+        bio: currentProfile.bio,
+        gender: currentProfile.gender,
+        dob: currentProfile.dob,
+        bankBin: '',
+        bankName: '',
+        bankAccountNumber: '',
+        bankAccountName: '',
+      ),
+    );
+
+    if (success) {
+      await widget.viewModel.loadProfile();
+      await widget.viewModel.loadBankAccounts();
+      if (mounted) {
+        AppFeedback.show(
+          context,
+          'Đã xóa tài khoản ngân hàng thành công.',
+          tone: AppStatusTone.success,
+        );
+      }
+    } else {
+      if (mounted) {
+        AppFeedback.show(
+          context,
+          widget.viewModel.errorMessage ?? 'Không thể xóa tài khoản ngân hàng.',
+          tone: AppStatusTone.error,
+        );
+      }
+    }
+  }
+
   Future<void> _showManualBankBottomSheet() async {
     final profile = widget.viewModel.profile;
+    final hasExistingBank = profile?.bankAccountNumber != null &&
+        profile!.bankAccountNumber!.trim().isNotEmpty;
     String selectedBin = profile?.bankBin ?? '970422';
     if (!_bankList.containsKey(selectedBin)) {
       selectedBin = '970422';
@@ -91,7 +144,9 @@ class _BankAccountsScreenState extends State<BankAccountsScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            'Thiết lập tài khoản nhận tiền',
+                            hasExistingBank
+                                ? 'Chỉnh sửa tài khoản nhận tiền'
+                                : 'Thiết lập tài khoản nhận tiền',
                             style: Theme.of(modalContext).textTheme.titleLarge,
                           ),
                           IconButton(
@@ -154,7 +209,7 @@ class _BankAccountsScreenState extends State<BankAccountsScreen> {
                       ),
                       const SizedBox(height: 24),
                       CustomButton(
-                        text: 'Lưu tài khoản',
+                        text: hasExistingBank ? 'Cập nhật tài khoản' : 'Lưu tài khoản',
                         icon: Icons.check_circle_outline_rounded,
                         onPressed: () async {
                           if (!formKey.currentState!.validate()) return;
@@ -178,6 +233,7 @@ class _BankAccountsScreenState extends State<BankAccountsScreen> {
                           );
 
                           if (success) {
+                            await widget.viewModel.loadProfile();
                             await widget.viewModel.loadBankAccounts();
                             if (bottomSheetContext.mounted) {
                               Navigator.of(bottomSheetContext).pop();
@@ -201,6 +257,18 @@ class _BankAccountsScreenState extends State<BankAccountsScreen> {
                           }
                         },
                       ),
+                      if (hasExistingBank) ...[
+                        const SizedBox(height: 10),
+                        CustomButton(
+                          text: 'Xóa tài khoản này',
+                          icon: Icons.delete_outline_rounded,
+                          variant: AppButtonVariant.text,
+                          onPressed: () {
+                            Navigator.pop(bottomSheetContext);
+                            _confirmAndDeleteBank();
+                          },
+                        ),
+                      ],
                       const SizedBox(height: 20),
                     ],
                   ),
@@ -397,6 +465,10 @@ class _BankAccountsScreenState extends State<BankAccountsScreen> {
       width: double.infinity,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.16),
+          width: 1.2,
+        ),
         gradient: const LinearGradient(
           colors: [
             Color(0xFF064E3B), // Deep emerald
@@ -825,29 +897,36 @@ class _BankAccountsScreenState extends State<BankAccountsScreen> {
 
           const AppInlineNotice(
             message:
-                'Tài khoản này được đặt làm tài khoản thụ hưởng mặc định. Khi chia tiền chuyến đi, các thành viên sẽ quét mã VietQR để chuyển tiền trực tiếp cho bạn.',
+                'Tài khoản thụ hưởng mặc định. Khi chia tiền chuyến đi, mã VietQR chuẩn Napas 24/7 sẽ được tạo tự động để bạn bè chuyển khoản trực tiếp cho bạn.',
             tone: AppStatusTone.success,
           ),
           const SizedBox(height: 16),
 
-          CustomButton(
-            text: 'Chỉnh sửa tài khoản nhận tiền',
-            icon: Icons.edit_note_rounded,
-            onPressed: _showManualBankBottomSheet,
+          Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: CustomButton(
+                  text: 'Chỉnh sửa tài khoản',
+                  icon: Icons.edit_outlined,
+                  onPressed: _showManualBankBottomSheet,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 2,
+                child: CustomButton(
+                  text: 'Xóa tài khoản',
+                  icon: Icons.delete_outline_rounded,
+                  variant: AppButtonVariant.secondary,
+                  onPressed: _confirmAndDeleteBank,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 24),
 
-          CustomButton(
-            text: 'Mở SePay Bank Hub (Tự động)',
-            icon: Icons.sync_rounded,
-            variant: AppButtonVariant.secondary,
-            isLoading: viewModel.isCreatingBankLink,
-            onPressed: viewModel.isCreatingBankLink
-                ? null
-                : () {
-                    _prepareHostedLink(purpose: BankLinkPurpose.link);
-                  },
-          ),
+          _buildSecurityBenefitsCard(context),
         ] else if (accounts.isNotEmpty) ...[
           SectionHeader(
             title: 'Tài khoản đã liên kết',
@@ -935,21 +1014,11 @@ class _BankAccountsScreenState extends State<BankAccountsScreen> {
                   icon: Icons.account_balance_rounded,
                   onPressed: _showManualBankBottomSheet,
                 ),
-                const SizedBox(height: 10),
-                CustomButton(
-                  text: 'Kết nối SePay Bank Hub (Tự động)',
-                  icon: Icons.add_link_rounded,
-                  variant: AppButtonVariant.secondary,
-                  isLoading: viewModel.isCreatingBankLink,
-                  onPressed: viewModel.isCreatingBankLink
-                      ? null
-                      : () {
-                          _prepareHostedLink(purpose: BankLinkPurpose.link);
-                        },
-                ),
               ],
             ),
           ),
+          const SizedBox(height: 24),
+          _buildSecurityBenefitsCard(context),
         ],
 
         if (hasManualBank && accounts.isNotEmpty) ...[
@@ -966,6 +1035,118 @@ class _BankAccountsScreenState extends State<BankAccountsScreen> {
             ],
           ),
         ],
+      ],
+    );
+  }
+
+  Widget _buildSecurityBenefitsCard(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: theme.cardColor,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: theme.dividerColor.withValues(alpha: 0.5),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF10B981).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.verified_user_rounded,
+                  color: Color(0xFF059669),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Tiêu chuẩn thanh toán an toàn',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _buildBenefitItem(
+            icon: Icons.shield_outlined,
+            title: 'Chuyển khoản trực tiếp & An toàn',
+            desc:
+                'Tiền chuyển thẳng vào tài khoản của bạn qua Napas 24/7, FeelingTrip không giữ tiền hay can thiệp số dư.',
+          ),
+          const SizedBox(height: 14),
+          _buildBenefitItem(
+            icon: Icons.qr_code_2_rounded,
+            title: 'Chuẩn VietQR liên ngân hàng',
+            desc:
+                'Tự động điền số tiền và nội dung chuyển khoản FT, tương thích 100% với tất cả app ngân hàng & ví điện tử.',
+          ),
+          const SizedBox(height: 14),
+          _buildBenefitItem(
+            icon: Icons.bolt_rounded,
+            title: 'Đối soát & Gạch nợ tức thì',
+            desc:
+                'Hỗ trợ kiểm tra thanh toán nhanh chóng, giúp nhóm quyết toán chuyến đi sòng phẳng và minh bạch.',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBenefitItem({
+    required IconData icon,
+    required String title,
+    required String desc,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          icon,
+          size: 20,
+          color: const Color(0xFF059669),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  height: 1.2,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                desc,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFF6B7280),
+                  height: 1.35,
+                ),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
