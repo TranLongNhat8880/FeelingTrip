@@ -316,7 +316,7 @@ class _PlanDetailScreenState extends State<PlanDetailScreen> {
               for (final day in plan!.days) ...[
                 const SizedBox(height: 20),
                 Text(
-                  'Ngày ${day['dayNumber']}: ${day['title'] ?? ''}',
+                  'Ngày ${day['dayNumber']}',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 for (final item in day['items'] as List)
