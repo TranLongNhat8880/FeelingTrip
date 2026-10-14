@@ -8,7 +8,7 @@ const createExpenseSchema = Joi.object({
   tripId: uuid.required(), payerId: uuid,
   itineraryItemId: uuid.allow(null),
   title: Joi.string().trim().min(1).max(255).required(),
-  amount: money.min(1).required(),
+  amount: money.required(),
   category: Joi.string().valid(...Object.values(EXPENSE_CATEGORIES)).default('OTHER'),
   receiptImageUrl: Joi.string().uri().allow(null, ''),
   expenseDate: Joi.date().iso().allow(null),

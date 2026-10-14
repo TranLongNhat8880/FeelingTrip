@@ -218,7 +218,7 @@ CREATE TABLE IF NOT EXISTS expenses (
     payer_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE, -- Người đứng ra trả tiền trước
     itinerary_item_id UUID REFERENCES itinerary_items(id) ON DELETE SET NULL,
     title VARCHAR(255) NOT NULL,
-    amount NUMERIC(15, 2) NOT NULL CHECK (amount > 0),
+    amount NUMERIC(15, 2) NOT NULL CHECK (amount >= 0),
     category VARCHAR(50) DEFAULT 'OTHER' CHECK (category IN (
         'FOOD', 'TRANSPORTATION', 'ACCOMMODATION', 'TICKETS', 'SHOPPING', 'OTHER'
     )),

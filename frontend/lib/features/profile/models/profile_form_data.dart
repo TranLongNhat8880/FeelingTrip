@@ -11,6 +11,10 @@ class ProfileFormData {
     required this.bio,
     required this.gender,
     required this.dob,
+    this.bankBin,
+    this.bankName,
+    this.bankAccountNumber,
+    this.bankAccountName,
   });
 
   final String fullName;
@@ -19,6 +23,10 @@ class ProfileFormData {
   final String? bio;
   final String? gender;
   final DateTime? dob;
+  final String? bankBin;
+  final String? bankName;
+  final String? bankAccountNumber;
+  final String? bankAccountName;
 
   /// Gửi chuỗi rỗng để backend xóa các trường không bắt buộc.
   Map<String, String> toMultipartFields() {
@@ -29,6 +37,10 @@ class ProfileFormData {
       'bio': bio?.trim() ?? '',
       'gender': gender?.trim() ?? '',
       'dob': dob == null ? '' : _formatDate(dob!),
+      if (bankBin != null) 'bankBin': bankBin!.trim(),
+      if (bankName != null) 'bankName': bankName!.trim(),
+      if (bankAccountNumber != null) 'bankAccountNumber': bankAccountNumber!.trim(),
+      if (bankAccountName != null) 'bankAccountName': bankAccountName!.trim(),
     };
   }
 

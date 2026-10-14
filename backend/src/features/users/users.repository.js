@@ -1,4 +1,4 @@
-﻿const db = require('../../config/database');
+const db = require('../../config/database');
 
 // ============================================================================
 // REPOSITORY: User Profile & eKYC
@@ -66,6 +66,10 @@ const updateProfile = async (userId, profileData) => {
         bio: 'bio',
         gender: 'gender',
         dob: 'dob',
+        bankBin: 'bank_bin',
+        bankName: 'bank_name',
+        bankAccountNumber: 'bank_account_number',
+        bankAccountName: 'bank_account_name',
     };
 
     const updates = [];

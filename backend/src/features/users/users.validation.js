@@ -49,6 +49,26 @@ const updateProfileSchema = Joi.object({
     'date.format': 'Ngày sinh phải theo định dạng ISO YYYY-MM-DD',
     'date.max': 'Ngày sinh không thể là ngày trong tương lai',
   }),
+
+  bankBin: Joi.string()
+    .trim()
+    .pattern(/^[0-9]{6}$/)
+    .allow(null, '')
+    .messages({
+      'string.pattern.base': 'Mã BIN ngân hàng phải gồm 6 chữ số',
+    }),
+
+  bankName: Joi.string().trim().max(100).allow(null, '').messages({
+    'string.max': 'Tên ngân hàng không được vượt quá 100 ký tự',
+  }),
+
+  bankAccountNumber: Joi.string().trim().max(50).allow(null, '').messages({
+    'string.max': 'Số tài khoản không được vượt quá 50 ký tự',
+  }),
+
+  bankAccountName: Joi.string().trim().max(100).allow(null, '').messages({
+    'string.max': 'Tên chủ tài khoản không được vượt quá 100 ký tự',
+  }),
 });
 
 /**
