@@ -53,8 +53,8 @@ const findItemsForDays = async (client, dayIds) => {
   if (!dayIds.length) return [];
   const { rows } = await client.query(`
     SELECT ii.*,ii.xmin::text AS row_version,
-      COALESCE(ii.latitude,p.latitude) AS latitude,
-      COALESCE(ii.longitude,p.longitude) AS longitude,
+      COALESCE(ii.latitude, p.latitude) AS latitude,
+      COALESCE(ii.longitude, p.longitude) AS longitude,
       e.id AS expense_id,e.amount AS actual_amount
     FROM itinerary_items ii
     LEFT JOIN places p ON p.id=ii.place_id
@@ -84,6 +84,8 @@ const findItem = async (client, itemId, forUpdate = false) => {
     SELECT ii.*,ii.xmin::text AS row_version,
       i.trip_id,i.day_number,i.trip_date,t.status AS trip_status,
       t.destination AS trip_destination,t.start_date,t.end_date,t.duration_days,
+      COALESCE(ii.latitude, p.latitude) AS latitude,
+      COALESCE(ii.longitude, p.longitude) AS longitude,
       p.latitude AS place_latitude,p.longitude AS place_longitude,p.destination AS place_destination,
       p.price_level AS place_price_level,p.avg_duration_minutes AS place_duration,
       p.rating AS place_rating,p.is_active AS place_active
@@ -159,8 +161,10 @@ const createItem = async (client, dayId, data) => {
     RETURNING *,xmin::text AS row_version`,
     [dayId, data.placeId || null, data.customName, data.customAddress || null, data.category,
       data.startTime, data.endTime, data.orderIndex, data.note || null, data.estimatedCost ?? 0,
-      data.locationSource || 'MANUAL', data.externalProvider || null,
-      data.externalPlaceId || null, data.latitude ?? null, data.longitude ?? null]);
+      data.locationSource || (data.placeId ? 'CATALOG' : 'MANUAL'),
+      data.externalProvider || null, data.externalPlaceId || null,
+      data.latitude != null ? data.latitude : null,
+      data.longitude != null ? data.longitude : null]);
   return row;
 };
 

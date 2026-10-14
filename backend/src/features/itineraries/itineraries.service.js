@@ -207,19 +207,30 @@ const resolveItemInput = async (client, data) => {
       customName: place.name,
       customAddress: place.address,
       category: place.category,
-      latitude: place.latitude ?? null,
-      longitude: place.longitude ?? null,
+      latitude: place.latitude != null ? Number(place.latitude) : null,
+      longitude: place.longitude != null ? Number(place.longitude) : null,
       externalProvider: null,
       externalPlaceId: null,
     };
   }
   if (source === 'GEOAPIFY') {
     if (!data.category) throw apiError(400, 'Category là bắt buộc cho hoạt động GEOAPIFY');
-    return { ...data, locationSource: 'GEOAPIFY', placeId: null };
+    return {
+      ...data,
+      locationSource: 'GEOAPIFY',
+      externalProvider: data.externalProvider || 'GEOAPIFY',
+      placeId: null,
+    };
   }
   // MANUAL
   if (!data.category) throw apiError(400, 'Category là bắt buộc cho hoạt động tùy chỉnh');
-  return { ...data, locationSource: 'MANUAL', placeId: null, externalProvider: null, externalPlaceId: null };
+  return {
+    ...data,
+    locationSource: 'MANUAL',
+    placeId: null,
+    externalProvider: null,
+    externalPlaceId: null,
+  };
 };
 
 const addItem = (dayId, userId, data) => db.transaction(async client => {

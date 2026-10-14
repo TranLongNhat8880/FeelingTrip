@@ -71,6 +71,7 @@ const createItineraryItemSchema = Joi.object({
   // GEOAPIFY: placeId phải null; externalProvider, externalPlaceId, lat/lng bắt buộc
   if (value.locationSource === 'GEOAPIFY') {
     if (value.placeId) return helpers.message('placeId phải null khi nguồn là GEOAPIFY');
+    if (!value.externalProvider) value.externalProvider = 'GEOAPIFY';
     if (value.externalProvider !== 'GEOAPIFY') return helpers.message('externalProvider phải là GEOAPIFY');
     if (!value.externalPlaceId) return helpers.message('externalPlaceId bắt buộc khi nguồn là GEOAPIFY');
     if (value.latitude == null || value.longitude == null) return helpers.message('Tọa độ bắt buộc khi nguồn là GEOAPIFY');
@@ -87,15 +88,15 @@ const updateItineraryItemSchema = Joi.object({
   customName: Joi.string().trim().min(1).max(255),
   customAddress: Joi.string().trim().allow(null, ''),
   category: Joi.string().valid(...CATEGORIES),
-  startTime: TIME,
-  endTime: TIME,
-  note: Joi.string().trim().max(1000).allow(null, ''),
-  estimatedCost: Joi.number().integer().min(0).max(Number.MAX_SAFE_INTEGER),
   locationSource: Joi.string().valid(...LOCATION_SOURCES),
   externalProvider: Joi.string().trim().max(50).allow(null),
   externalPlaceId: Joi.string().trim().max(500).allow(null),
   latitude: LATITUDE.allow(null),
   longitude: LONGITUDE.allow(null),
+  startTime: TIME,
+  endTime: TIME,
+  note: Joi.string().trim().max(1000).allow(null, ''),
+  estimatedCost: Joi.number().integer().min(0).max(Number.MAX_SAFE_INTEGER),
   expectedVersion: ROW_VERSION.required(),
   orderIndex: Joi.forbidden(),
   isCompleted: Joi.forbidden(),
@@ -108,9 +109,11 @@ const updateItineraryItemSchema = Joi.object({
   }
   // GEOAPIFY constraints khi cập nhật source
   if (value.locationSource === 'GEOAPIFY') {
-    if (value.externalProvider !== 'GEOAPIFY') return helpers.message('externalProvider phải là GEOAPIFY');
-    if (!value.externalPlaceId) return helpers.message('externalPlaceId bắt buộc khi nguồn là GEOAPIFY');
-    if (value.latitude == null || value.longitude == null) return helpers.message('Tọa độ bắt buộc khi nguồn là GEOAPIFY');
+    if (value.externalProvider && value.externalProvider !== 'GEOAPIFY') return helpers.message('externalProvider phải là GEOAPIFY');
+    if (value.externalPlaceId === '') return helpers.message('externalPlaceId bắt buộc khi nguồn là GEOAPIFY');
+    if ((value.latitude !== undefined && value.latitude == null) || (value.longitude !== undefined && value.longitude == null)) {
+      return helpers.message('Tọa độ bắt buộc khi nguồn là GEOAPIFY');
+    }
   }
   return value;
 });
