@@ -28,6 +28,22 @@ const createTripSchema = Joi.object({
   destinationExternalId: Joi.string().trim().max(500).allow(null),
   destinationLatitude: Joi.number().min(-90).max(90).allow(null),
   destinationLongitude: Joi.number().min(-180).max(180).allow(null),
+  targetMembersCount: Joi.number().integer().min(1).max(50),
+  minAge: Joi.number().integer().min(16).max(100).allow(null),
+  maxAge: Joi.number().integer().min(16).max(100).allow(null),
+  genderPreference: Joi.string().valid('ANY', 'MALE', 'FEMALE').default('ANY'),
+  tags: Joi.alternatives().try(
+    Joi.array().items(Joi.string().trim().max(30)).max(10),
+    Joi.string().custom((value) => {
+      try {
+        const parsed = JSON.parse(value);
+        if (Array.isArray(parsed)) return parsed;
+      } catch (_) {}
+      return value.split(',').map(s => s.trim()).filter(Boolean);
+    })
+  ).allow(null),
+  postTitle: Joi.string().trim().max(255).allow(null, ''),
+  postContent: Joi.string().trim().max(5000).allow(null, ''),
   status: Joi.forbidden(),
   creatorId: Joi.forbidden(),
   inviteCode: Joi.forbidden(),
@@ -37,6 +53,9 @@ const createTripSchema = Joi.object({
   // Tọa độ phải đi theo cặp
   if ((value.destinationLatitude == null) !== (value.destinationLongitude == null)) {
     return helpers.message('destinationLatitude và destinationLongitude phải đi theo cặp');
+  }
+  if (value.minAge && value.maxAge && value.minAge > value.maxAge) {
+    return helpers.message('Độ tuổi tối thiểu không được lớn hơn độ tuổi tối đa');
   }
   return value;
 }).messages({ 'date.range': 'Ngày kết thúc không thể trước ngày khởi hành' });

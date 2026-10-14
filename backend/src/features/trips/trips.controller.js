@@ -4,7 +4,7 @@ const { sendSuccess, sendError } = require('../../shared/utils/response.util');
 const run = (handler) => async (req, res, next) => {
   try { return await handler(req, res); }
   catch (error) {
-    if (error.status) return sendError(res, error.message, error.status);
+    if (error.status) return sendError(res, error.message, error.status, error.data || null);
     return next(error);
   }
 };

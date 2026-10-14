@@ -1,8 +1,16 @@
+import '../../itinerary/models/itinerary_model.dart';
+import '../../itinerary/repositories/itinerary_repository.dart';
+import '../../itinerary/repositories/mock_itinerary_repository.dart';
 import '../models/trip_model.dart';
 import 'trip_repository.dart';
 
 class MockTripRepository implements TripRepository {
-  MockTripRepository() {
+  MockTripRepository({
+    ItineraryRepository? itineraryRepository,
+    Map<String, String>? itineraryValidationErrorsByTripId,
+  })  : _itineraryRepository = itineraryRepository,
+        _itineraryValidationErrorsByTripId =
+            itineraryValidationErrorsByTripId ?? {} {
     _trips.addAll([
       _trip(
         id: '11111111-1111-4111-8111-111111111111',
@@ -43,6 +51,12 @@ class MockTripRepository implements TripRepository {
   }
 
   final List<TripModel> _trips = [];
+  final ItineraryRepository? _itineraryRepository;
+  final Map<String, String> _itineraryValidationErrorsByTripId;
+
+  void setItineraryValidationError(String tripId, String errorMessage) {
+    _itineraryValidationErrorsByTripId[tripId] = errorMessage;
+  }
 
   TripModel _trip({
     required String id,
@@ -53,6 +67,7 @@ class MockTripRepository implements TripRepository {
     required int budget,
     required String role,
     String status = 'UPCOMING',
+    String privacyType = 'PRIVATE',
     String? image,
     String? destinationProvider,
     String? destinationExternalId,
@@ -85,7 +100,7 @@ class MockTripRepository implements TripRepository {
       estimatedBudget: budget,
       coverImageUrl: image,
       description: 'Một hành trình nhiều trải nghiệm cùng những người bạn mới.',
-      privacyType: 'PRIVATE',
+      privacyType: privacyType,
       status: status,
       memberRole: role,
       memberCount: members.length,
@@ -135,6 +150,7 @@ class MockTripRepository implements TripRepository {
       end: data.endDate,
       budget: data.estimatedBudget,
       role: 'LEADER',
+      privacyType: data.privacyType,
       image: data.coverImageUrl,
       destinationProvider: data.destinationProvider,
       destinationExternalId: data.destinationExternalId,
@@ -170,6 +186,46 @@ class MockTripRepository implements TripRepository {
   @override
   Future<TripModel> transitionStatus(TripModel trip, String status) async {
     await _wait();
+    if (status == 'ONGOING') {
+      if (_itineraryValidationErrorsByTripId.containsKey(trip.id)) {
+        throw Exception(_itineraryValidationErrorsByTripId[trip.id]!);
+      }
+      final itinRepo = _itineraryRepository ?? MockItineraryRepository.shared;
+      final plan = await itinRepo.getItinerary(trip.id);
+      if (plan.days.isEmpty) {
+        throw Exception(
+          'Chuyến đi chưa có lịch trình. Vui lòng tạo lịch trình trước khi bắt đầu.',
+        );
+      }
+      final allItems = plan.days.expand((d) => d.items).toList();
+      if (allItems.isEmpty) {
+        throw Exception(
+          'Lịch trình chưa có điểm đến nào. Vui lòng thêm ít nhất một điểm đến trước khi bắt đầu.',
+        );
+      }
+
+      for (final day in plan.days) {
+        final dayLabel = 'Ngày ${day.dayNumber}';
+        for (int i = 0; i < day.items.length; i++) {
+          final item = day.items[i];
+          final start = item.startTime;
+          final end = item.endTime;
+          if (start.compareTo(end) >= 0) {
+            throw Exception(
+              'Lịch trình chưa hợp lệ để bắt đầu chuyến đi: $dayLabel: "${item.customName}" có thời gian không hợp lệ ($start >= $end)',
+            );
+          }
+          if (i < day.items.length - 1) {
+            final next = day.items[i + 1];
+            if (end.compareTo(next.startTime) > 0) {
+              throw Exception(
+                'Lịch trình chưa hợp lệ để bắt đầu chuyến đi: $dayLabel: "${item.customName}" (kết thúc $end) chồng lấn với "${next.customName}" (bắt đầu ${next.startTime})',
+              );
+            }
+          }
+        }
+      }
+    }
     final updated = _copy(trip, status: status);
     _replace(updated);
     return updated;

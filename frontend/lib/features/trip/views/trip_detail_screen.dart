@@ -33,6 +33,8 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
   bool _hasCompanionPost = false;
   bool _checkingPost = false;
   bool _postCheckFailed = false;
+  bool _hasReviewedTrip = false;
+  final Set<String> _reviewedMemberIds = {};
 
   @override
   void initState() {
@@ -88,6 +90,19 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                 'Không cập nhật được trạng thái chuyến đi.',
       tone: success ? AppStatusTone.success : AppStatusTone.error,
     );
+    if (success && next == 'COMPLETED') {
+      final shouldReview = await AppConfirmDialog.show(
+        context,
+        title: 'Chúc mừng hoàn thành chuyến đi! 🎉',
+        message:
+            'Cảm ơn bạn và cả đoàn đã đồng hành cùng nhau trong chuyến đi "${trip.name}". Bạn có muốn dành ít phút để đánh giá trải nghiệm chuyến đi ngay bây giờ không?',
+        confirmLabel: 'Đánh giá ngay',
+      );
+      if (shouldReview && mounted) {
+        final currentTrip = _viewModel.selectedTrip ?? trip;
+        await _reviewTrip(currentTrip);
+      }
+    }
   }
 
   Future<void> _cancel() async {
@@ -181,6 +196,17 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
       return;
     }
     if (!mounted) return;
+    if (!trip.isPublic) {
+      final confirmed = await AppConfirmDialog.show(
+        context,
+        title: 'Chuyển sang công khai?',
+        message:
+            'Chuyến đi này hiện đang là Nhóm riêng tư. Để đăng bài tìm bạn đồng hành từ cộng đồng, chuyến đi sẽ được chuyển sang chế độ Công khai. Bạn có muốn tiếp tục?',
+        confirmLabel: 'Đồng ý & Đăng bài',
+      );
+      if (!confirmed) return;
+    }
+    if (!mounted) return;
     await _checkCompanionPost();
     if (!mounted || _hasCompanionPost || _postCheckFailed) return;
     await Navigator.pushNamed(
@@ -192,7 +218,10 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
         'tripDestination': trip.destination,
       },
     );
-    if (mounted) await _checkCompanionPost();
+    if (mounted) {
+      await _checkCompanionPost();
+      await _viewModel.loadTrip(widget.tripId);
+    }
   }
 
   Future<void> _transfer(TripMember member) async {
@@ -222,6 +251,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     );
 
     if (!mounted || review == null) return;
+    setState(() => _hasReviewedTrip = true);
     AppFeedback.show(
       context,
       'Đã gửi đánh giá chuyến đi.',
@@ -243,6 +273,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     );
 
     if (!mounted || review == null) return;
+    setState(() => _reviewedMemberIds.add(member.userId));
     AppFeedback.show(
       context,
       'Đã đánh giá ${member.displayName}.',
@@ -327,6 +358,81 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
             onPressed: () => _edit(trip!),
             icon: const Icon(Icons.edit_outlined),
           ),
+        if (trip != null)
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert_rounded),
+            tooltip: 'Tùy chọn khác',
+            onSelected: (action) {
+              switch (action) {
+                case 'edit':
+                  _edit(trip);
+                  break;
+                case 'cancel':
+                  _cancel();
+                  break;
+                case 'leave':
+                  _leave();
+                  break;
+                case 'report':
+                  _reportTrip(trip);
+                  break;
+              }
+            },
+            itemBuilder: (context) => [
+              if (trip.isEditable)
+                const PopupMenuItem(
+                  value: 'edit',
+                  child: Row(
+                    children: [
+                      Icon(Icons.edit_outlined, size: 20),
+                      SizedBox(width: 10),
+                      Text('Chỉnh sửa thông tin'),
+                    ],
+                  ),
+                ),
+              if (trip.isLeader &&
+                  !['COMPLETED', 'CANCELLED'].contains(trip.status))
+                const PopupMenuItem(
+                  value: 'cancel',
+                  child: Row(
+                    children: [
+                      Icon(Icons.cancel_outlined, size: 20, color: AppColors.error),
+                      SizedBox(width: 10),
+                      Text(
+                        'Hủy chuyến đi',
+                        style: TextStyle(color: AppColors.error),
+                      ),
+                    ],
+                  ),
+                ),
+              if (!trip.isLeader &&
+                  ['UPCOMING', 'ONGOING'].contains(trip.status))
+                const PopupMenuItem(
+                  value: 'leave',
+                  child: Row(
+                    children: [
+                      Icon(Icons.exit_to_app_rounded, size: 20, color: AppColors.error),
+                      SizedBox(width: 10),
+                      Text(
+                        'Rời chuyến đi',
+                        style: TextStyle(color: AppColors.error),
+                      ),
+                    ],
+                  ),
+                ),
+              if (!trip.isLeader)
+                const PopupMenuItem(
+                  value: 'report',
+                  child: Row(
+                    children: [
+                      Icon(Icons.report_outlined, size: 20),
+                      SizedBox(width: 10),
+                      Text('Báo cáo chuyến đi'),
+                    ],
+                  ),
+                ),
+            ],
+          ),
       ],
       scrollable: true,
       body: _body(trip),
@@ -392,9 +498,8 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
           options: const {
             'overview': 'Tổng quan',
             'members': 'Thành viên',
-            'manage': 'Quản lý',
           },
-          selected: {_section},
+          selected: {_section == 'members' ? 'members' : 'overview'},
           onChanged: (value) => setState(() => _section = value),
         ),
         const SizedBox(height: 16),
@@ -403,7 +508,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
             message: _viewModel.errorMessage!,
             tone: AppStatusTone.error,
           ),
-        if (_section == 'overview') ...[
+        if (_section != 'members') ...[
           const SizedBox(height: 6),
           Text(
             trip.description?.isNotEmpty == true
@@ -413,7 +518,92 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
               context,
             ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 16),
+          if (canTransition) ...[
+            AppCard(
+              color: trip.status == 'UPCOMING'
+                  ? AppColors.primarySurface
+                  : AppColors.successSurface,
+              outlined: true,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: (trip.status == 'UPCOMING'
+                                  ? AppColors.primary
+                                  : AppColors.success)
+                              .withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          trip.status == 'UPCOMING'
+                              ? Icons.play_arrow_rounded
+                              : Icons.flag_rounded,
+                          color: trip.status == 'UPCOMING'
+                              ? AppColors.primary
+                              : AppColors.success,
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              trip.status == 'UPCOMING'
+                                  ? 'Sẵn sàng khởi hành'
+                                  : 'Chuyến đi đang diễn ra',
+                              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    color: trip.status == 'UPCOMING'
+                                        ? AppColors.primary
+                                        : AppColors.success,
+                                  ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              trip.status == 'UPCOMING'
+                                  ? 'Bấm để chuyển trạng thái sang đang diễn ra.'
+                                  : 'Đánh dấu hoàn thành khi chuyến đi kết thúc.',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: AppColors.textSecondary,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  CustomButton(
+                    text: trip.status == 'UPCOMING'
+                        ? 'Bắt đầu chuyến đi'
+                        : 'Hoàn thành chuyến đi',
+                    icon: trip.status == 'UPCOMING'
+                        ? Icons.play_arrow_rounded
+                        : Icons.flag_outlined,
+                    onPressed: _viewModel.isSubmitting
+                        ? null
+                        : () => _transition(trip),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+          ],
+          if (['COMPLETED', 'CANCELLED'].contains(trip.status)) ...[
+            AppInlineNotice(
+              message: trip.status == 'COMPLETED'
+                  ? 'Chuyến đi đã kết thúc. Bạn có thể xem lại lịch trình và đánh giá.'
+                  : 'Chuyến đi đã hủy. Thông tin được lưu lại để tra cứu.',
+            ),
+            const SizedBox(height: 14),
+          ],
           AppCard(
             outlined: true,
             child: Column(
@@ -503,7 +693,9 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                   child: CustomButton(
                     text: _postCheckFailed
                         ? 'Kiểm tra lại bài tuyển'
-                        : 'Tìm bạn đồng hành',
+                        : (trip.isPublic
+                            ? 'Tìm bạn đồng hành'
+                            : 'Công khai & Tìm bạn'),
                     icon: Icons.group_add_outlined,
                     variant: AppButtonVariant.secondary,
                     onPressed: _checkingPost
@@ -512,15 +704,107 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                   ),
                 ),
               ],
+              if (trip.isLeader &&
+                  _hasCompanionPost &&
+                  !['COMPLETED', 'CANCELLED'].contains(trip.status)) ...[
+                const SizedBox(width: 10),
+                Expanded(
+                  child: CustomButton(
+                    text: 'Duyệt ghép đoàn',
+                    icon: Icons.people_outline,
+                    variant: AppButtonVariant.secondary,
+                    onPressed: () => Navigator.pushNamed(
+                      context,
+                      AppRoutes.companionRequests,
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
           if (trip.status == 'COMPLETED') ...[
             const SizedBox(height: 10),
             CustomButton(
-              text: 'Đánh giá chuyến đi',
-              icon: Icons.star_outline_rounded,
+              text: _hasReviewedTrip
+                  ? 'Đã gửi đánh giá chuyến đi'
+                  : 'Đánh giá chuyến đi',
+              icon: _hasReviewedTrip
+                  ? Icons.check_circle_outline
+                  : Icons.star_outline_rounded,
               variant: AppButtonVariant.secondary,
-              onPressed: () => _reviewTrip(trip),
+              onPressed: _hasReviewedTrip ? null : () => _reviewTrip(trip),
+            ),
+            Builder(
+              builder: (context) {
+                final otherMembers = trip.members
+                    .where((m) => m.userId != currentUserId)
+                    .toList();
+                if (otherMembers.isEmpty) return const SizedBox.shrink();
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SizedBox(height: 16),
+                    const SectionHeader(
+                      title: 'Đánh giá bạn đồng hành',
+                      subtitle:
+                          'Chia sẻ trải nghiệm đồng hành cùng các thành viên trong chuyến đi.',
+                    ),
+                    const SizedBox(height: 8),
+                    AppCard(
+                      outlined: true,
+                      child: Column(
+                        children: [
+                          for (var i = 0; i < otherMembers.length; i++) ...[
+                            Builder(
+                              builder: (context) {
+                                final member = otherMembers[i];
+                                final isReviewed =
+                                    _reviewedMemberIds.contains(member.userId);
+                                return ListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  leading: AvatarPlaceholder(
+                                    name: member.displayName,
+                                    imageUrl: member.avatarUrl,
+                                    radius: 20,
+                                  ),
+                                  title: Text(member.displayName),
+                                  subtitle: Text(
+                                    member.isLeader ? 'Trưởng nhóm' : 'Thành viên',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall
+                                        ?.copyWith(
+                                          color: AppColors.textSecondary,
+                                        ),
+                                  ),
+                                  trailing: isReviewed
+                                      ? const AppStatusBadge(
+                                          label: 'Đã đánh giá',
+                                          tone: AppStatusTone.success,
+                                        )
+                                      : TextButton.icon(
+                                          onPressed: () =>
+                                              _reviewMember(trip, member),
+                                          icon: const Icon(
+                                            Icons.star_outline_rounded,
+                                            size: 18,
+                                          ),
+                                          label: const Text('Đánh giá'),
+                                          style: TextButton.styleFrom(
+                                            foregroundColor: AppColors.primary,
+                                          ),
+                                        ),
+                                );
+                              },
+                            ),
+                            if (i < otherMembers.length - 1) const Divider(),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
           ],
           if (!trip.isLeader) ...[
@@ -530,6 +814,25 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
               icon: Icons.report_outlined,
               variant: AppButtonVariant.secondary,
               onPressed: () => _reportTrip(trip),
+            ),
+          ],
+          if (trip.isLeader &&
+              !['COMPLETED', 'CANCELLED'].contains(trip.status)) ...[
+            const SizedBox(height: 16),
+            CustomButton(
+              text: 'Hủy chuyến đi',
+              icon: Icons.cancel_outlined,
+              variant: AppButtonVariant.destructive,
+              onPressed: _viewModel.isSubmitting ? null : _cancel,
+            ),
+          ] else if (!trip.isLeader &&
+              ['UPCOMING', 'ONGOING'].contains(trip.status)) ...[
+            const SizedBox(height: 16),
+            CustomButton(
+              text: 'Rời chuyến đi',
+              icon: Icons.exit_to_app_rounded,
+              variant: AppButtonVariant.destructive,
+              onPressed: _viewModel.isSubmitting ? null : _leave,
             ),
           ],
         ],
@@ -551,7 +854,8 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
                     member: trip.members[index],
                     onReview:
                         trip.status == 'COMPLETED' &&
-                            trip.members[index].userId != currentUserId
+                            trip.members[index].userId != currentUserId &&
+                            !_reviewedMemberIds.contains(trip.members[index].userId)
                         ? () => _reviewMember(trip, trip.members[index])
                         : null,
                     onReport: trip.members[index].userId != currentUserId
@@ -593,59 +897,6 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
               onPressed: () => _showInviteCode(trip),
             ),
           ],
-        ],
-        if (_section == 'manage') ...[
-          SectionHeader(
-            title: 'Quản lý chuyến đi',
-            subtitle: trip.isLeader
-                ? 'Điều chỉnh thông tin và trạng thái hành trình.'
-                : 'Các thao tác dành cho thành viên.',
-          ),
-          const SizedBox(height: 16),
-          if (trip.isEditable) ...[
-            CustomButton(
-              text: 'Chỉnh sửa thông tin',
-              icon: Icons.edit_outlined,
-              variant: AppButtonVariant.secondary,
-              onPressed: _viewModel.isSubmitting ? null : () => _edit(trip),
-            ),
-            const SizedBox(height: 12),
-          ],
-          if (['COMPLETED', 'CANCELLED'].contains(trip.status))
-            AppInlineNotice(
-              message: trip.status == 'COMPLETED'
-                  ? 'Chuyến đi đã kết thúc. Bạn có thể xem lịch trình và đánh giá tại Tổng quan.'
-                  : 'Chuyến đi đã hủy. Thông tin được giữ lại để xem.',
-            ),
-          if (canTransition) ...[
-            const SizedBox(height: 12),
-            CustomButton(
-              text: trip.status == 'UPCOMING'
-                  ? 'Bắt đầu chuyến đi'
-                  : 'Hoàn thành chuyến đi',
-              icon: trip.status == 'UPCOMING'
-                  ? Icons.play_arrow_rounded
-                  : Icons.flag_outlined,
-              onPressed: _viewModel.isSubmitting
-                  ? null
-                  : () => _transition(trip),
-            ),
-          ],
-          const SizedBox(height: 12),
-          if (trip.isLeader &&
-              !['COMPLETED', 'CANCELLED'].contains(trip.status))
-            CustomButton(
-              text: 'Hủy chuyến đi',
-              variant: AppButtonVariant.destructive,
-              onPressed: _viewModel.isSubmitting ? null : _cancel,
-            )
-          else if (!trip.isLeader &&
-              ['UPCOMING', 'ONGOING'].contains(trip.status))
-            CustomButton(
-              text: 'Rời chuyến đi',
-              variant: AppButtonVariant.destructive,
-              onPressed: _viewModel.isSubmitting ? null : _leave,
-            ),
         ],
         const SizedBox(height: 24),
       ],
