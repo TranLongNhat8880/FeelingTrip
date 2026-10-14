@@ -12,6 +12,7 @@ class AppSearchField extends StatelessWidget {
     this.enabled = true,
     this.onSubmitted,
     this.onClear,
+    this.borderRadius,
   });
   final TextEditingController controller;
   final ValueChanged<String>? onChanged;
@@ -20,6 +21,14 @@ class AppSearchField extends StatelessWidget {
   final bool enabled;
   final ValueChanged<String>? onSubmitted;
   final VoidCallback? onClear;
+  final double? borderRadius;
+
+  InputBorder? _border(Color color) => borderRadius == null
+      ? null
+      : OutlineInputBorder(
+          borderRadius: BorderRadius.circular(borderRadius!),
+          borderSide: BorderSide(color: color),
+        );
   @override
   Widget build(BuildContext context) =>
       ValueListenableBuilder<TextEditingValue>(
@@ -32,6 +41,9 @@ class AppSearchField extends StatelessWidget {
           enabled: enabled,
           decoration: InputDecoration(
             hintText: hint,
+            enabledBorder: _border(AppColors.border),
+            focusedBorder: _border(AppColors.primary),
+            disabledBorder: _border(AppColors.divider),
             prefixIcon: const Icon(Icons.search_rounded),
             suffixIcon: isLoading
                 ? const Padding(

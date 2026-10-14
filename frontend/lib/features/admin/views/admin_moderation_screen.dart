@@ -3,7 +3,8 @@ import '../../../shared/ui_kit.dart';
 import '../repositories/admin_content_repository.dart';
 
 class AdminModerationScreen extends StatefulWidget {
-  const AdminModerationScreen({super.key});
+  const AdminModerationScreen({super.key, this.embedded = false});
+  final bool embedded;
   @override
   State<AdminModerationScreen> createState() => _AdminModerationScreenState();
 }
@@ -57,63 +58,68 @@ class _AdminModerationScreenState extends State<AdminModerationScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => AppScaffold(
-    title: 'Kiểm duyệt bài tuyển',
-    padding: EdgeInsets.zero,
-    body: RefreshIndicator(
-      onRefresh: () => load(),
-      child: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          TextField(
-            controller: search,
-            decoration: InputDecoration(
-              hintText: 'Tên bài, chuyến đi hoặc điểm đến',
-              suffixIcon: IconButton(
-                icon: const Icon(Icons.search),
-                onPressed: () => load(),
-              ),
+  Widget build(BuildContext context) => widget.embedded
+      ? _content(context)
+      : AppScaffold(
+          title: 'Kiểm duyệt bài tuyển',
+          padding: EdgeInsets.zero,
+          body: _content(context),
+        );
+
+  Widget _content(BuildContext context) => RefreshIndicator(
+    onRefresh: () => load(),
+    child: ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        TextField(
+          controller: search,
+          decoration: InputDecoration(
+            hintText: 'Tên bài, chuyến đi hoặc điểm đến',
+            suffixIcon: IconButton(
+              icon: const Icon(Icons.search),
+              onPressed: () => load(),
             ),
-            onSubmitted: (_) => load(),
           ),
-          const SizedBox(height: 12),
-          const Text('Bài có báo cáo đang chờ xử lý được ưu tiên hiển thị.'),
-          if (error != null) ErrorState(message: error!, onRetry: () => load()),
-          for (final row in rows)
-            Card(
-              child: ListTile(
-                title: Text(row['title'] ?? 'Bài tuyển'),
-                subtitle: Text(
-                  '${row['creator_name']} · ${row['destination'] ?? ''}\n${row['report_count'] ?? 0} báo cáo chờ xử lý',
-                ),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () async {
-                  await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          AdminModerationDetailScreen(id: row['id']),
-                    ),
-                  );
-                  if (mounted) await load();
-                },
+          onSubmitted: (_) => load(),
+        ),
+        const SizedBox(height: 12),
+        const Text('Bài có báo cáo đang chờ xử lý được ưu tiên hiển thị.'),
+        if (error != null) ErrorState(message: error!, onRetry: () => load()),
+        const SizedBox(height: 12),
+        for (final row in rows)
+          Card(
+            margin: const EdgeInsets.only(bottom: 12),
+            child: ListTile(
+              title: Text(row['title'] ?? 'Bài tuyển'),
+              subtitle: Text(
+                '${row['creator_name']} · ${row['destination'] ?? ''}\n${row['report_count'] ?? 0} báo cáo chờ xử lý',
               ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => AdminModerationDetailScreen(id: row['id']),
+                  ),
+                );
+                if (mounted) await load();
+              },
             ),
-          if (loading)
-            const LoadingIndicator()
-          else if (rows.isEmpty && error == null)
-            const EmptyStateWidget(
-              title: 'Không có bài tuyển',
-              message: 'Các bài đang tuyển thành viên sẽ xuất hiện tại đây.',
-              icon: Icons.policy_outlined,
-            ),
-          if (!loading && hasMore)
-            TextButton(
-              onPressed: () => load(more: true),
-              child: const Text('Tải thêm'),
-            ),
-        ],
-      ),
+          ),
+        if (loading)
+          const LoadingIndicator()
+        else if (rows.isEmpty && error == null)
+          const EmptyStateWidget(
+            title: 'Không có bài tuyển',
+            message: 'Các bài đang tuyển thành viên sẽ xuất hiện tại đây.',
+            icon: Icons.policy_outlined,
+          ),
+        if (!loading && hasMore)
+          TextButton(
+            onPressed: () => load(more: true),
+            child: const Text('Tải thêm'),
+          ),
+      ],
     ),
   );
 }

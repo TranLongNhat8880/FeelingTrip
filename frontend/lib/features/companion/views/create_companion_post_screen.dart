@@ -20,6 +20,7 @@ class CreateCompanionPostScreen extends StatefulWidget {
   const CreateCompanionPostScreen({
     super.key,
     this.repository,
+    this.tripRepository,
     this.post,
     this.tripId,
     this.tripName,
@@ -27,6 +28,7 @@ class CreateCompanionPostScreen extends StatefulWidget {
   });
 
   final CompanionRepository? repository;
+  final CompanionTripRepository? tripRepository;
   final CompanionPost? post;
   final String? tripId;
   final String? tripName;
@@ -39,6 +41,7 @@ class CreateCompanionPostScreen extends StatefulWidget {
 
 class _CreateCompanionPostScreenState extends State<CreateCompanionPostScreen> {
   late final CompanionRepository _repo;
+  late final _tripRepo = widget.tripRepository ?? CompanionTripRepository();
 
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
@@ -136,12 +139,8 @@ class _CreateCompanionPostScreenState extends State<CreateCompanionPostScreen> {
     });
     try {
       if (widget.tripId != null) {
-        final exists = await CompanionTripRepository().hasPostForTrip(
-          widget.tripId!,
-        );
-        final isPublic = await CompanionTripRepository().isPublicTrip(
-          widget.tripId!,
-        );
+        final exists = await _tripRepo.hasPostForTrip(widget.tripId!);
+        final isPublic = await _tripRepo.isPublicTrip(widget.tripId!);
         if (mounted) {
           setState(() {
             _alreadyPosted = exists;
@@ -151,11 +150,11 @@ class _CreateCompanionPostScreenState extends State<CreateCompanionPostScreen> {
       } else {
         final trips = ApiEndpoints.useMockData
             ? List<Map<String, String>>.of(_mockTrips)
-            : await CompanionTripRepository().getMyTrips();
+            : await _tripRepo.getMyTrips();
         final available = <Map<String, String>>[];
         for (final trip in trips) {
           final posted = ApiEndpoints.useMockData
-              ? await CompanionTripRepository().hasPostForTrip(trip['id']!)
+              ? await _tripRepo.hasPostForTrip(trip['id']!)
               : trip['hasCompanionPost'] == 'true';
           if (!posted) available.add(trip);
         }
@@ -165,6 +164,11 @@ class _CreateCompanionPostScreenState extends State<CreateCompanionPostScreen> {
             if (!available.any((t) => t['id'] == _selectedTripId)) {
               _selectedTripId = available.isEmpty ? '' : available.first['id']!;
             }
+            _privateTrip = available.any(
+              (trip) =>
+                  trip['id'] == _selectedTripId &&
+                  trip['privacyType'] == 'PRIVATE',
+            );
           });
         }
       }
@@ -172,6 +176,38 @@ class _CreateCompanionPostScreenState extends State<CreateCompanionPostScreen> {
       if (mounted) setState(() => _tripError = 'Không tải được chuyến đi.');
     } finally {
       if (mounted) setState(() => _loadingTrips = false);
+    }
+  }
+
+  Future<void> _makePublic() async {
+    if (_isSubmitting || _loadingTrips || _selectedTripId.isEmpty) return;
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: 'Chuyển chuyến đi sang công khai?',
+      message:
+          'Đổi quyền riêng tư của chuyến đi để đăng bài tìm bạn đồng hành. Sau khi đổi, bạn có thể tiếp tục hoàn thiện và đăng bài tuyển.',
+      confirmLabel: 'Chuyển sang công khai',
+    );
+    if (!confirmed || !mounted) return;
+    setState(() => _isSubmitting = true);
+    try {
+      await _tripRepo.makePublic(_selectedTripId);
+      if (!mounted) return;
+      await _loadTrips();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            e is ApiException
+                ? e.message
+                : 'Không đổi được quyền riêng tư. Hãy thử lại.',
+          ),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
@@ -279,7 +315,7 @@ class _CreateCompanionPostScreenState extends State<CreateCompanionPostScreen> {
         text: _alreadyPosted
             ? 'Đã đăng bài'
             : _privateTrip
-            ? 'Chuyến đi đang riêng tư'
+            ? 'Chuyển sang công khai'
             : widget.post == null
             ? 'Đăng bài'
             : 'Lưu thay đổi',
@@ -287,10 +323,11 @@ class _CreateCompanionPostScreenState extends State<CreateCompanionPostScreen> {
         onPressed:
             _loadingTrips ||
                 _alreadyPosted ||
-                _privateTrip ||
                 _tripError != null ||
                 (widget.post == null && _selectedTripId.isEmpty)
             ? null
+            : _privateTrip
+            ? _makePublic
             : _submit,
       ),
       body: SingleChildScrollView(
@@ -313,7 +350,7 @@ class _CreateCompanionPostScreenState extends State<CreateCompanionPostScreen> {
               if (widget.post == null)
                 const AppInlineNotice(
                   message:
-                      'Chỉ chuyến đi công khai mới được đăng tuyển. Nếu chuyến đang riêng tư, hãy đổi quyền riêng tư trong phần quản lý chuyến đi trước.',
+                      'Chỉ chuyến công khai mới được đăng tuyển. Với chuyến riêng tư, bạn có thể bấm “Chuyển sang công khai” bên dưới; app sẽ hỏi xác nhận trước khi đổi.',
                   tone: AppStatusTone.info,
                 ),
               if (_tripError != null)
@@ -372,14 +409,23 @@ class _CreateCompanionPostScreenState extends State<CreateCompanionPostScreen> {
                     return DropdownMenuItem<String>(
                       value: t['id'],
                       child: Text(
-                        '${t['name']} (${t['destination']})',
+                        "${t['name']} (${t['destination']})${t['privacyType'] == 'PRIVATE' ? ' · Riêng tư' : ''}",
                         style: text.bodyMedium,
                         overflow: TextOverflow.ellipsis,
                       ),
                     );
                   }).toList(),
                   onChanged: (val) {
-                    if (val != null) setState(() => _selectedTripId = val);
+                    if (val != null) {
+                      setState(() {
+                        _selectedTripId = val;
+                        _privateTrip = _availableTrips.any(
+                          (trip) =>
+                              trip['id'] == val &&
+                              trip['privacyType'] == 'PRIVATE',
+                        );
+                      });
+                    }
                   },
                 ),
               const SizedBox(height: 20),
@@ -416,7 +462,8 @@ class _CreateCompanionPostScreenState extends State<CreateCompanionPostScreen> {
                 },
                 controller: _contentController,
                 hint: 'Chia sẻ phong cách du lịch, dự tính chi phí...',
-                maxLines: 4,
+                minLines: 3,
+                maxLines: null,
               ),
               const SizedBox(height: 20),
 

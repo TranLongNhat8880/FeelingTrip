@@ -10,6 +10,32 @@ class NotificationScreen extends StatelessWidget {
   const NotificationScreen({super.key, required this.viewModel});
   final NotificationViewModel viewModel;
 
+  IconData _icon(String type) => switch (type.toUpperCase()) {
+    'INVITE' => Icons.mail_outline_rounded,
+    'REQUEST' => Icons.person_add_alt_1_outlined,
+    'BILL' => Icons.account_balance_wallet_outlined,
+    'TRIP_UPDATE' => Icons.calendar_today_outlined,
+    'SYSTEM' => Icons.campaign_outlined,
+    _ => Icons.notifications_none_rounded,
+  };
+
+  Color _iconColor(String type) => switch (type.toUpperCase()) {
+    'INVITE' => const Color(0xFF7C3AED),
+    'REQUEST' => AppColors.primary,
+    'BILL' => AppColors.success,
+    'TRIP_UPDATE' => AppColors.warning,
+    _ => AppColors.textSecondary,
+  };
+
+  String _typeLabel(String type) => switch (type.toUpperCase()) {
+    'INVITE' => 'Lời mời tham gia',
+    'REQUEST' => 'Yêu cầu tham gia',
+    'BILL' => 'Chi phí và thanh toán',
+    'TRIP_UPDATE' => 'Cập nhật chuyến đi',
+    'SYSTEM' => 'Thông báo hệ thống',
+    _ => 'Thông báo',
+  };
+
   Future<void> _open(BuildContext context, NotificationItem item) async {
     if (!item.isRead && !await viewModel.markRead(item)) {
       if (context.mounted) _showError(context);
@@ -33,9 +59,7 @@ class NotificationScreen extends StatelessWidget {
     } else if (item.type == 'REQUEST') {
       await Navigator.push<void>(
         context,
-        MaterialPageRoute(
-          builder: (_) => const CompanionRequestsScreen(initialReceived: true),
-        ),
+        MaterialPageRoute(builder: (_) => const CompanionRequestsScreen()),
       );
     } else {
       await AppMessageDialog.show(
@@ -324,26 +348,21 @@ class NotificationScreen extends StatelessWidget {
                                                 width: 40,
                                                 height: 40,
                                                 decoration: BoxDecoration(
-                                                  color: item.type == 'REQUEST'
-                                                      ? const Color(0xFFE0F2FE)
-                                                      : item.type == 'SYSTEM'
-                                                      ? const Color(0xFFECFDF5)
-                                                      : AppColors
-                                                            .warningSurface,
+                                                  color: Color.alphaBlend(
+                                                    _iconColor(
+                                                      item.type,
+                                                    ).withValues(alpha: .1),
+                                                    Colors.white,
+                                                  ),
                                                   shape: BoxShape.circle,
                                                 ),
                                                 child: Icon(
-                                                  item.type == 'REQUEST'
-                                                      ? Icons.group_add_rounded
-                                                      : item.type == 'SYSTEM'
-                                                      ? Icons.verified_rounded
-                                                      : Icons.luggage_rounded,
-                                                  size: 20,
-                                                  color: item.type == 'REQUEST'
-                                                      ? const Color(0xFF0284C7)
-                                                      : item.type == 'SYSTEM'
-                                                      ? const Color(0xFF059669)
-                                                      : AppColors.warning,
+                                                  _icon(item.type),
+                                                  size: 22,
+                                                  color: _iconColor(item.type),
+                                                  semanticLabel: _typeLabel(
+                                                    item.type,
+                                                  ),
                                                 ),
                                               ),
                                               const SizedBox(width: 12),

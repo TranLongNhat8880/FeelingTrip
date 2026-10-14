@@ -39,7 +39,9 @@ class TripViewModel extends ChangeNotifier {
     _setLoading(true);
     try {
       final page = await repository.getMyTrips(includeHistory: true);
-      _trips = page.items;
+      _trips = page.items
+          .where((trip) => trip.membershipStatus == 'ACTIVE')
+          .toList();
       _errorMessage = null;
     } catch (error) {
       _errorMessage = _message(error, 'Không tải được danh sách chuyến đi.');

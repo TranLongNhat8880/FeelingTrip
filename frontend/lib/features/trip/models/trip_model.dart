@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 class TripMember {
   const TripMember({
     required this.userId,
@@ -152,6 +154,13 @@ class TripFormData {
     this.destinationExternalId,
     this.destinationLatitude,
     this.destinationLongitude,
+    this.targetMembersCount,
+    this.genderPreference,
+    this.minAge,
+    this.maxAge,
+    this.tags,
+    this.postTitle,
+    this.postContent,
   });
 
   final String? name;
@@ -168,6 +177,13 @@ class TripFormData {
   final String? destinationExternalId;
   final double? destinationLatitude;
   final double? destinationLongitude;
+  final int? targetMembersCount;
+  final String? genderPreference;
+  final int? minAge;
+  final int? maxAge;
+  final List<String>? tags;
+  final String? postTitle;
+  final String? postContent;
 
   Map<String, dynamic> toJson() => {
     if (name?.trim().isNotEmpty == true) 'name': name!.trim(),
@@ -182,6 +198,13 @@ class TripFormData {
     'destinationExternalId': ?destinationExternalId,
     'destinationLatitude': ?destinationLatitude,
     'destinationLongitude': ?destinationLongitude,
+    if (targetMembersCount != null) 'targetMembersCount': targetMembersCount,
+    if (genderPreference != null) 'genderPreference': genderPreference,
+    if (minAge != null) 'minAge': minAge,
+    if (maxAge != null) 'maxAge': maxAge,
+    if (tags != null) 'tags': tags,
+    if (postTitle != null) 'postTitle': postTitle,
+    if (postContent != null) 'postContent': postContent,
   };
 
   Map<String, String> toMultipartFields({String? expectedUpdatedAt}) => {
@@ -199,6 +222,13 @@ class TripFormData {
       'destinationLatitude': '$destinationLatitude',
     if (destinationLongitude != null)
       'destinationLongitude': '$destinationLongitude',
+    if (targetMembersCount != null) 'targetMembersCount': '$targetMembersCount',
+    'genderPreference': ?genderPreference,
+    if (minAge != null) 'minAge': '$minAge',
+    if (maxAge != null) 'maxAge': '$maxAge',
+    if (tags != null) 'tags': jsonEncode(tags),
+    'postTitle': ?postTitle,
+    'postContent': ?postContent,
     'expectedUpdatedAt': ?expectedUpdatedAt,
   };
 }

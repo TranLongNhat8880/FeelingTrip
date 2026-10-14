@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_sizes.dart';
 import '../../../shared/ui_kit.dart';
-import '../../auth/viewmodels/auth_viewmodel.dart';
 import '../viewmodels/companion_feed_viewmodel.dart';
 import 'companion_detail_screen.dart';
 import 'widgets/companion_post_card.dart';
@@ -88,7 +87,6 @@ class _CompanionFeedScreenState extends State<CompanionFeedScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = AuthScope.of(context).user;
     final filtered =
         _vm.sortBy != 'newest' ||
         _vm.status != 'OPEN' ||
@@ -113,20 +111,12 @@ class _CompanionFeedScreenState extends State<CompanionFeedScreen> {
                           tooltip: 'Quay lại',
                           onPressed: () => Navigator.pop(context),
                           icon: const Icon(Icons.arrow_back_rounded),
-                        )
-                      else
-                        IconButton(
-                          tooltip: 'Mở trang cá nhân',
-                          onPressed: widget.onProfileTap,
-                          icon: AvatarPlaceholder(
-                            name: user?.fullName ?? 'Bạn',
-                            imageUrl: user?.avatarUrl,
-                            radius: 18,
-                          ),
                         ),
-                      const SizedBox(width: 8),
+                      if (!widget.embedded && Navigator.canPop(context))
+                        const SizedBox(width: 8),
                       Expanded(
                         child: AppSearchField(
+                          borderRadius: 28,
                           controller: _searchController,
                           hint: 'Tìm điểm đến du lịch...',
                           onSubmitted: (value) =>
@@ -163,6 +153,11 @@ class _CompanionFeedScreenState extends State<CompanionFeedScreen> {
                       ),
                     ],
                   ),
+                ),
+                const SizedBox(
+                  height: 6,
+                  width: double.infinity,
+                  child: ColoredBox(color: Color(0xFFF0F1F3)),
                 ),
                 Expanded(child: _buildBody()),
               ],
@@ -208,7 +203,8 @@ class _CompanionFeedScreenState extends State<CompanionFeedScreen> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(0, 4, 0, 16),
         itemCount: _vm.posts.length + (_vm.isLoadingMore ? 1 : 0),
-        separatorBuilder: (_, _) => const SizedBox(height: 4),
+        separatorBuilder: (_, _) =>
+            const Divider(height: 1, thickness: 1, color: AppColors.border),
         itemBuilder: (context, index) {
           if (index == _vm.posts.length) {
             return const Padding(

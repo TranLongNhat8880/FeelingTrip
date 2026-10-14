@@ -202,6 +202,20 @@ class CompanionPost {
     this.myRequestId,
   });
 
+  String get displayTitle {
+    final value = (title ?? '')
+        .trim()
+        .replaceFirst(
+          RegExp(r'^Tìm\s+bạn\s+đồng\s+hành\s*:\s*', caseSensitive: false),
+          '',
+        )
+        .trim();
+    if (value.isNotEmpty) return value;
+    return trip.name?.trim().isNotEmpty == true
+        ? trip.name!.trim()
+        : 'Bài tuyển';
+  }
+
   int get slotsLeft => targetMembersCount - currentMembersCount;
   bool get isFull => status == 'FULL' || slotsLeft <= 0;
   bool get isOpen => status == 'OPEN';

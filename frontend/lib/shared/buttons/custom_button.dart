@@ -69,6 +69,8 @@ class CustomButton extends StatelessWidget {
       AppButtonVariant.secondary => OutlinedButton(
         onPressed: callback,
         style: OutlinedButton.styleFrom(
+          backgroundColor: backgroundColor ?? AppColors.inputSurface,
+          disabledBackgroundColor: backgroundColor ?? AppColors.inputSurface,
           minimumSize: const Size(AppSizes.touchTarget, 52),
           side: const BorderSide(color: AppColors.border),
           shape: RoundedRectangleBorder(

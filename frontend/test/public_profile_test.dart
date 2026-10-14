@@ -421,7 +421,10 @@ void main() {
     expect(requested, ['member-b']);
     await tester.tap(find.byTooltip('Quay lại'));
     await tester.pumpAndSettle();
-    expect(find.text('Chi tiết bài đăng'), findsOneWidget);
+    // The refreshed main layout uses the author's name in the app bar.
+    expect(find.byType(CompanionDetailScreen), findsOneWidget);
+    expect(find.byType(PublicProfileScreen), findsNothing);
+    expect(find.text('Thành viên B'), findsOneWidget);
   });
 
   testWidgets('post creator avatar opens creator and does not open post', (
