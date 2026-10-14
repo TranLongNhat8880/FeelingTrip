@@ -174,8 +174,9 @@ class _CompanionDetailScreenState extends State<CompanionDetailScreen> {
     final post = _vm.post;
     return AppScaffold(
       title: 'Chi tiết bài đăng',
+      titleWidget: post == null ? null : _author(post),
       actions: [
-        if (post != null)
+        if (post != null && (!_isLeader(post) || !post.isClosed))
           PopupMenuButton<String>(
             tooltip: 'Thao tác bài đăng',
             onSelected: (value) => _action(value, post),
@@ -214,326 +215,251 @@ class _CompanionDetailScreenState extends State<CompanionDetailScreen> {
     );
   }
 
+  Widget _author(CompanionPost post) => Row(
+    children: [
+      AvatarPlaceholder(
+        name: post.creator.displayName,
+        imageUrl: post.creator.avatarUrl,
+        radius: 18,
+      ),
+      const SizedBox(width: 10),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Flexible(
+                  child: Text(
+                    post.creator.displayName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                ),
+                if (post.creator.isVerified)
+                  const Padding(
+                    padding: EdgeInsets.only(left: 4),
+                    child: Icon(
+                      Icons.verified_rounded,
+                      size: 15,
+                      color: AppColors.primary,
+                    ),
+                  ),
+              ],
+            ),
+            Text(
+              DateFormat('HH:mm · dd/MM').format(post.createdAt),
+              style: Theme.of(
+                context,
+              ).textTheme.labelSmall?.copyWith(color: AppColors.textSecondary),
+            ),
+          ],
+        ),
+      ),
+    ],
+  );
+
   Widget _buildContent(CompanionPost post) {
     final text = Theme.of(context).textTheme;
     final trip = post.trip;
     final date = trip.startDate == null
         ? 'Chưa có lịch'
         : '${DateFormat('dd/MM/yyyy').format(trip.startDate!)}${trip.endDate == null ? '' : ' – ${DateFormat('dd/MM/yyyy').format(trip.endDate!)}'}';
-    return ListView(
-      padding: const EdgeInsets.only(bottom: 24),
-      children: [
-        if (trip.coverImageUrl != null)
-          ClipRRect(
-            borderRadius: const BorderRadius.vertical(
-              bottom: Radius.circular(20),
-            ),
-            child: Image.network(
-              trip.coverImageUrl!,
-              height: 220,
-              width: double.infinity,
-              fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => Container(
-                height: 180,
-                color: AppColors.primarySurface,
-                child: const Icon(
-                  Icons.landscape_outlined,
-                  size: 48,
-                  color: AppColors.primary,
-                ),
-              ),
-            ),
-          ),
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // ── CARD 1: Highlight Trip Info (Điểm đến, Thời gian, Chi phí) ──
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.border),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: .03),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  children: [
-                    _info(
-                      Icons.location_on_rounded,
-                      const Color(0xFFE0F2FE),
-                      AppColors.primary,
-                      'Điểm đến',
-                      trip.destination ?? 'Chưa có điểm đến',
-                    ),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 10),
-                      child: Divider(height: 1, color: AppColors.divider),
-                    ),
-                    _info(
-                      Icons.calendar_today_rounded,
-                      const Color(0xFFCCFBF1),
-                      const Color(0xFF0D9488),
-                      'Thời gian',
-                      '$date${trip.durationDays == null ? '' : ' (${trip.durationDays} ngày)'}',
-                    ),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 10),
-                      child: Divider(height: 1, color: AppColors.divider),
-                    ),
-                    _info(
-                      Icons.account_balance_wallet_rounded,
-                      AppColors.warningSurface,
-                      AppColors.warning,
-                      'Ngân sách chung của chuyến đi',
-                      trip.estimatedBudget == null
-                          ? 'Chưa có dự kiến'
-                          : '${NumberFormat('#,###', 'vi_VN').format(trip.estimatedBudget)} đ',
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 14),
-
-              // ── CARD 2: Content (Nội dung) ────────────────────────────────
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.border),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: .03),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Nội dung',
-                      style: text.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
-                        fontSize: 15,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      post.title ?? 'Bài tìm bạn đồng hành',
-                      style: text.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    if (post.content?.isNotEmpty == true) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        post.content!,
-                        style: text.bodyMedium?.copyWith(
-                          color: const Color(0xFF334155),
-                          height: 1.45,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 5,
-                          ),
-                          decoration: BoxDecoration(
-                            color: post.isClosed
-                                ? AppColors.errorSurface
-                                : post.isFull
-                                ? AppColors.warningSurface
-                                : AppColors.successSurface,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            post.isClosed
-                                ? 'Bài đăng đã đóng'
-                                : post.isFull
-                                ? 'Nhóm đã đủ thành viên'
-                                : 'Còn ${post.slotsLeft} chỗ',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: post.isClosed
-                                  ? AppColors.error
-                                  : post.isFull
-                                  ? AppColors.warning
-                                  : AppColors.success,
-                            ),
+    return ColoredBox(
+      color: Colors.white,
+      child: ListView(
+        padding: const EdgeInsets.only(bottom: 24),
+        children: [
+          if (trip.coverImageUrl?.isNotEmpty == true)
+            Align(
+              alignment: Alignment.center,
+              child: Image.network(
+                trip.coverImageUrl!,
+                fit: BoxFit.contain,
+                loadingBuilder: (_, child, progress) => progress == null
+                    ? child
+                    : const SizedBox(
+                        height: 180,
+                        child: Center(
+                          child: Icon(
+                            Icons.image_outlined,
+                            color: AppColors.textHint,
                           ),
                         ),
-                        if (post.genderPreference != 'ANY' ||
-                            post.minAge != null ||
-                            post.maxAge != null)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 5,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.background,
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: AppColors.border),
-                            ),
-                            child: Text(
-                              'Yêu cầu: ${post.genderPreference == 'MALE'
-                                  ? 'Nam'
-                                  : post.genderPreference == 'FEMALE'
-                                  ? 'Nữ'
-                                  : 'Bất kỳ giới tính'}'
-                              '${post.minAge == null && post.maxAge == null ? '' : ' · Tuổi ${post.minAge ?? 18}–${post.maxAge ?? 'không giới hạn'}'}',
-                              style: text.bodySmall?.copyWith(
-                                color: AppColors.textSecondary,
-                                fontSize: 12,
+                      ),
+                errorBuilder: (_, _, _) => const SizedBox(
+                  height: 120,
+                  child: Center(
+                    child: Icon(
+                      Icons.landscape_outlined,
+                      size: 40,
+                      color: AppColors.textHint,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _info(
+                  Icons.location_on_outlined,
+                  AppColors.inputSurface,
+                  AppColors.primary,
+                  'Điểm đến',
+                  trip.destination ?? 'Chưa có điểm đến',
+                ),
+                const SizedBox(height: 14),
+                _info(
+                  Icons.calendar_today_outlined,
+                  AppColors.inputSurface,
+                  AppColors.primary,
+                  'Thời gian',
+                  '$date${trip.durationDays == null ? '' : ' (${trip.durationDays} ngày)'}',
+                ),
+                const SizedBox(height: 14),
+                _info(
+                  Icons.account_balance_wallet_outlined,
+                  AppColors.inputSurface,
+                  AppColors.primary,
+                  'Ngân sách chung của chuyến đi',
+                  trip.estimatedBudget == null
+                      ? 'Chưa có dự kiến'
+                      : '${NumberFormat('#,###', 'vi_VN').format(trip.estimatedBudget)} đ',
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 22),
+                  child: Divider(height: 1),
+                ),
+                Text(
+                  'Nội dung',
+                  style: text.labelLarge?.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  post.displayTitle,
+                  style: text.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    height: 1.4,
+                  ),
+                ),
+                if (post.content?.isNotEmpty == true) ...[
+                  const SizedBox(height: 14),
+                  Text(
+                    post.content!,
+                    style: text.bodyLarge?.copyWith(
+                      height: 1.6,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 16),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: AppStatusBadge(
+                    label: post.isClosed
+                        ? 'Bài đăng đã đóng'
+                        : post.isFull
+                        ? 'Nhóm đã đủ thành viên'
+                        : 'Còn ${post.slotsLeft} chỗ',
+                    tone: post.isClosed
+                        ? AppStatusTone.error
+                        : post.isFull
+                        ? AppStatusTone.warning
+                        : AppStatusTone.success,
+                  ),
+                ),
+                if (post.genderPreference != 'ANY' ||
+                    post.minAge != null ||
+                    post.maxAge != null) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    'Yêu cầu: ${post.genderPreference == 'MALE'
+                        ? 'Nam'
+                        : post.genderPreference == 'FEMALE'
+                        ? 'Nữ'
+                        : 'Bất kỳ giới tính'}'
+                    '${post.minAge == null && post.maxAge == null ? '' : ' · Tuổi ${post.minAge ?? 16}–${post.maxAge ?? 'không giới hạn'}'}',
+                    style: text.bodyMedium?.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+                if (post.tags.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    post.tags.map((tag) => '#$tag').join('  '),
+                    style: text.bodySmall?.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 22),
+                  child: Divider(height: 1),
+                ),
+                CompanionItineraryPreview(days: trip.itinerary, framed: false),
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 22),
+                  child: Divider(height: 1),
+                ),
+                Text(
+                  'Thành viên · ${post.currentMembersCount}/${post.targetMembersCount}',
+                  style: text.titleMedium,
+                ),
+                const SizedBox(height: 14),
+                if (trip.members.isEmpty)
+                  Text(
+                    'Chưa có thông tin thành viên',
+                    style: text.bodyMedium?.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  )
+                else
+                  Wrap(
+                    spacing: 16,
+                    runSpacing: 12,
+                    children: [
+                      for (final member in trip.members)
+                        SizedBox(
+                          width: 76,
+                          child: Column(
+                            children: [
+                              AvatarPlaceholder(
+                                name: member.displayName ?? 'Thành viên',
+                                imageUrl: member.avatarUrl,
+                                radius: 24,
                               ),
-                            ),
+                              const SizedBox(height: 6),
+                              Text(
+                                member.displayName ?? 'Thành viên',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.center,
+                                style: text.bodySmall,
+                              ),
+                              if (member.role == 'LEADER')
+                                Text(
+                                  'Trưởng nhóm',
+                                  style: text.labelSmall?.copyWith(
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                            ],
                           ),
-                      ],
-                    ),
-                    if (post.tags.isNotEmpty) ...[
-                      const SizedBox(height: 10),
-                      Wrap(
-                        spacing: 6,
-                        children: post.tags
-                            .map(
-                              (tag) => Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 3,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppColors.inputSurface,
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  '#$tag',
-                                  style: const TextStyle(
-                                    color: AppColors.textSecondary,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            )
-                            .toList(),
-                      ),
+                        ),
                     ],
-                  ],
-                ),
-              ),
-              const SizedBox(height: 14),
-
-              // ── CARD 3: Members (Thành viên) ──────────────────────────────
-              CompanionItineraryPreview(days: trip.itinerary),
-              const SizedBox(height: 14),
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.border),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: .03),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Thành viên · ${post.currentMembersCount}/${post.targetMembersCount}',
-                      style: text.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    if (trip.members.isEmpty)
-                      Text(
-                        'Chưa có thông tin thành viên.',
-                        style: text.bodySmall,
-                      )
-                    else
-                      Wrap(
-                        spacing: 14,
-                        runSpacing: 14,
-                        children: [
-                          for (final member in trip.members)
-                            SizedBox(
-                              width: 80,
-                              child: Column(
-                                children: [
-                                  AvatarPlaceholder(
-                                    name: member.displayName ?? 'Thành viên',
-                                    imageUrl: member.avatarUrl,
-                                    radius: 24,
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    member.displayName ?? 'Thành viên',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    textAlign: TextAlign.center,
-                                    style: text.labelSmall?.copyWith(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  if (member.role == 'LEADER') ...[
-                                    const SizedBox(height: 2),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 6,
-                                        vertical: 2,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: AppColors.warningSurface,
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: const Text(
-                                        'Trưởng nhóm',
-                                        style: TextStyle(
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.w700,
-                                          color: AppColors.warning,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
-                        ],
-                      ),
-                  ],
-                ),
-              ),
-            ],
+                  ),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 

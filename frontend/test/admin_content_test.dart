@@ -1,4 +1,8 @@
 import 'dart:io';
+import 'package:feeling_trip/features/trip/views/trip_form_screen.dart';
+import 'package:feeling_trip/features/companion/repositories/companion_trip_repository.dart';
+import 'package:feeling_trip/core/network/api_client.dart';
+import 'package:feeling_trip/features/admin/views/admin_screen.dart';
 import 'package:feeling_trip/features/trip/models/trip_model.dart';
 import 'package:feeling_trip/features/trip/repositories/mock_trip_repository.dart';
 import 'dart:ui' as ui;
@@ -22,6 +26,36 @@ import 'package:feeling_trip/features/admin/views/admin_templates_content.dart';
 import 'package:feeling_trip/features/admin/views/plan_library_screen.dart';
 import 'package:feeling_trip/features/admin/views/template_form_screen.dart';
 import 'package:feeling_trip/features/auth/viewmodels/auth_viewmodel.dart';
+
+class CapturingRecruitmentTripRepository extends MockTripRepository {
+  TripFormData? submitted;
+  @override
+  Future<TripModel> createTrip(TripFormData data) async {
+    submitted = data;
+    return super.createTrip(data);
+  }
+}
+
+class PrivateTripFixture extends CompanionTripRepository {
+  bool public = false;
+  bool fail = false;
+  int conversions = 0;
+  @override
+  Future<bool> hasPostForTrip(String tripId) async => false;
+  @override
+  Future<bool> isPublicTrip(String tripId) async => public;
+  @override
+  Future<void> makePublic(String tripId) async {
+    conversions++;
+    if (fail) {
+      throw ApiException(
+        statusCode: 403,
+        message: 'Cần xác minh danh tính trước khi công khai',
+      );
+    }
+    public = true;
+  }
+}
 
 Future<void> mount(
   WidgetTester tester,
@@ -115,6 +149,37 @@ void main() {
     },
   );
   testWidgets(
+    'Template description expands instead of scrolling inside its field',
+    (tester) async {
+      await mount(tester, const TemplateFormScreen());
+      final field = find.byType(TextFormField).at(3);
+      final initialHeight = tester.getSize(field).height;
+      final longDescription = List.generate(
+        12,
+        (index) =>
+            'Dòng ${index + 1}: Lưu ý cho chuyến đi và lịch trình tham khảo.',
+      ).join('\n');
+      await tester.ensureVisible(field);
+      await tester.enterText(field, longDescription);
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<TextField>(
+              find.descendant(of: field, matching: find.byType(TextField)),
+            )
+            .maxLines,
+        isNull,
+      );
+      expect(tester.getSize(field).height, greaterThan(initialHeight * 2));
+      expect(
+        tester.widget<TextFormField>(field).controller!.text,
+        longDescription,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'Template form validates, saves and returns without success popup',
     (tester) async {
       await mount(tester, const Scaffold(body: AdminTemplatesContent()));
@@ -122,18 +187,22 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Tên ngày'), findsNothing);
       expect(find.text('Ngày 1'), findsOneWidget);
-      await tester.ensureVisible(find.text('Nhập tự do'));
-      await tester.tap(find.text('Nhập tự do'));
       await tester.tap(find.text('Lưu mẫu'));
       await tester.pumpAndSettle();
-      expect(find.text('Nhập từ 2 đến 255 ký tự'), findsOneWidget);
+      expect(
+        find.text('Kiểm tra tên mẫu, điểm đến, ngân sách và mô tả.'),
+        findsOneWidget,
+      );
       await tester.enterText(
         find.byType(TextFormField).at(0),
         'Mẫu kiểm thử giao diện',
       );
       await tester.enterText(find.byType(TextFormField).at(1), 'Hanoi');
-      await tester.ensureVisible(find.byType(TextFormField).at(4));
-      await tester.enterText(find.byType(TextFormField).at(4), 'Dạo phố');
+      await tester.tap(find.text('Ngày 1').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Nhập tự do'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextFormField).at(0), 'Dạo phố');
       tester.state<FormState>(find.byType(Form)).validate();
       await tester.pump();
       await capture(tester, 'template-form');
@@ -169,6 +238,8 @@ void main() {
         'Mẫu có địa điểm liên kết',
       );
       await tester.enterText(find.byType(TextFormField).at(1), 'Hà Nội');
+      await tester.tap(find.text('Ngày 1').first);
+      await tester.pumpAndSettle();
       await tester.ensureVisible(find.text('Chọn địa điểm'));
       await tester.tap(find.text('Chọn địa điểm'));
       await tester.pumpAndSettle();
@@ -177,7 +248,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Đổi địa điểm'), findsOneWidget);
       expect(
-        tester.widget<TextFormField>(find.byType(TextFormField).at(4)).enabled,
+        tester.widget<TextFormField>(find.byType(TextFormField).at(0)).enabled,
         isFalse,
       );
       await tester.tap(find.text('Lưu mẫu'));
@@ -191,16 +262,91 @@ void main() {
       );
       await tester.tap(find.descendant(of: row, matching: find.text('Sửa')));
       await tester.pumpAndSettle();
+      await tester.tap(find.text('Ngày 1').first);
+      await tester.pumpAndSettle();
       await tester.ensureVisible(find.text('Đổi địa điểm'));
       expect(find.text('Đổi địa điểm'), findsOneWidget);
-      expect(find.text('Hồ Hoàn Kiếm'), findsOneWidget);
+      expect(find.text('Hồ Hoàn Kiếm'), findsWidgets);
       await tester.ensureVisible(find.text('Nhập tự do'));
       await tester.tap(find.text('Nhập tự do'));
       await tester.pumpAndSettle();
+      await tester.pumpAndSettle();
       expect(
-        tester.widget<TextFormField>(find.byType(TextFormField).at(4)).enabled,
+        tester.widget<TextFormField>(find.byType(TextFormField).at(0)).enabled,
         isTrue,
       );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('Admin groups use named app-bar tabs without nested scaffold', (
+    tester,
+  ) async {
+    await mount(tester, const AdminScreen());
+    await tester.tap(find.text('Thư viện').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Lịch trình mẫu'), findsOneWidget);
+    expect(find.byTooltip('Kho lịch trình'), findsNothing);
+    await capture(tester, 'admin-library-tabs');
+    await tester.tap(find.text('Cộng đồng'));
+    await tester.pumpAndSettle();
+    expect(find.byType(Scaffold), findsOneWidget);
+    await tester.tap(find.text('Kiểm duyệt').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Bài tuyển'));
+    await tester.pumpAndSettle();
+    expect(find.byType(Scaffold), findsOneWidget);
+    await capture(tester, 'admin-moderation-tabs');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'Template editor retains each day and validates hidden activities',
+    (tester) async {
+      await mount(tester, const TemplateFormScreen());
+      await tester.enterText(
+        find.byType(TextFormField).at(0),
+        'Mẫu nhiều ngày',
+      );
+      await tester.enterText(find.byType(TextFormField).at(1), 'Hà Nội');
+      await tester.tap(find.text('Ngày 1').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Nhập tự do'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byType(TextFormField).at(0),
+        'Dạo phố ngày một',
+      );
+      await tester.ensureVisible(find.byType(TextFormField).at(2));
+      await tester.enterText(find.byType(TextFormField).at(2), '08:15');
+      await tester.enterText(find.byType(TextFormField).at(3), '09:00');
+      await tester.tap(find.byTooltip('Thêm ngày'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Nhập tự do'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byType(TextFormField).at(0),
+        'Dạo phố ngày hai',
+      );
+      await tester.tap(find.text('Ngày 1').first);
+      await tester.pumpAndSettle();
+      expect(find.text('Dạo phố ngày một'), findsWidgets);
+      await tester.ensureVisible(find.byType(TextFormField).at(2));
+      expect(
+        tester
+            .widget<TextFormField>(find.byType(TextFormField).at(2))
+            .initialValue,
+        '08:15',
+      );
+      await tester.enterText(find.byType(TextFormField).at(2), '25:00');
+      await tester.tap(find.text('Thông tin chung').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Lưu mẫu'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Ngày 1 · Hoạt động 1:'), findsOneWidget);
+      expect(find.text('Lịch hoạt động · ngày 1'), findsOneWidget);
+      expect(find.byType(TemplateFormScreen), findsOneWidget);
+      await capture(tester, 'template-day-validation');
       expect(tester.takeException(), isNull);
     },
   );
@@ -343,6 +489,131 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+  testWidgets(
+    'Private recruitment requires confirmation and never auto-publishes',
+    (tester) async {
+      final trips = PrivateTripFixture();
+      await mount(
+        tester,
+        CreateCompanionPostScreen(
+          tripId: 'private-trip',
+          tripName: 'Chuyến riêng tư',
+          tripRepository: trips,
+        ),
+        user: true,
+      );
+      await tester.tap(
+        find.widgetWithText(CustomButton, 'Chuyển sang công khai'),
+      );
+      await tester.pumpAndSettle();
+      expect(trips.conversions, 0);
+      await tester.tap(find.text('Hủy'));
+      await tester.pumpAndSettle();
+      expect(trips.public, false);
+      expect(trips.conversions, 0);
+      await tester.tap(
+        find.widgetWithText(CustomButton, 'Chuyển sang công khai'),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(
+          of: find.byType(Dialog),
+          matching: find.text('Chuyển sang công khai'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(trips.conversions, 1);
+      expect(trips.public, true);
+      expect(find.widgetWithText(CustomButton, 'Đăng bài'), findsOneWidget);
+      expect(find.byType(CreateCompanionPostScreen), findsOneWidget);
+      expect(find.byType(SnackBar), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Failed public conversion leaves private recruitment state intact',
+    (tester) async {
+      final trips = PrivateTripFixture()..fail = true;
+      await mount(
+        tester,
+        CreateCompanionPostScreen(
+          tripId: 'private-trip',
+          tripRepository: trips,
+        ),
+        user: true,
+      );
+      await tester.tap(
+        find.widgetWithText(CustomButton, 'Chuyển sang công khai'),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(
+          of: find.byType(Dialog),
+          matching: find.text('Chuyển sang công khai'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(trips.public, false);
+      expect(find.widgetWithText(CustomButton, 'Đăng bài'), findsNothing);
+      expect(
+        find.text('Cần xác minh danh tính trước khi công khai'),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Public trip counts the leader and validates recruitment ages before submission',
+    (tester) async {
+      final trips = CapturingRecruitmentTripRepository();
+      await mount(
+        tester,
+        Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => TripFormScreen(repository: trips),
+                ),
+              ),
+              child: const Text('Mở form chuyến đi'),
+            ),
+          ),
+        ),
+        user: true,
+      );
+      await tester.tap(find.text('Mở form chuyến đi'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextFormField).at(1), 'Hà Nội');
+      await tester.ensureVisible(find.text('Nhóm công khai'));
+      await tester.tap(find.text('Nhóm công khai'));
+      await tester.pumpAndSettle();
+      final age = find.descendant(
+        of: find.byWidgetPredicate(
+          (w) => w is CustomTextField && w.label == 'Tuổi từ (tùy chọn)',
+        ),
+        matching: find.byType(TextFormField),
+      );
+      await tester.ensureVisible(age);
+      await tester.enterText(age, '9');
+      await tester.tap(find.widgetWithText(CustomButton, 'Tạo chuyến đi'));
+      await tester.pumpAndSettle();
+      expect(trips.submitted, isNull);
+      expect(find.text('Nhập tuổi từ 16 đến 100'), findsOneWidget);
+      await tester.ensureVisible(age);
+      await tester.enterText(age, '22');
+      await tester.tap(find.widgetWithText(CustomButton, 'Tạo chuyến đi'));
+      await tester.pumpAndSettle();
+      expect(trips.submitted?.privacyType, 'PUBLIC');
+      expect(trips.submitted?.targetMembersCount, 4);
+      expect(trips.submitted?.toJson()['targetMembersCount'], 4);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('Private trip hides recruitment entry', (tester) async {
     await mount(
       tester,

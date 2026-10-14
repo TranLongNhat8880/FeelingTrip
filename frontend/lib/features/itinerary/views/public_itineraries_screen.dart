@@ -7,6 +7,7 @@ import '../models/itinerary_model.dart';
 import '../repositories/itinerary_repository.dart';
 import '../viewmodels/itinerary_viewmodel.dart';
 import 'itinerary_screen.dart';
+import '../../admin/views/plan_library_screen.dart';
 
 class PublicItinerariesScreen extends StatefulWidget {
   const PublicItinerariesScreen({
@@ -65,6 +66,16 @@ class _PublicItinerariesScreenState extends State<PublicItinerariesScreen> {
           const AppInlineNotice(
             message:
                 'Chỉ hiển thị chuyến đi công khai đã hoàn thành. Khi nhân bản, hệ thống tạo một chuyến đi riêng để bạn chỉnh sửa.',
+          ),
+          const SizedBox(height: 12),
+          CustomButton(
+            text: 'Xem lịch trình mẫu hệ thống',
+            icon: Icons.route_outlined,
+            variant: AppButtonVariant.secondary,
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const PlanLibraryScreen()),
+            ),
           ),
           const SizedBox(height: 16),
           CustomTextField(

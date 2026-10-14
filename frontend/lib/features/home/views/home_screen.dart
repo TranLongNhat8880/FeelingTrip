@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'personal_content.dart';
 
 import '../../../core/constants/api_endpoints.dart';
 import '../../../core/constants/app_colors.dart';
@@ -376,182 +377,6 @@ class _HomeScreenState extends State<HomeScreen> {
                               ],
                             ),
                           ),
-                        ] else if (_tab == 3) ...[
-                          // ── TAB 3: TRANG CÁ NHÂN & TRUY CẬP NHANH ──
-                          const SizedBox(height: 16),
-                          AppCard(
-                            softShadow: true,
-                            child: Column(
-                              children: [
-                                AvatarPlaceholder(
-                                  name: name,
-                                  imageUrl: user.avatarUrl,
-                                  radius: 36,
-                                ),
-                                const SizedBox(height: 16),
-                                Text(name, style: text.titleLarge),
-                                const SizedBox(height: 8),
-                                Text(
-                                  user.email,
-                                  textAlign: TextAlign.center,
-                                  style: text.bodyMedium?.copyWith(
-                                    color: AppColors.textSecondary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                          Text('Truy cập nhanh', style: text.titleSmall),
-                          const SizedBox(height: 12),
-                          AppCard(
-                            outlined: true,
-                            padding: EdgeInsets.zero,
-                            child: Column(
-                              children: [
-                                ListTile(
-                                  leading: const Icon(
-                                    Icons.manage_accounts_outlined,
-                                    color: AppColors.primary,
-                                  ),
-                                  title: const Text('Hồ sơ cá nhân'),
-                                  subtitle: const Text(
-                                    'Thông tin cá nhân, eKYC và tài khoản ngân hàng',
-                                  ),
-                                  trailing: const Icon(
-                                    Icons.chevron_right,
-                                    size: 20,
-                                  ),
-                                  onTap: () => Navigator.pushNamed(
-                                    context,
-                                    AppRoutes.profile,
-                                  ),
-                                ),
-                                const Divider(height: 1, indent: 56),
-                                ListTile(
-                                  leading: const Icon(
-                                    Icons.luggage_outlined,
-                                    color: AppColors.primary,
-                                  ),
-                                  title: const Text('Chuyến đi của tôi'),
-                                  subtitle: const Text(
-                                    'Quản lý chuyến đi & lịch trình chi tiết',
-                                  ),
-                                  trailing: const Icon(
-                                    Icons.chevron_right,
-                                    size: 20,
-                                  ),
-                                  onTap: () => Navigator.pushNamed(
-                                    context,
-                                    AppRoutes.tripList,
-                                  ),
-                                ),
-                                const Divider(height: 1, indent: 56),
-                                ListTile(
-                                  leading: const Icon(
-                                    Icons.explore_outlined,
-                                    color: AppColors.primary,
-                                  ),
-                                  title: const Text('Kho địa điểm du lịch'),
-                                  subtitle: const Text(
-                                    'Khám phá danh lam thắng cảnh',
-                                  ),
-                                  trailing: const Icon(
-                                    Icons.chevron_right,
-                                    size: 20,
-                                  ),
-                                  onTap: () => Navigator.pushNamed(
-                                    context,
-                                    AppRoutes.places,
-                                  ),
-                                ),
-                                const Divider(height: 1, indent: 56),
-                                ListTile(
-                                  leading: const Icon(
-                                    Icons.inbox_outlined,
-                                    color: AppColors.warning,
-                                  ),
-                                  title: const Text(
-                                    'Yêu cầu tham gia chuyến đi',
-                                  ),
-                                  subtitle: const Text(
-                                    'Duyệt đơn ghép đoàn bạn đồng hành',
-                                  ),
-                                  trailing: const Icon(
-                                    Icons.chevron_right,
-                                    size: 20,
-                                  ),
-                                  onTap: () => Navigator.push<void>(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) =>
-                                          const CompanionRequestsScreen(
-                                            initialReceived: true,
-                                          ),
-                                    ),
-                                  ),
-                                ),
-                                if (user.isAdmin) ...[
-                                  const Divider(height: 1, indent: 56),
-                                  ListTile(
-                                    leading: const Icon(
-                                      Icons.admin_panel_settings_outlined,
-                                      color: Color(0xFF0284C7),
-                                    ),
-                                    title: const Text('Bảng điều khiển Admin'),
-                                    subtitle: const Text(
-                                      'Quản trị người dùng & địa điểm',
-                                    ),
-                                    trailing: const Icon(
-                                      Icons.chevron_right,
-                                      size: 20,
-                                    ),
-                                    onTap: () => Navigator.pushNamed(
-                                      context,
-                                      AppRoutes.admin,
-                                    ),
-                                  ),
-                                  const Divider(height: 1, indent: 56),
-                                  ListTile(
-                                    leading: const Icon(
-                                      Icons.palette_outlined,
-                                      color: Color(0xFF9333EA),
-                                    ),
-                                    title: const Text(
-                                      'Thư viện UI Kit (Debug)',
-                                    ),
-                                    subtitle: const Text(
-                                      'Xem toàn bộ component mẫu',
-                                    ),
-                                    trailing: const Icon(
-                                      Icons.chevron_right,
-                                      size: 20,
-                                    ),
-                                    onTap: () => Navigator.pushNamed(
-                                      context,
-                                      AppRoutes.uiKit,
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          if (auth.errorMessage != null)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: Text(
-                                auth.errorMessage!,
-                                style: const TextStyle(color: AppColors.error),
-                              ),
-                            ),
-                          CustomButton(
-                            text: 'Đăng xuất',
-                            isLoading: auth.isLoading,
-                            variant: AppButtonVariant.secondary,
-                            icon: Icons.logout_rounded,
-                            onPressed: _confirmLogout,
-                          ),
                         ],
                       ],
                     ),
@@ -608,7 +433,17 @@ class _HomeScreenState extends State<HomeScreen> {
               child: NotificationScreen(viewModel: _notifications),
             ),
           ),
-          if (_tab == 1 || _tab == 3) legacyTabs else const SizedBox.shrink(),
+          if (_tab == 3)
+            PersonalContent(
+              user: user,
+              loading: auth.isLoading,
+              error: auth.errorMessage,
+              onLogout: _confirmLogout,
+            )
+          else if (_tab == 1)
+            legacyTabs
+          else
+            const SizedBox.shrink(),
         ],
       ),
     );

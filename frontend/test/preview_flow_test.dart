@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:feeling_trip/features/companion/views/companion_requests_screen.dart';
 import 'package:feeling_trip/features/companion/models/companion_post_model.dart';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -73,6 +74,75 @@ void main() {
     await icons.load();
   });
 
+  testWidgets('Personal hides logout and opens settings without a drawer', (
+    tester,
+  ) async {
+    final key = await mount(
+      tester,
+      'user.ekyc@feelingtrip.com',
+      const Size(390, 844),
+    );
+    await tester.tap(find.text('Cá nhân').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Cá nhân'), findsOneWidget);
+    expect(find.byTooltip('Mở menu'), findsNothing);
+    expect(find.text('Đăng xuất'), findsNothing);
+    await capture(tester, key, 'personal-settings-mobile');
+    await tester.tap(find.byTooltip('Cài đặt'));
+    await tester.pumpAndSettle();
+    expect(find.text('Đăng xuất'), findsOneWidget);
+    await tester.tap(find.text('Đăng xuất'));
+    await tester.pumpAndSettle();
+    expect(find.text('Bạn có muốn đăng xuất?'), findsOneWidget);
+    await tester.tap(find.text('Hủy'));
+    await tester.pumpAndSettle();
+    expect(find.text('Đã xác minh eKYC'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'Personal shortcuts open sent requests while notification entry supports received',
+    (tester) async {
+      final key = await mount(
+        tester,
+        'user.ekyc@feelingtrip.com',
+        const Size(390, 844),
+      );
+      expect(find.byTooltip('Mở trang cá nhân'), findsNothing);
+      await tester.tap(find.text('Cá nhân').last);
+      await tester.pumpAndSettle();
+      expect(find.text('Khám phá & lên kế hoạch'), findsOneWidget);
+      expect(find.text('Đã xác minh eKYC'), findsOneWidget);
+      await capture(tester, key, 'personal-mobile');
+      await tester.tap(find.text('Yêu cầu'));
+      await tester.pumpAndSettle();
+      expect(
+        DefaultTabController.of(tester.element(find.byType(TabBar))).index,
+        0,
+      );
+      expect(find.text('Tên người gửi yêu cầu'), findsNothing);
+      await tester.tap(find.text('Nhận được'));
+      await tester.pumpAndSettle();
+      expect(find.text('Tên người gửi yêu cầu'), findsOneWidget);
+      await tester.tap(find.byTooltip('Quay lại'));
+      await tester.pumpAndSettle();
+      tester
+          .state<NavigatorState>(find.byType(Navigator).first)
+          .push(
+            MaterialPageRoute(
+              builder: (_) =>
+                  const CompanionRequestsScreen(initialReceived: true),
+            ),
+          );
+      await tester.pumpAndSettle();
+      expect(
+        DefaultTabController.of(tester.element(find.byType(TabBar))).index,
+        1,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('Home reserves space for the feed and searches destinations', (
     tester,
   ) async {
@@ -120,7 +190,9 @@ void main() {
       ); // Existing mock uses nickname TuanTravel.
       final location = tester.getTopLeft(find.text('Điểm đến')).dy;
       final time = tester.getTopLeft(find.text('Thời gian')).dy;
-      final cost = tester.getTopLeft(find.text('Ngân sách chung của chuyến đi')).dy;
+      final cost = tester
+          .getTopLeft(find.text('Ngân sách chung của chuyến đi'))
+          .dy;
       final content = tester.getTopLeft(find.text('Nội dung')).dy;
       expect(location, lessThan(time));
       expect(time, lessThan(cost));
@@ -358,14 +430,11 @@ void main() {
       'user.ekyc@feelingtrip.com',
       const Size(390, 844),
     );
-    await tester.tap(find.byTooltip('Mở trang cá nhân'));
+    await tester.tap(find.text('Cá nhân').last);
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(
-      find.text('Yêu cầu tham gia chuyến đi'),
-      200,
-      scrollable: find.byType(Scrollable).last,
-    );
-    await tester.tap(find.text('Yêu cầu tham gia chuyến đi'));
+    await tester.tap(find.text('Yêu cầu'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Nhận được'));
     await tester.pumpAndSettle();
     await capture(tester, key, 'received-requests');
     expect(find.text('Chấp nhận'), findsWidgets);

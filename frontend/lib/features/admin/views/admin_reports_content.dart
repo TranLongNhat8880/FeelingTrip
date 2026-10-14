@@ -95,6 +95,7 @@ class _AdminReportsContentState extends State<AdminReportsContent> {
           else
             for (final report in vm.reports)
               Card(
+                margin: const EdgeInsets.only(bottom: 12),
                 child: ListTile(
                   title: Text(report.targetName),
                   subtitle: Text(
