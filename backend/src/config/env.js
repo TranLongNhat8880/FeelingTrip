@@ -31,8 +31,8 @@ module.exports = {
     apiSecret: process.env.CLOUDINARY_API_SECRET,
   },
   email: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_APP_PASSWORD,
+    user: process.env.EMAIL_USER ? process.env.EMAIL_USER.trim() : '',
+    pass: process.env.EMAIL_APP_PASSWORD ? process.env.EMAIL_APP_PASSWORD.replace(/\s+/g, '') : '',
   },
   geminiApiKey: process.env.GEMINI_API_KEY,
   geoapifyApiKey: process.env.GEOAPIFY_API_KEY?.trim() || '',
