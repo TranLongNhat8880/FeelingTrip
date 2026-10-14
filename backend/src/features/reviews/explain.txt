@@ -64,4 +64,20 @@ PHÂN HỆ: REVIEWS (ĐÁNH GIÁ, BÁO CÁO VI PHẠM & AN TOÀN SOS) - src/feat
      test dùng chung hiện có nếu chưa thống nhất. Runner tự lấy các file .test.js.
    - Test DB dùng chung shared-contracts.test.js kiểm tra hợp đồng 004; feature
      vẫn cần test API về quyền, dữ liệu không hợp lệ và đánh giá trùng.
+
+7. QUYỀN GỬI BÁO CÁO (khác quyền đánh giá):
+   - Không yêu cầu chuyến đi COMPLETED. Quyền đánh giá vẫn giữ nguyên.
+   - reportedTripId, không có reportedUserId: người đăng nhập được báo cáo
+     chuyến PUBLIC hoặc chuyến có bài tuyển OPEN/FULL mà không cần tham gia.
+     Bài CLOSED không cấp thêm quyền truy cập cho chuyến PRIVATE.
+   - Chuyến PRIVATE chưa có bài tuyển công khai: chỉ người đang/từng tham gia
+     mới được gửi báo cáo chuyến đi.
+   - Có cả reportedTripId và reportedUserId: cả người gửi và người bị báo cáo
+     phải đang/từng tham gia đúng chuyến đi đó, kể cả khi chuyến PUBLIC.
+   - Lịch sử ACTIVE/LEFT/REMOVED được giữ quyền báo cáo; creator được tính
+     cho dữ liệu cũ thiếu membership. Không dùng quyền này để cấp quyền sửa trip.
+   - Chỉ reportedUserId (không gắn chuyến đi): giữ API báo cáo tài khoản độc lập
+     hiện có, không áp quy tắc thành viên chuyến đi cho bối cảnh này.
+   - API kiểm tra quyền ở service/repository; không dựa vào nút hiển thị ở FE.
+     Không đổi DB, luồng admin xử lý báo cáo, hoặc tự cảnh cáo/khóa khi nhận đơn.
 ================================================================================

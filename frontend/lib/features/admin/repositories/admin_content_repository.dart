@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import '../../../core/constants/api_endpoints.dart';
 import '../../../core/network/api_client.dart';
 import '../models/admin_content_model.dart';
+import '../models/admin_trip_report_resolution.dart';
 import '../../map/models/place_model.dart';
 import '../../map/repositories/api_place_repository.dart';
 
@@ -246,6 +247,37 @@ class AdminContentRepository {
     await ApiClient.put(
       '/admin/users/$userId/status',
       body: {'status': 'BANNED', 'reason': reason},
+    );
+  }
+
+  Future<AdminReport> processTripReport(
+    String id,
+    String notes,
+    TripReportResolution resolution,
+  ) async {
+    if (ApiEndpoints.useMockData) {
+      throw StateError(
+        'Luồng xử lý chuyến đi mới cần BE đã tích hợp; không gửi dữ liệu mock lên BE thật.',
+      );
+    }
+    if (resolution.actions.isEmpty || resolution.actions.length > 10) {
+      throw ArgumentError('Chọn từ 1 đến 10 hành động xử lý.');
+    }
+    // A dedicated endpoint prevents an old backend from stripping action
+    // fields and silently marking the report resolved without sanctions.
+    return AdminReport(
+      Map<String, dynamic>.from(
+        (await ApiClient.put(
+          '/admin/reports/${Uri.encodeComponent(id)}/process',
+          body: {
+            'adminNotes': notes.trim(),
+            'reason': resolution.reason,
+            'actions': resolution.actions
+                .map((action) => action.toJson())
+                .toList(),
+          },
+        ))['data'],
+      ),
     );
   }
 

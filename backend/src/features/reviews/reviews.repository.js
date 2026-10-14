@@ -158,6 +158,46 @@ const findTripById = async (tripId) => {
 };
 
 /**
+ * Report eligibility is independent of review eligibility and trip lifecycle.
+ * A published recruitment post exposes a public reporting context even when
+ * the underlying trip remains PRIVATE. CLOSED posts do not grant this access.
+ * Historical participants (LEFT/REMOVED) retain the right to report incidents.
+ */
+const findReportTripContext = async ({ tripId, reporterId, reportedUserId = null }) => {
+    const query = `
+    SELECT t.id,
+      (
+        t.privacy_type = 'PUBLIC'
+        OR EXISTS (
+          SELECT 1 FROM companion_posts cp
+          WHERE cp.trip_id = t.id AND cp.status IN ('OPEN', 'FULL')
+        )
+      ) AS is_publicly_reportable,
+      (
+        t.creator_id = $2
+        OR EXISTS (
+          SELECT 1 FROM trip_members reporter_member
+          WHERE reporter_member.trip_id = t.id AND reporter_member.user_id = $2
+            AND reporter_member.membership_status IN ('ACTIVE', 'LEFT', 'REMOVED')
+        )
+      ) AS reporter_was_member,
+      CASE WHEN $3::UUID IS NULL THEN NULL ELSE (
+        t.creator_id = $3
+        OR EXISTS (
+          SELECT 1 FROM trip_members reported_member
+          WHERE reported_member.trip_id = t.id AND reported_member.user_id = $3
+            AND reported_member.membership_status IN ('ACTIVE', 'LEFT', 'REMOVED')
+        )
+      ) END AS reported_user_was_member
+    FROM trips t
+    WHERE t.id = $1
+    LIMIT 1;
+    `;
+    const { rows } = await db.query(query, [tripId, reporterId, reportedUserId]);
+    return rows[0] || null;
+};
+
+/**
  * Tạo báo cáo vi phạm.
  */
 const createReport = async ({
@@ -474,6 +514,7 @@ module.exports = {
     createReview,
     findUserById,
     findTripById,
+    findReportTripContext,
     createReport,
     createBlock,
     deleteBlock,
