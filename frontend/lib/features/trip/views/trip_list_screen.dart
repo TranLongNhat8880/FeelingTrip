@@ -49,6 +49,7 @@ class _TripListScreenState extends State<TripListScreen> {
     return _viewModel.trips
         .where(
           (trip) =>
+              trip.membershipStatus == 'ACTIVE' &&
               (_status == null || trip.status == _status) &&
               (query.isEmpty ||
                   '${trip.name} ${trip.destination}'.toLowerCase().contains(

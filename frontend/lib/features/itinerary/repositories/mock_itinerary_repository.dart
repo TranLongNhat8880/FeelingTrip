@@ -4,8 +4,13 @@ import 'itinerary_repository.dart';
 class MockItineraryRepository implements ItineraryRepository {
   MockItineraryRepository();
 
+  static final MockItineraryRepository shared = MockItineraryRepository();
+
   final Map<String, List<ItineraryDay>> _daysByTrip = {};
   int _sequence = 10;
+
+  void setDaysForTrip(String tripId, List<ItineraryDay> days) =>
+      _daysByTrip[tripId] = days;
 
   @override
   Future<ItineraryPlan> getItinerary(String tripId) async {
@@ -149,13 +154,39 @@ class MockItineraryRepository implements ItineraryRepository {
     List<String> orderedItemIds,
   ) async {
     final byId = {for (final item in day.items) item.id: item};
+    final ordered = orderedItemIds.map((id) => byId[id]!).toList();
+    if (ordered.isNotEmpty) {
+      int cursor = _toMinutes(ordered.first.startTime);
+      for (int i = 0; i < ordered.length; i++) {
+        final item = ordered[i];
+        final dur = _toMinutes(item.endTime) - _toMinutes(item.startTime);
+        if (dur > 0) {
+          final newStart = _toTimeString(cursor);
+          final newEnd = _toTimeString(cursor + dur);
+          ordered[i] = _copyItem(item, startTime: newStart, endTime: newEnd);
+          cursor += dur;
+        }
+      }
+    }
     final updated = _copyDay(
       day,
-      items: orderedItemIds.map((id) => byId[id]!).toList(),
+      items: ordered,
       version: '${_sequence++}',
     );
     _replaceDay(updated);
     return updated;
+  }
+
+  static int _toMinutes(String time) {
+    final parts = time.split(':').map(int.parse).toList();
+    return parts[0] * 60 + parts[1];
+  }
+
+  static String _toTimeString(int minutes) {
+    final clamped = minutes.clamp(0, 23 * 60 + 59);
+    final h = (clamped ~/ 60).toString().padLeft(2, '0');
+    final m = (clamped % 60).toString().padLeft(2, '0');
+    return '$h:$m';
   }
 
   @override
@@ -357,6 +388,8 @@ class MockItineraryRepository implements ItineraryRepository {
   ItineraryItem _copyItem(
     ItineraryItem item, {
     bool? isCompleted,
+    String? startTime,
+    String? endTime,
     String? version,
   }) => ItineraryItem(
     id: item.id,
@@ -365,8 +398,8 @@ class MockItineraryRepository implements ItineraryRepository {
     customName: item.customName,
     customAddress: item.customAddress,
     category: item.category,
-    startTime: item.startTime,
-    endTime: item.endTime,
+    startTime: startTime ?? item.startTime,
+    endTime: endTime ?? item.endTime,
     note: item.note,
     estimatedCost: item.estimatedCost,
     isCompleted: isCompleted ?? item.isCompleted,
