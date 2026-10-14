@@ -309,9 +309,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildFeatureActions(ProfileModel profile) {
     final bankName = profile.bankName?.trim();
-    final bankSubtitle = bankName == null || bankName.isEmpty
-        ? 'Chưa liên kết tài khoản ngân hàng'
-        : 'Đang sử dụng $bankName';
+    final hasReceivingAccount = profile.bankAccountNumber?.isNotEmpty ?? false;
+    final bankSubtitle = !hasReceivingAccount
+        ? 'Chưa lưu thông tin nhận tiền'
+        : 'Thông tin nhận tiền: ${bankName == null || bankName.isEmpty ? 'đã lưu' : bankName}';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
