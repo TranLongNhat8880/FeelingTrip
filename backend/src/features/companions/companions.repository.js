@@ -135,9 +135,19 @@ const updateCompanionPost = async ({
 
 const getCompanionPostById = async (postId, client = db) => {
   const query = `
-    SELECT *
-    FROM companion_posts
-    WHERE id = $1
+    SELECT cp.*, members.current_members_count,
+      CASE
+        WHEN cp.status = 'CLOSED' THEN 'CLOSED'
+        WHEN members.current_members_count >= cp.target_members_count THEN 'FULL'
+        ELSE 'OPEN'
+      END AS status
+    FROM companion_posts cp
+    JOIN LATERAL (
+      SELECT COUNT(*)::int AS current_members_count
+      FROM trip_members tm
+      WHERE tm.trip_id = cp.trip_id AND tm.membership_status = 'ACTIVE'
+    ) members ON true
+    WHERE cp.id = $1
   `;
   const params = [postId];
   const { rows } = await client.query(query, params);
@@ -159,7 +169,11 @@ const getCompanionFeed = async ({
 
   if (status) {
     params.push(status);
-    conditions.push(`cp.status = $${params.length}`);
+    conditions.push(`CASE
+        WHEN cp.status = 'CLOSED' THEN 'CLOSED'
+        WHEN members.current_members_count >= cp.target_members_count THEN 'FULL'
+        ELSE 'OPEN'
+      END = $${params.length}`);
   }
 
   if (destination) {
@@ -196,6 +210,11 @@ const getCompanionFeed = async ({
   const countQuery = `
     SELECT COUNT(DISTINCT cp.id)::int AS total
     FROM companion_posts cp
+    JOIN LATERAL (
+      SELECT COUNT(*)::int AS current_members_count
+      FROM trip_members tm
+      WHERE tm.trip_id = cp.trip_id AND tm.membership_status = 'ACTIVE'
+    ) members ON true
     JOIN trips t ON t.id = cp.trip_id
     ${whereClause}
   `;
@@ -215,12 +234,16 @@ const getCompanionFeed = async ({
       cp.creator_id,
       cp.title,
       cp.target_members_count,
-      cp.current_members_count,
+      members.current_members_count,
       cp.min_age,
       cp.max_age,
       cp.gender_preference,
       cp.tags,
-      cp.status,
+      CASE
+        WHEN cp.status = 'CLOSED' THEN 'CLOSED'
+        WHEN members.current_members_count >= cp.target_members_count THEN 'FULL'
+        ELSE 'OPEN'
+      END AS status,
       cp.created_at,
       cp.updated_at,
       t.name AS trip_name,
@@ -238,11 +261,16 @@ const getCompanionFeed = async ({
       COALESCE(ROUND(AVG(tr.rating)::NUMERIC, 1), 0)::FLOAT AS creator_trust_score,
       COUNT(tr.id)::INT AS creator_review_count
     FROM companion_posts cp
+    JOIN LATERAL (
+      SELECT COUNT(*)::int AS current_members_count
+      FROM trip_members tm
+      WHERE tm.trip_id = cp.trip_id AND tm.membership_status = 'ACTIVE'
+    ) members ON true
     JOIN trips t ON t.id = cp.trip_id
     JOIN users u ON u.id = cp.creator_id
     LEFT JOIN trip_reviews tr ON tr.reviewee_id = cp.creator_id
     ${whereClause}
-    GROUP BY cp.id, t.id, u.id
+    GROUP BY cp.id, t.id, u.id, members.current_members_count
     ORDER BY ${orderByClause}
     LIMIT ${limitPlaceholder} OFFSET ${offsetPlaceholder}
   `;
@@ -294,12 +322,16 @@ const getCompanionPostDetail = async (postId) => {
       cp.title,
       cp.content,
       cp.target_members_count,
-      cp.current_members_count,
+      members.current_members_count,
       cp.min_age,
       cp.max_age,
       cp.gender_preference,
       cp.tags,
-      cp.status,
+      CASE
+        WHEN cp.status = 'CLOSED' THEN 'CLOSED'
+        WHEN members.current_members_count >= cp.target_members_count THEN 'FULL'
+        ELSE 'OPEN'
+      END AS status,
       cp.created_at,
       cp.updated_at,
       t.name AS trip_name,
@@ -317,11 +349,16 @@ const getCompanionPostDetail = async (postId) => {
       COALESCE(ROUND(AVG(tr.rating)::NUMERIC, 1), 0)::FLOAT AS creator_trust_score,
       COUNT(tr.id)::INT AS creator_review_count
     FROM companion_posts cp
+    JOIN LATERAL (
+      SELECT COUNT(*)::int AS current_members_count
+      FROM trip_members tm
+      WHERE tm.trip_id = cp.trip_id AND tm.membership_status = 'ACTIVE'
+    ) members ON true
     JOIN trips t ON t.id = cp.trip_id
     JOIN users u ON u.id = cp.creator_id
     LEFT JOIN trip_reviews tr ON tr.reviewee_id = cp.creator_id
     WHERE cp.id = $1 AND cp.status <> 'CLOSED'
-    GROUP BY cp.id, t.id, u.id
+    GROUP BY cp.id, t.id, u.id, members.current_members_count
   `;
   const params = [postId];
   const { rows } = await db.query(query, params);
@@ -370,8 +407,11 @@ const createJoinRequest = async ({ postId, userId, introduction }, client = db) 
 
 const getExistingRequest = async (postId, userId, client = db) => {
   const query = `
-    SELECT * FROM companion_requests
-    WHERE post_id = $1 AND user_id = $2
+    SELECT cr.*, tm.membership_status
+    FROM companion_requests cr
+    JOIN companion_posts cp ON cp.id = cr.post_id
+    LEFT JOIN trip_members tm ON tm.trip_id = cp.trip_id AND tm.user_id = cr.user_id
+    WHERE cr.post_id = $1 AND cr.user_id = $2
     LIMIT 1
   `;
   const { rows } = await client.query(query, [postId, userId]);
@@ -472,8 +512,12 @@ const getMyReceivedRequests = async ({ userId, limit = 20, offset = 0, status, p
       cr.created_at,
       cp.title AS post_title,
       cp.target_members_count,
-      cp.current_members_count,
-      cp.status AS post_status,
+      members.current_members_count,
+      CASE
+        WHEN cp.status = 'CLOSED' THEN 'CLOSED'
+        WHEN members.current_members_count >= cp.target_members_count THEN 'FULL'
+        ELSE 'OPEN'
+      END AS post_status,
       t.id AS trip_id,
       t.name AS trip_name,
       t.destination AS trip_destination,
@@ -488,12 +532,17 @@ const getMyReceivedRequests = async ({ userId, limit = 20, offset = 0, status, p
       COUNT(tr.id)::INT AS requester_review_count
     FROM companion_requests cr
     JOIN companion_posts cp ON cp.id = cr.post_id
+    JOIN LATERAL (
+      SELECT COUNT(*)::int AS current_members_count
+      FROM trip_members tm
+      WHERE tm.trip_id = cp.trip_id AND tm.membership_status = 'ACTIVE'
+    ) members ON true
     JOIN trips t ON t.id = cp.trip_id
     JOIN trip_members tm ON tm.trip_id = t.id
     JOIN users u ON u.id = cr.user_id
     LEFT JOIN trip_reviews tr ON tr.reviewee_id = cr.user_id
     WHERE ${whereClause}
-    GROUP BY cr.id, cp.id, t.id, u.id
+    GROUP BY cr.id, cp.id, t.id, u.id, members.current_members_count
     ORDER BY cr.created_at DESC
     LIMIT $${params.length + 1} OFFSET $${params.length + 2}
   `;
@@ -502,6 +551,11 @@ const getMyReceivedRequests = async ({ userId, limit = 20, offset = 0, status, p
     SELECT COUNT(DISTINCT cr.id)::int AS total
     FROM companion_requests cr
     JOIN companion_posts cp ON cp.id = cr.post_id
+    JOIN LATERAL (
+      SELECT COUNT(*)::int AS current_members_count
+      FROM trip_members tm
+      WHERE tm.trip_id = cp.trip_id AND tm.membership_status = 'ACTIVE'
+    ) members ON true
     JOIN trips t ON t.id = cp.trip_id
     JOIN trip_members tm ON tm.trip_id = t.id
     WHERE ${whereClause}
@@ -542,6 +596,11 @@ const getMySentRequests = async ({ userId, status, limit, offset }) => {
   const from = `
     FROM companion_requests cr
     JOIN companion_posts cp ON cp.id=cr.post_id
+    JOIN LATERAL (
+      SELECT COUNT(*)::int AS current_members_count
+      FROM trip_members tm
+      WHERE tm.trip_id = cp.trip_id AND tm.membership_status = 'ACTIVE'
+    ) members ON true
     JOIN trips t ON t.id=cp.trip_id
     WHERE ${filter}
   `;
@@ -551,7 +610,11 @@ const getMySentRequests = async ({ userId, status, limit, offset }) => {
 
   const dataQuery = `
     SELECT cr.id, cr.post_id, cr.status, cr.introduction, cr.created_at,
-      cp.title, cp.status AS post_status, t.name AS trip_name, t.destination
+      cp.title, CASE
+        WHEN cp.status = 'CLOSED' THEN 'CLOSED'
+        WHEN members.current_members_count >= cp.target_members_count THEN 'FULL'
+        ELSE 'OPEN'
+      END AS post_status, t.name AS trip_name, t.destination
     ${from}
     ORDER BY cr.created_at DESC, cr.id DESC
     LIMIT $${params.length + 1} OFFSET $${params.length + 2}
@@ -563,8 +626,17 @@ const getMySentRequests = async ({ userId, status, limit, offset }) => {
 // Bài tuyển đang hoạt động của chuyến đi mà người dùng là trưởng nhóm
 const getMyPosts = async (userId, page, limit) => {
   const query = `
-    SELECT cp.id, cp.title, cp.status, t.name AS trip_name, t.destination
+    SELECT cp.id, cp.title, CASE
+        WHEN cp.status = 'CLOSED' THEN 'CLOSED'
+        WHEN members.current_members_count >= cp.target_members_count THEN 'FULL'
+        ELSE 'OPEN'
+      END AS status, t.name AS trip_name, t.destination
     FROM companion_posts cp
+    JOIN LATERAL (
+      SELECT COUNT(*)::int AS current_members_count
+      FROM trip_members tm
+      WHERE tm.trip_id = cp.trip_id AND tm.membership_status = 'ACTIVE'
+    ) members ON true
     JOIN trips t ON t.id=cp.trip_id
     JOIN trip_members tm ON tm.trip_id=cp.trip_id
     WHERE tm.user_id=$1 AND tm.role='LEADER'
@@ -576,7 +648,20 @@ const getMyPosts = async (userId, page, limit) => {
   return rows;
 };
 
+// Gửi lại yêu cầu đã được duyệt khi người dùng không còn trong nhóm
+const resendJoinRequest = async (requestId, introduction, client) => {
+  const query = `
+    UPDATE companion_requests
+    SET status = 'PENDING', introduction = $2, created_at = NOW()
+    WHERE id = $1 AND status = 'ACCEPTED'
+    RETURNING *
+  `;
+  const { rows } = await client.query(query, [requestId, introduction || null]);
+  return rows[0] || null;
+};
+
 module.exports = {
+    resendJoinRequest,
     getMyPosts,
     getMySentRequests,
     getPostedTripIds,

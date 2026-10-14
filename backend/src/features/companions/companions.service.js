@@ -258,6 +258,10 @@ const getCompanionPostDetail = async ({ postId, userId }) => {
 
     const members = await tripRepository.findSafeMembers(post.trip_id);
     const myRequest = userId ? await companionsRepository.getExistingRequest(postId, userId) : null;
+    // Yêu cầu đã duyệt chỉ còn hiệu lực khi người dùng vẫn trong nhóm.
+    const canRequestAgain = myRequest?.status === 'ACCEPTED'
+        && ['LEFT', 'REMOVED'].includes(myRequest.membership_status);
+
     // Publish only the schedule advertised by this post, never the internal ledger or notes.
     const days = await itineraryRepository.findDays(db, post.trip_id);
     const items = await itineraryRepository.findItemsForDays(db, days.map(day => day.id));
@@ -266,8 +270,8 @@ const getCompanionPostDetail = async ({ postId, userId }) => {
         id: post.id,
         title: post.title,
         content: post.content,
-        myRequestStatus: myRequest?.status || null,
-        myRequestId: myRequest?.id || null,
+        myRequestStatus: canRequestAgain ? null : myRequest?.status || null,
+        myRequestId: canRequestAgain ? null : myRequest?.id || null,
         targetMembersCount: post.target_members_count,
         currentMembersCount: post.current_members_count,
         minAge: post.min_age,
@@ -326,75 +330,83 @@ const createJoinRequest = async ({ postId, userId, introduction }) => {
         throw apiError(403, 'Bạn cần xác minh danh tính (eKYC) để gửi yêu cầu tham gia');
     }
 
-    const post = await companionsRepository.getCompanionPostById(postId);
-    if (!post) {
-        throw apiError(404, 'Bài viết không tồn tại');
-    }
+    return db.transaction(async (client) => {
+        let post = await companionsRepository.getCompanionPostById(postId, client);
+        if (!post) {
+            throw apiError(404, 'Bài viết không tồn tại');
+        }
 
-    if (post.status === 'CLOSED') {
-        throw apiError(400, 'Bài viết đã đóng, không nhận thêm yêu cầu');
-    }
+        const trip = await companionsRepository.getTripByIdForUpdate(post.trip_id, client);
+        if (!trip || trip.status === 'CANCELLED' || trip.status === 'COMPLETED') {
+            throw apiError(400, 'Không thể gửi yêu cầu cho chuyến đi đã kết thúc hoặc đã hủy');
+        }
 
-    if (post.status === 'FULL') {
-        throw apiError(400, 'Đoàn đã đủ số lượng thành viên, không nhận thêm yêu cầu');
-    }
+        // Đọc lại sau khi khóa chuyến để lấy sức chứa và trạng thái mới nhất.
+        post = await companionsRepository.getCompanionPostById(postId, client);
+        if (post.status === 'CLOSED') {
+            throw apiError(400, 'Bài viết đã đóng, không nhận thêm yêu cầu');
+        }
+        if (post.status === 'FULL') {
+            throw apiError(400, 'Đoàn đã đủ số lượng thành viên, không nhận thêm yêu cầu');
+        }
 
-    const trip = await companionsRepository.getTripById(post.trip_id);
-    if (!trip || trip.status === 'CANCELLED' || trip.status === 'COMPLETED') {
-        throw apiError(400, 'Không thể gửi yêu cầu cho chuyến đi đã kết thúc hoặc đã hủy');
-    }
+        const isLeader = await companionsRepository.isTripLeader(post.trip_id, userId, client);
+        if (isLeader || post.creator_id === userId) {
+            throw apiError(400, 'Bạn là người quản lý chuyến đi này, không thể gửi yêu cầu tham gia');
+        }
 
-    const isLeader = await companionsRepository.isTripLeader(post.trip_id, userId);
-    if (isLeader || post.creator_id === userId) {
-        throw apiError(400, 'Bạn là người quản lý chuyến đi này, không thể gửi yêu cầu tham gia');
-    }
+        const isMember = await companionsRepository.isTripMember(post.trip_id, userId, client);
+        if (isMember) {
+            throw apiError(400, 'Bạn đã là thành viên của chuyến đi này');
+        }
 
-    const isMember = await companionsRepository.isTripMember(post.trip_id, userId);
-    if (isMember) {
-        throw apiError(400, 'Bạn đã là thành viên của chuyến đi này');
-    }
-
-    const existing = await companionsRepository.getExistingRequest(postId, userId);
-    if (existing) {
-        if (existing.status === 'PENDING') {
+        const existing = await companionsRepository.getExistingRequest(postId, userId, client);
+        if (existing?.status === 'PENDING') {
             throw apiError(409, 'Bạn đã gửi yêu cầu tham gia bài viết này rồi, vui lòng chờ duyệt');
         }
-        if (existing.status === 'ACCEPTED') {
-            throw apiError(400, 'Yêu cầu của bạn đã được chấp thuận trước đó');
-        }
-        if (existing.status === 'REJECTED') {
+        if (existing?.status === 'REJECTED') {
             throw apiError(400, 'Yêu cầu tham gia bài viết này của bạn đã bị từ chối');
         }
-    }
-
-    const leader = await companionsRepository.getTripLeader(post.trip_id);
-    if (!leader) {
-        throw apiError(400, 'Chuyến đi không có trưởng nhóm đang hoạt động');
-    }
-
-    let newRequest;
-    try {
-        newRequest = await companionsRepository.createJoinRequest({
-            postId,
-            userId,
-            introduction,
-        });
-    } catch (error) {
-        if (error.code === '23505') {
-            throw apiError(409, 'Bạn đã gửi yêu cầu tham gia bài viết này rồi');
+        if (existing?.status === 'ACCEPTED' && !['LEFT', 'REMOVED'].includes(existing.membership_status)) {
+            throw apiError(400, 'Yêu cầu của bạn đã được chấp thuận trước đó');
         }
-        throw error;
-    }
 
-    notificationsService.createNotification({
-        recipientId: leader.user_id,
-        title: 'Yêu cầu tham gia mới',
-        message: `${user?.full_name || 'Một thành viên'} đã gửi yêu cầu tham gia bài viết "${post.title}"`,
-        type: 'REQUEST',
-        data: { postId: post.id, requestId: newRequest.id, tripId: post.trip_id }
-    }).catch(() => {});
+        const leader = await companionsRepository.getTripLeader(post.trip_id, client);
+        if (!leader) {
+            throw apiError(400, 'Chuyến đi không có trưởng nhóm đang hoạt động');
+        }
 
-    return newRequest;
+        let newRequest;
+        try {
+            if (existing) {
+                newRequest = await companionsRepository.resendJoinRequest(existing.id, introduction, client);
+            } else {
+                newRequest = await companionsRepository.createJoinRequest({
+                    postId,
+                    userId,
+                    introduction,
+                }, client);
+            }
+        } catch (error) {
+            if (error.code === '23505') {
+                throw apiError(409, 'Bạn đã gửi yêu cầu tham gia bài viết này rồi');
+            }
+            throw error;
+        }
+        if (!newRequest) {
+            throw apiError(409, 'Yêu cầu đã thay đổi, vui lòng tải lại bài viết');
+        }
+
+        await notificationsService.createNotification({
+            recipientId: leader.user_id,
+            title: 'Yêu cầu tham gia mới',
+            message: `${user?.full_name || 'Một thành viên'} đã gửi yêu cầu tham gia bài viết "${post.title}"`,
+            type: 'REQUEST',
+            data: { postId: post.id, requestId: newRequest.id, tripId: post.trip_id }
+        }, client);
+
+        return newRequest;
+    });
 };
 
 const deleteJoinRequest = async ({ requestId, userId }) => {
@@ -475,7 +487,8 @@ const reviewJoinRequest = async ({ requestId, leaderId, status }) => {
             if (trip.status === 'CANCELLED' || trip.status === 'COMPLETED') {
                 throw apiError(400, 'Không thể duyệt thành viên cho chuyến đi đã kết thúc hoặc đã hủy');
             }
-            if (req.post_status === 'CLOSED') {
+            const post = await companionsRepository.getCompanionPostById(req.post_id, client);
+            if (post.status === 'CLOSED') {
                 throw apiError(400, 'Không thể duyệt yêu cầu của bài viết đã đóng');
             }
 
@@ -485,7 +498,7 @@ const reviewJoinRequest = async ({ requestId, leaderId, status }) => {
             }
 
             const actualMembersCount = await companionsRepository.getTripMembersCount(req.trip_id, client);
-            if (actualMembersCount >= req.target_members_count) {
+            if (actualMembersCount >= post.target_members_count) {
                 throw apiError(400, 'Đoàn đã đủ số lượng thành viên tối đa, không thể nhận thêm');
             }
 
@@ -500,7 +513,7 @@ const reviewJoinRequest = async ({ requestId, leaderId, status }) => {
             }
 
             const newMembersCount = actualMembersCount + 1;
-            const newPostStatus = newMembersCount >= req.target_members_count ? 'FULL' : 'OPEN';
+            const newPostStatus = newMembersCount >= post.target_members_count ? 'FULL' : 'OPEN';
             await companionsRepository.updateCompanionPost({
                 postId: req.post_id,
                 currentMembersCount: newMembersCount,

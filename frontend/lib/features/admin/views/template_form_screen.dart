@@ -44,14 +44,13 @@ class _ActivityForm {
 
 class _DayForm {
   _DayForm([Map? day])
-    : title = TextEditingController(text: day?['title'] ?? ''),
+    : title = day?['title'] as String?,
       items = (day?['items'] as List? ?? [{}])
           .map((i) => _ActivityForm(i))
           .toList();
-  final TextEditingController title;
+  final String? title;
   final List<_ActivityForm> items;
   void dispose() {
-    title.dispose();
     for (final item in items) {
       item.dispose();
     }
@@ -213,7 +212,7 @@ class _TemplateFormScreenState extends State<TemplateFormScreen> {
             for (var i = 0; i < days.length; i++)
               {
                 'dayNumber': i + 1,
-                'title': days[i].title.text.trim(),
+                if (days[i].title != null) 'title': days[i].title,
                 'items': days[i].items.map((item) => item.data()).toList(),
               },
           ],
@@ -324,12 +323,6 @@ class _TemplateFormScreenState extends State<TemplateFormScreen> {
                       icon: const Icon(Icons.delete_outline),
                     ),
                 ],
-              ),
-              CustomTextField(
-                controller: days[dayIndex].title,
-                label: 'Tên ngày',
-                validator: (v) =>
-                    (v?.length ?? 0) > 255 ? 'Tối đa 255 ký tự' : null,
               ),
               for (
                 var itemIndex = 0;

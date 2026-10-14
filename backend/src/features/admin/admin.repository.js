@@ -435,9 +435,9 @@ const applyTemplate = async (
       const itemQuery = `
         INSERT INTO itinerary_items (
           itinerary_id, custom_name, custom_address, category, start_time,
-          end_time, order_index, note, estimated_cost, place_id, is_completed
+          end_time, order_index, note, estimated_cost, place_id, is_completed, location_source
         )
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,false)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,false,$11)
       `;
       await client.query(itemQuery, [
         saved.id,
@@ -450,6 +450,7 @@ const applyTemplate = async (
         item.note || null,
         item.estimatedCost,
         item.placeId || null,
+        item.placeId ? 'CATALOG' : 'MANUAL',
       ]);
     }
   }

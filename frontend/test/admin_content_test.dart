@@ -118,6 +118,8 @@ void main() {
       await mount(tester, const Scaffold(body: AdminTemplatesContent()));
       await tester.tap(find.text('Thêm mẫu'));
       await tester.pumpAndSettle();
+      expect(find.text('Tên ngày'), findsNothing);
+      expect(find.text('Ngày 1'), findsOneWidget);
       await tester.ensureVisible(find.text('Nhập tự do'));
       await tester.tap(find.text('Nhập tự do'));
       await tester.tap(find.text('Lưu mẫu'));
@@ -128,8 +130,8 @@ void main() {
         'Mẫu kiểm thử giao diện',
       );
       await tester.enterText(find.byType(TextFormField).at(1), 'Hanoi');
-      await tester.ensureVisible(find.byType(TextFormField).at(5));
-      await tester.enterText(find.byType(TextFormField).at(5), 'Dạo phố');
+      await tester.ensureVisible(find.byType(TextFormField).at(4));
+      await tester.enterText(find.byType(TextFormField).at(4), 'Dạo phố');
       tester.state<FormState>(find.byType(Form)).validate();
       await tester.pump();
       await capture(tester, 'template-form');
@@ -173,7 +175,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Đổi địa điểm'), findsOneWidget);
       expect(
-        tester.widget<TextFormField>(find.byType(TextFormField).at(5)).enabled,
+        tester.widget<TextFormField>(find.byType(TextFormField).at(4)).enabled,
         isFalse,
       );
       await tester.tap(find.text('Lưu mẫu'));
@@ -194,7 +196,7 @@ void main() {
       await tester.tap(find.text('Nhập tự do'));
       await tester.pumpAndSettle();
       expect(
-        tester.widget<TextFormField>(find.byType(TextFormField).at(5)).enabled,
+        tester.widget<TextFormField>(find.byType(TextFormField).at(4)).enabled,
         isTrue,
       );
       expect(tester.takeException(), isNull);
