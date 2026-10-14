@@ -187,3 +187,91 @@ test('moderation: report context, admin permissions, reason, warning, hide and b
  assert.deepEqual(warnings.map(r=>r.status).sort(),[200,409]);
  assert.equal((await req('/admin/reports/'+report.id)).data.data.status,'RESOLVED');
 });
+
+
+test('companion rejoin: kick and leave reopen the post; retry needs approval and prevents duplicates', async () => {
+  const postId = await companionPost();
+  assert.equal((await req('/companions/posts/' + postId, 'PATCH', {
+    targetMembersCount: 2,
+  }, 'leader')).status, 200);
+
+  const send = () => req('/companions/join-request', 'POST', {
+    postId,
+    introduction: 'Tôi muốn tham gia lại',
+  }, 'other');
+  const detail = async () => (await req('/companions/posts/' + postId, 'GET', undefined, 'other')).data.data;
+
+
+  assert.equal((await send()).status, 201);
+  let post = await detail();
+  const requestId = post.myRequestId;
+  // API xét duyệt hiện tại dùng /requests/:id (không có /review).
+  const approve = () => req('/companions/requests/' + requestId, 'PUT', { status: 'ACCEPTED' }, 'leader');
+  assert.equal((await approve()).status, 200);
+  post = await detail();
+  assert.equal(post.currentMembersCount, 2);
+  assert.equal(post.status, 'FULL');
+  assert.equal(post.trip.members.length, 2);
+  assert.notEqual((await send()).status, 201);
+
+  assert.equal((await req('/trips/' + ids.trip + '/members/' + ids.other, 'DELETE', undefined, 'leader')).status, 200);
+  // Số cũ trong bài vẫn FULL nhưng API phải lấy thành viên đang hoạt động.
+  const stored = (await db.query('SELECT current_members_count,status FROM companion_posts WHERE id=$1', [postId])).rows[0];
+  assert.equal(stored.current_members_count, 2);
+  assert.equal(stored.status, 'FULL');
+  post = await detail();
+  assert.equal(post.currentMembersCount, 1);
+  assert.equal(post.status, 'OPEN');
+  assert.equal(post.trip.members.length, 1);
+  assert.equal(post.myRequestStatus, null);
+  assert.equal(post.myRequestId, null);
+  const openFeed = (await req('/companions/feed?status=OPEN', 'GET', undefined, 'other')).data.data;
+  assert.equal(openFeed.posts[0].currentMembersCount, 1);
+  assert.equal(openFeed.posts[0].status, 'OPEN');
+  assert.equal(openFeed.pagination.totalItems, 1);
+  assert.equal((await req('/companions/feed?status=FULL', 'GET', undefined, 'other')).data.data.posts.length, 0);
+  assert.equal((await req('/companions/my-posts', 'GET', undefined, 'leader')).data.data[0].status, 'OPEN');
+
+  await db.query("UPDATE users SET is_verified=false,verification_status='UNVERIFIED' WHERE id=$1", [ids.other]);
+  assert.equal((await send()).status, 403);
+  await db.query("UPDATE users SET is_verified=true,verification_status='VERIFIED' WHERE id=$1", [ids.other]);
+
+  const retried = await Promise.all([send(), send()]);
+  assert.deepEqual(retried.map(result => result.status).sort(), [201, 409]);
+  post = await detail();
+  assert.equal(post.myRequestStatus, 'PENDING');
+  assert.equal(post.currentMembersCount, 1);
+  assert.equal(post.myRequestId, requestId);
+  const pending = (await req('/companions/my-requests?status=PENDING', 'GET', undefined, 'leader')).data.data.requests;
+  assert.equal(pending.length, 1);
+  assert.equal(pending[0].post.currentMembersCount, 1);
+  assert.equal(pending[0].post.status, 'OPEN');
+  assert.equal((await approve()).status, 200);
+  assert.equal((await detail()).currentMembersCount, 2);
+
+  assert.equal((await req('/trips/' + ids.trip + '/leave', 'POST', undefined, 'other')).status, 200);
+  post = await detail();
+  assert.equal(post.status, 'OPEN');
+  assert.equal(post.myRequestStatus, null);
+  assert.equal((await send()).status, 201);
+  assert.equal((await detail()).myRequestStatus, 'PENDING');
+  assert.equal((await req('/companions/requests/' + requestId, 'PUT', { status: 'REJECTED' }, 'leader')).status, 200);
+  assert.equal((await send()).status, 400);
+});
+
+test('companion counts reflect direct membership changes and never reopen a closed post', async () => {
+  const postId = await companionPost();
+  await req('/companions/posts/' + postId, 'PATCH', { targetMembersCount: 2 }, 'leader');
+  // Thêm trực tiếp vào trip_members mô phỏng luồng tham gia bằng mã mời.
+  await db.query("INSERT INTO trip_members(trip_id,user_id,role,membership_status) VALUES($1,$2,'MEMBER','ACTIVE')", [ids.trip, ids.other]);
+  let post = (await req('/companions/posts/' + postId, 'GET', undefined, 'other')).data.data;
+  assert.equal(post.currentMembersCount, 2);
+  assert.equal(post.status, 'FULL');
+  assert.equal((await req('/companions/feed?status=FULL', 'GET', undefined, 'other')).data.data.posts.length, 1);
+  assert.equal((await req('/companions/feed?status=OPEN', 'GET', undefined, 'other')).data.data.posts.length, 0);
+  assert.equal((await req('/companions/posts/' + postId, 'DELETE', undefined, 'leader')).status, 200);
+  await db.query("UPDATE trip_members SET membership_status='REMOVED' WHERE trip_id=$1 AND user_id=$2", [ids.trip, ids.other]);
+  assert.equal((await req('/companions/posts/' + postId, 'GET', undefined, 'other')).status, 404);
+  assert.equal((await req('/companions/join-request', 'POST', { postId }, 'other')).status, 400);
+  assert.equal((await req('/companions/feed?status=OPEN', 'GET', undefined, 'other')).data.data.posts.length, 0);
+});
