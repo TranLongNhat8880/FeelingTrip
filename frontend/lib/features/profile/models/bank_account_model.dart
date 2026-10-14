@@ -69,7 +69,10 @@ class BankHostedLink {
     final rawUrl = json['hostedLinkUrl']?.toString() ?? '';
     final uri = Uri.tryParse(rawUrl);
 
-    if (uri == null || !uri.hasScheme) {
+    if (uri == null ||
+        uri.scheme != 'https' ||
+        uri.userInfo.isNotEmpty ||
+        !(uri.host == 'sepay.vn' || uri.host.endsWith('.sepay.vn'))) {
       throw const FormatException('Bank Hub trả về liên kết không hợp lệ');
     }
 
@@ -79,6 +82,38 @@ class BankHostedLink {
           ? null
           : DateTime.tryParse(json['expiresAt'].toString()),
     );
+  }
+}
+
+/// A return to the app is not confirmation. Compare authoritative account
+/// state with the snapshot taken before the hosted operation.
+class BankLinkAttempt {
+  BankLinkAttempt({
+    required this.link,
+    required this.purpose,
+    this.accountId,
+    required List<BankAccountModel> before,
+  }) : previouslyLinked = {
+         for (final account in before) account.id: account.isLinked,
+       };
+  final BankHostedLink link;
+  final BankLinkPurpose purpose;
+  final String? accountId;
+  final Map<String, bool> previouslyLinked;
+
+  bool get expired =>
+      link.expiresAt != null && !link.expiresAt!.isAfter(DateTime.now());
+  bool confirmedBy(List<BankAccountModel> accounts) {
+    if (purpose == BankLinkPurpose.link) {
+      return accounts.any(
+        (account) => account.isLinked && previouslyLinked[account.id] != true,
+      );
+    }
+    final matches = accounts.where((account) => account.id == accountId);
+    if (matches.length != 1) return false;
+    return purpose == BankLinkPurpose.unlink
+        ? previouslyLinked[accountId] == true && !matches.single.isLinked
+        : previouslyLinked[accountId] == false && matches.single.isLinked;
   }
 }
 

@@ -15,7 +15,22 @@ class ProfileFormData {
     this.bankName,
     this.bankAccountNumber,
     this.bankAccountName,
+    this.includePersonalFields = true,
   });
+
+  /// Bank edits must not overwrite unrelated personal fields from a cached profile.
+  const ProfileFormData.bankAccount({
+    required this.bankBin,
+    required this.bankName,
+    required this.bankAccountNumber,
+    required this.bankAccountName,
+  }) : fullName = '',
+       nickname = null,
+       phone = null,
+       bio = null,
+       gender = null,
+       dob = null,
+       includePersonalFields = false;
 
   final String fullName;
   final String? nickname;
@@ -27,19 +42,23 @@ class ProfileFormData {
   final String? bankName;
   final String? bankAccountNumber;
   final String? bankAccountName;
+  final bool includePersonalFields;
 
   /// Gửi chuỗi rỗng để backend xóa các trường không bắt buộc.
   Map<String, String> toMultipartFields() {
     return {
-      'fullName': fullName.trim(),
-      'nickname': nickname?.trim() ?? '',
-      'phone': phone?.trim() ?? '',
-      'bio': bio?.trim() ?? '',
-      'gender': gender?.trim() ?? '',
-      'dob': dob == null ? '' : _formatDate(dob!),
+      if (includePersonalFields) ...{
+        'fullName': fullName.trim(),
+        'nickname': nickname?.trim() ?? '',
+        'phone': phone?.trim() ?? '',
+        'bio': bio?.trim() ?? '',
+        'gender': gender?.trim() ?? '',
+        'dob': dob == null ? '' : _formatDate(dob!),
+      },
       if (bankBin != null) 'bankBin': bankBin!.trim(),
       if (bankName != null) 'bankName': bankName!.trim(),
-      if (bankAccountNumber != null) 'bankAccountNumber': bankAccountNumber!.trim(),
+      if (bankAccountNumber != null)
+        'bankAccountNumber': bankAccountNumber!.trim(),
       if (bankAccountName != null) 'bankAccountName': bankAccountName!.trim(),
     };
   }
