@@ -298,8 +298,11 @@ class _TripFormScreenState extends State<TripFormScreen> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.pin_drop_rounded,
-                    size: 13, color: AppColors.primary),
+                const Icon(
+                  Icons.pin_drop_rounded,
+                  size: 13,
+                  color: AppColors.primary,
+                ),
                 const SizedBox(width: 4),
                 Text(
                   'Tọa độ: ${_destinationLatitude!.toStringAsFixed(4)}, ${_destinationLongitude!.toStringAsFixed(4)}',
@@ -421,7 +424,9 @@ class _TripFormScreenState extends State<TripFormScreen> {
       destinationExternalId: _destinationExternalId,
       destinationLatitude: _destinationLatitude,
       destinationLongitude: _destinationLongitude,
-      targetMembersCount: _isPublic && !_editing ? _targetMembersCount : null,
+      targetMembersCount: _isPublic && !_editing
+          ? _targetMembersCount + 1
+          : null,
       genderPreference: _isPublic && !_editing ? _genderPreference : null,
       minAge: _isPublic && !_editing
           ? int.tryParse(_minAgeController.text.trim())
@@ -432,12 +437,14 @@ class _TripFormScreenState extends State<TripFormScreen> {
       tags: _isPublic && !_editing ? _selectedTags.toList() : null,
       postTitle:
           _isPublic && !_editing && _postTitleController.text.trim().isNotEmpty
-              ? _postTitleController.text.trim()
-              : null,
+          ? _postTitleController.text.trim()
+          : null,
       postContent:
-          _isPublic && !_editing && _postContentController.text.trim().isNotEmpty
-              ? _postContentController.text.trim()
-              : null,
+          _isPublic &&
+              !_editing &&
+              _postContentController.text.trim().isNotEmpty
+          ? _postContentController.text.trim()
+          : null,
     );
     final result = _editing
         ? await _viewModel.updateTrip(widget.trip!, data)
@@ -649,6 +656,22 @@ class _TripFormScreenState extends State<TripFormScreen> {
     ),
   );
 
+  String? _optionalAge(String? value) {
+    if (value?.trim().isEmpty ?? true) return null;
+    final age = int.tryParse(value!.trim());
+    return age == null || age < 16 || age > 100
+        ? 'Nhập tuổi từ 16 đến 100'
+        : null;
+  }
+
+  String? _optionalPostText(String? value, int min, int max) {
+    final text = value?.trim() ?? '';
+    if (text.isEmpty) return null;
+    return text.length < min || text.length > max
+        ? 'Nhập từ $min đến $max ký tự'
+        : null;
+  }
+
   Widget _companionSetupSection() {
     return Padding(
       padding: const EdgeInsets.only(top: 14),
@@ -679,16 +702,16 @@ class _TripFormScreenState extends State<TripFormScreen> {
                       Text(
                         'Thiết lập tìm bạn đồng hành',
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.primaryDark,
-                            ),
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primaryDark,
+                        ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         'Tự động đăng bài lên Bảng tin tìm bạn đồng hành',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: AppColors.textSecondary,
-                            ),
+                          color: AppColors.textSecondary,
+                        ),
                       ),
                     ],
                   ),
@@ -699,29 +722,35 @@ class _TripFormScreenState extends State<TripFormScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Số bạn đồng hành cần tuyển',
-                      style:
-                          TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Quy mô: ${_targetMembersCount + 1} người (gồm bạn)',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textSecondary,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Số bạn đồng hành cần tuyển',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 2),
+                      Text(
+                        'Quy mô: ${_targetMembersCount + 1} người (gồm bạn)',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 Row(
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.remove_circle_outline,
-                          color: AppColors.primary),
+                      icon: const Icon(
+                        Icons.remove_circle_outline,
+                        color: AppColors.primary,
+                      ),
                       onPressed: _targetMembersCount > 1
                           ? () => setState(() => _targetMembersCount--)
                           : null,
@@ -734,8 +763,10 @@ class _TripFormScreenState extends State<TripFormScreen> {
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.add_circle_outline,
-                          color: AppColors.primary),
+                      icon: const Icon(
+                        Icons.add_circle_outline,
+                        color: AppColors.primary,
+                      ),
                       onPressed: _targetMembersCount < 30
                           ? () => setState(() => _targetMembersCount++)
                           : null,
@@ -752,18 +783,9 @@ class _TripFormScreenState extends State<TripFormScreen> {
             const SizedBox(height: 8),
             SegmentedButton<String>(
               segments: const [
-                ButtonSegment<String>(
-                  value: 'ANY',
-                  label: Text('Tất cả'),
-                ),
-                ButtonSegment<String>(
-                  value: 'MALE',
-                  label: Text('Chỉ Nam'),
-                ),
-                ButtonSegment<String>(
-                  value: 'FEMALE',
-                  label: Text('Chỉ Nữ'),
-                ),
+                ButtonSegment<String>(value: 'ANY', label: Text('Tất cả')),
+                ButtonSegment<String>(value: 'MALE', label: Text('Chỉ Nam')),
+                ButtonSegment<String>(value: 'FEMALE', label: Text('Chỉ Nữ')),
               ],
               selected: {_genderPreference},
               onSelectionChanged: (values) {
@@ -778,6 +800,7 @@ class _TripFormScreenState extends State<TripFormScreen> {
                     label: 'Tuổi từ (tùy chọn)',
                     hint: '18',
                     controller: _minAgeController,
+                    validator: _optionalAge,
                     keyboardType: TextInputType.number,
                     prefixIcon: Icons.cake_outlined,
                   ),
@@ -788,6 +811,7 @@ class _TripFormScreenState extends State<TripFormScreen> {
                     label: 'Đến tuổi (tùy chọn)',
                     hint: '35',
                     controller: _maxAgeController,
+                    validator: _optionalAge,
                     keyboardType: TextInputType.number,
                     prefixIcon: Icons.cake_outlined,
                   ),
@@ -825,8 +849,9 @@ class _TripFormScreenState extends State<TripFormScreen> {
                     color: isSelected
                         ? AppColors.primaryDark
                         : AppColors.textPrimary,
-                    fontWeight:
-                        isSelected ? FontWeight.w600 : FontWeight.normal,
+                    fontWeight: isSelected
+                        ? FontWeight.w600
+                        : FontWeight.normal,
                   ),
                 );
               }).toList(),
@@ -836,6 +861,7 @@ class _TripFormScreenState extends State<TripFormScreen> {
               label: 'Tiêu đề bài đăng (tùy chọn)',
               hint: 'Để trống để hệ thống tự tạo tiêu đề',
               controller: _postTitleController,
+              validator: (value) => _optionalPostText(value, 5, 255),
               prefixIcon: Icons.title_rounded,
             ),
             const SizedBox(height: 12),
@@ -844,7 +870,9 @@ class _TripFormScreenState extends State<TripFormScreen> {
               hint:
                   'Mục tiêu chuyến đi, phong cách hoặc lưu ý cho thành viên tham gia',
               controller: _postContentController,
-              maxLines: 3,
+              validator: (value) => _optionalPostText(value, 10, 5000),
+              minLines: 3,
+              maxLines: null,
               prefixIcon: Icons.message_outlined,
             ),
           ],

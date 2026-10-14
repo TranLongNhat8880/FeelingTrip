@@ -58,6 +58,33 @@ class ChangingRequestRepository extends MockCompanionRepository {
 
 void main() {
   test(
+    'Display title removes only leading recruitment prefix without changing stored title',
+    () {
+      CompanionPost post(String? title) => CompanionPost.fromJson({
+        'id': 'title-test',
+        'title': title,
+        'createdAt': '2026-10-14T10:00:00Z',
+        'targetMembersCount': 4,
+        'currentMembersCount': 1,
+        'trip': {'id': 'trip', 'name': 'Chuyến đi Hà Nội'},
+        'creator': {'id': 'leader'},
+      });
+      final existing = post('Tìm bạn đồng hành: Hàm Lợn');
+      expect(existing.displayTitle, 'Hàm Lợn');
+      expect(existing.title, 'Tìm bạn đồng hành: Hàm Lợn');
+      expect(
+        post('  TÌM BẠN ĐỒNG HÀNH: Chuyến đi Hà Nội  ').displayTitle,
+        'Chuyến đi Hà Nội',
+      );
+      expect(
+        post('Hẹn gặp bạn: Tìm bạn đồng hành').displayTitle,
+        'Hẹn gặp bạn: Tìm bạn đồng hành',
+      );
+      expect(post(null).displayTitle, 'Chuyến đi Hà Nội');
+    },
+  );
+
+  test(
     'Sending uses the latest accepted status and prevents duplicate submission',
     () async {
       final repo = ChangingRequestRepository();

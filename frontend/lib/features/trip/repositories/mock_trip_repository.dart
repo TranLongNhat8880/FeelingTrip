@@ -1,4 +1,3 @@
-import '../../itinerary/models/itinerary_model.dart';
 import '../../itinerary/repositories/itinerary_repository.dart';
 import '../../itinerary/repositories/mock_itinerary_repository.dart';
 import '../models/trip_model.dart';

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/app_sizes.dart';
 import '../../../../shared/ui_kit.dart';
 import '../../models/companion_post_model.dart';
 
@@ -42,27 +41,13 @@ class CompanionPostCard extends StatelessWidget {
         : 'Còn ${post.slotsLeft} chỗ';
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(AppSizes.cardRadius),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.05),
-            blurRadius: 12,
-            offset: const Offset(0, 3),
-          ),
-        ],
-        border: Border.all(color: AppColors.border),
-      ),
+      color: Colors.white,
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(AppSizes.cardRadius),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(AppSizes.cardRadius),
           child: Padding(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -131,11 +116,11 @@ class CompanionPostCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 16),
 
                 // 2. Tiêu đề bài đăng
                 Text(
-                  post.title ?? 'Tìm bạn đồng hành',
+                  post.displayTitle,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: text.titleMedium?.copyWith(
@@ -144,20 +129,50 @@ class CompanionPostCard extends StatelessWidget {
                   ),
                 ),
 
-                // 3. Ảnh bìa chuyến đi (nếu có)
-                if (trip.coverImageUrl != null) ...[
-                  const SizedBox(height: 10),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: Stack(
-                      children: [
-                        Image.network(
+                if (post.content?.trim().isNotEmpty == true) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    post.content!.trim(),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: text.bodyMedium?.copyWith(
+                      height: 1.5,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ],
+
+                // Ảnh tự lấy tỷ lệ gốc; chỉ giới hạn ảnh quá dài khi lướt feed.
+                if (trip.coverImageUrl?.isNotEmpty == true) ...[
+                  const SizedBox(height: 14),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxHeight: MediaQuery.sizeOf(context).height * .65,
+                        ),
+                        child: Image.network(
                           trip.coverImageUrl!,
-                          height: 170,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
+                          fit: BoxFit.contain,
+                          loadingBuilder: (_, child, progress) =>
+                              progress == null
+                              ? child
+                              : Container(
+                                  height: 160,
+                                  width: double.infinity,
+                                  color: AppColors.inputSurface,
+                                  child: const Center(
+                                    child: Icon(
+                                      Icons.image_outlined,
+                                      color: AppColors.textHint,
+                                    ),
+                                  ),
+                                ),
                           errorBuilder: (_, _, _) => Container(
-                            height: 170,
+                            height: 120,
+                            width: double.infinity,
                             color: AppColors.inputSurface,
                             child: const Icon(
                               Icons.landscape_outlined,
@@ -166,12 +181,11 @@ class CompanionPostCard extends StatelessWidget {
                             ),
                           ),
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 ],
-
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
 
                 // 4. Các thẻ thông tin: Điểm đến, Thời gian
                 Wrap(
@@ -181,8 +195,8 @@ class CompanionPostCard extends StatelessWidget {
                     _pill(
                       icon: Icons.location_on_outlined,
                       label: trip.destination ?? 'Chưa có điểm đến',
-                      bgColor: const Color(0xFFE0F2FE),
-                      textColor: const Color(0xFF0369A1),
+                      bgColor: AppColors.inputSurface,
+                      textColor: AppColors.textSecondary,
                       iconColor: const Color(0xFF0284C7),
                     ),
                     _pill(
@@ -197,9 +211,9 @@ class CompanionPostCard extends StatelessWidget {
                         icon: Icons.account_balance_wallet_outlined,
                         label:
                             '${NumberFormat.compact(locale: 'vi').format(trip.estimatedBudget)} đ dự kiến',
-                        bgColor: const Color(0xFFDCFCE7),
-                        textColor: const Color(0xFF15803D),
-                        iconColor: const Color(0xFF16A34A),
+                        bgColor: AppColors.inputSurface,
+                        textColor: AppColors.textSecondary,
+                        iconColor: AppColors.textSecondary,
                       ),
                   ],
                 ),
@@ -212,8 +226,8 @@ class CompanionPostCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: text.bodySmall?.copyWith(
-                      color: AppColors.primaryDark,
-                      fontWeight: FontWeight.w600,
+                      color: AppColors.textSecondary,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ],
