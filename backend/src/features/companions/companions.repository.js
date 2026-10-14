@@ -164,7 +164,11 @@ const getCompanionFeed = async ({
   maxAge,
   status = 'OPEN',
 }) => {
-  const conditions = ["cp.status <> 'CLOSED'", "t.status IN ('UPCOMING', 'ONGOING')"];
+  const conditions = [
+    "cp.status <> 'CLOSED'",
+    "t.status IN ('UPCOMING', 'ONGOING')",
+    "t.privacy_type = 'PUBLIC'",
+  ];
   const params = [];
 
   if (status) {
@@ -577,8 +581,10 @@ const getPostedTripIds = async (userId) => {
     SELECT DISTINCT cp.trip_id
     FROM companion_posts cp
     JOIN trip_members tm ON tm.trip_id = cp.trip_id
+    JOIN trips t ON t.id = cp.trip_id
     WHERE tm.user_id = $1 AND tm.role = 'LEADER'
       AND tm.membership_status = 'ACTIVE' AND cp.status IN ('OPEN', 'FULL')
+      AND t.privacy_type = 'PUBLIC'
   `, [userId]);
   return rows.map(row => row.trip_id);
 };
