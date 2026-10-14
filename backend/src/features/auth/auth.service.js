@@ -21,7 +21,6 @@ const session = (user) => ({
 const sendCode = async (user, type) => {
   const otp = crypto.randomInt(100000, 1000000).toString();
   await otpRepository.issue(user.id, type, await hashPassword(otp));
-  console.log(`[AUTH OTP] Mã OTP cho ${user.email} (${type}): ${otp}`);
   try { await emailService.sendOtpEmail(user.email, otp, type); }
   catch (error) {
     console.error('OTP email delivery failed', {

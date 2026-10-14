@@ -166,7 +166,7 @@ const sendOtpEmail = async (toEmail, otpCode, type = 'VERIFY_EMAIL') => {
       body: JSON.stringify({
         sender: {
           name: 'FeelingTrip Support',
-          email: env.email.user || 'contact@feelingtrip.vn',
+          email: process.env.BREVO_SENDER_EMAIL || env.email.user || 'feelingtrip.official@gmail.com',
         },
         to: [{ email: toEmail }],
         subject: mailOptions.subject,
