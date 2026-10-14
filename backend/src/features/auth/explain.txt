@@ -1,27 +1,54 @@
-﻿================================================================================
-PHÂN HỆ: AUTHENTICATION (XÁC THỰC & TÀI KHOẢN) - src/features/auth/
+================================================================================
+PHÂN HỆ: AUTHENTICATION (XÁC THỰC & BẢO MẬT TÀI KHOẢN) - src/features/auth/
+Phụ trách chính: NHẬT
 ================================================================================
 
 1. TÁC DỤNG CỦA PHÂN HỆ:
-   Quản lý toàn bộ quy trình đăng ký, đăng nhập, quên mật khẩu và xác thực email OTP.
+   - Quản lý toàn bộ vòng đời tài khoản người dùng: Đăng ký, Đăng nhập, Xác thực OTP email, Quên và Đặt lại mật khẩu.
+   - Bảo mật tài khoản theo chuẩn Enterprise:
+     + Mã hóa mật khẩu bằng bcryptjs với kiểm tra giới hạn an toàn UTF-8 (<= 72 bytes).
+     + Lưu trữ mã OTP an toàn trong Database (`auth_otps`) bằng mã băm bcrypt (thay vì lưu RAM).
+     + Giới hạn số lần thử nhập sai OTP tối đa 5 lần (chống dò mã brute-force).
+     + Thời gian chờ giữa 2 lần gửi lại OTP tối thiểu 60 giây (Resend Cooldown).
+     + Cơ chế vô hiệu hóa JWT Token tức thì (`token_version`): Khi đổi mật khẩu, bị khóa tài khoản (BANNED), hoặc thay đổi phân quyền (ROLE), toàn bộ Token cũ của người dùng lập tức bị vô hiệu lực trên toàn hệ thống.
+     + Rate limiting chống spam request theo IP tại các endpoint nhạy cảm (login, resend OTP).
 
-2. CẤU TRÚC 4 TẦNG (Controller - Service - Repository):
-   - auth.routes.js: Định nghĩa các URL endpoints (POST /register, POST /login, POST /send-otp...).
-   - auth.controller.js: Nhận request từ client, validate dữ liệu đầu vào và gọi service.
-   - auth.service.js: Xử lý logic nghiệp vụ (mã hóa pass, tạo JWT, tính toán logic) -> gọi repository.
-   - auth.repository.js: Thao tác trực tiếp với Database (viết SQL SELECT, INSERT người dùng).
+2. CẤU TRÚC PHÂN HỆ (Controller - Service - Repository - Validation):
+   - auth.routes.js: Khai báo các đường dẫn URL API, gắn rateLimit middleware và validate middleware.
+   - auth.controller.js: Nhận dữ liệu từ Client, gọi Service xử lý và trả Response chuẩn.
+   - auth.service.js: Xử lý nghiệp vụ (kiểm tra điều kiện đăng nhập, logic gửi OTP qua email, phát hành JWT).
+   - auth.repository.js: Truy vấn bảng `users` (tìm kiếm theo email, tạo người dùng mới, kiểm tra trạng thái).
+   - otp.repository.js: Truy vấn chuyên biệt cho bảng `auth_otps` (sinh mã, kiểm tra cooldown, đếm số lần sai, atomic consume).
+   - auth.validation.js: Schema Joi kiểm tra định dạng email, độ phức tạp mật khẩu, mã OTP 6 số.
 
-3. CÁC FILE DÙNG CHUNG CẦN GỌI (SHARED):
-   - ../../shared/utils/response.util.js  -> sendSuccess, sendError
-   - ../../shared/utils/hash.util.js      -> hashPassword, comparePassword
-   - ../../shared/utils/token.util.js     -> generateToken
-   - ../../shared/constants/httpStatus.js -> HTTP_STATUS (200, 201, 400, 401...)
+3. CƠ CHẾ TOKEN_VERSION & THU HỒI TOKEN (REVOCATION):
+   - Khi tạo JWT token, payload sẽ chứa `{ id, tokenVersion }`.
+   - Mỗi request đi qua `auth.middleware.js` sẽ kiểm tra `tokenVersion` trong token có khớp với `token_version` hiện tại trong bảng `users` hay không.
+   - Khi người dùng đặt lại mật khẩu hoặc Admin khóa tài khoản (trigger `trg_users_revoke_tokens`), `token_version` sẽ tự động tăng thêm 1.
+   - Toàn bộ token trước đó sẽ lập tức trả về lỗi HTTP 401 Unauthorized, buộc người dùng phải đăng nhập lại.
 
-4. CÁC API CẦN TRIỂN KHAI TRONG PHÂN HỆ NÀY:
-   - POST /api/v1/auth/register    : Đăng ký tài khoản mới (email, password, fullName, phone)
-   - POST /api/v1/auth/login       : Đăng nhập (email + password) -> trả về JWT token
-   - POST /api/v1/auth/google      : Đăng nhập bằng Google OAuth
-   - POST /api/v1/auth/send-otp    : Gửi mã OTP xác thực email
-   - POST /api/v1/auth/verify-otp  : Xác thực mã OTP và kích hoạt tài khoản
-   - POST /api/v1/auth/forgot-pass : Quên mật khẩu / Đặt lại mật khẩu
+4. DANH SÁCH API CỦA PHÂN HỆ:
+   - POST /api/v1/auth/register
+     + Body: { email, password, fullName, phone? }
+     + Mô tả: Đăng ký tài khoản mới, tài khoản ở trạng thái chưa kích hoạt (is_email_verified = false) và tự động gửi OTP 6 số qua email.
+
+   - POST /api/v1/auth/login
+     + Body: { email, password }
+     + Mô tả: Đăng nhập bằng email và mật khẩu. Trả về thông tin user kèm JWT Token (yêu cầu email đã được verify).
+
+   - POST /api/v1/auth/verify-otp
+     + Body: { email, otp }
+     + Mô tả: Xác thực mã OTP 6 số, kích hoạt tài khoản (is_email_verified = true) và cấp phát JWT Token.
+
+   - POST /api/v1/auth/resend-otp
+     + Body: { email }
+     + Mô tả: Gửi lại mã OTP mới qua email (yêu cầu cách lần gửi trước tối thiểu 60 giây).
+
+   - POST /api/v1/auth/forgot-password
+     + Body: { email }
+     + Mô tả: Gửi mã OTP xác nhận quên mật khẩu qua email.
+
+   - POST /api/v1/auth/reset-password
+     + Body: { email, otp, newPassword }
+     + Mô tả: Xác thực OTP và cập nhật mật khẩu mới, đồng thời tự động thu hồi toàn bộ phiên đăng nhập cũ.
 ================================================================================

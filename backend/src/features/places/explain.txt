@@ -1,0 +1,51 @@
+================================================================================
+PHÂN HỆ: PLACES (ĐỊA ĐIỂM & BẢN ĐỒ) - src/features/places/
+================================================================================
+
+1. TÁC DỤNG CỦA PHÂN HỆ:
+   - Quản lý kho dữ liệu địa điểm du lịch, quán ăn, quán cafe, check-in.
+   - Tìm kiếm, lọc địa điểm theo từ khóa, thành phố, danh mục.
+   - Xem khoảng cách giữa các địa điểm.
+   - Tối ưu lộ trình di chuyển (thứ tự các điểm hợp lý để không bị đi vòng).
+
+2. CẤU TRÚC 4 TẦNG (Controller - Service - Repository):
+   - places.routes.js: Định nghĩa các endpoints API tìm kiếm địa điểm, tính khoảng cách.
+   - places.controller.js: Nhận request từ client, validate dữ liệu đầu vào.
+   - places.service.js: Xử lý nghiệp vụ logic (tìm kiếm, thuật toán khoảng cách, lộ trình).
+   - places.repository.js: Thao tác trực tiếp với Database (viết SQL bảng 'places').
+
+3. CÁC FILE DÙNG CHUNG CẦN GỌI (SHARED):
+   - ../../shared/middlewares/auth.middleware.js -> authenticate (khi thêm địa điểm)
+   - ../../shared/utils/response.util.js         -> sendSuccess, sendError
+   - ../../shared/constants/httpStatus.js        -> HTTP_STATUS
+
+4. CÁC API CẦN TRIỂN KHAI TRONG PHÂN HỆ NÀY:
+   Danh sách dưới đây là API dự kiến; routes/service/repository hiện vẫn là
+   scaffold, Thành cần triển khai và kiểm tra quyền. Migration không tự tạo API.
+   - GET  /api/v1/places                 : Tìm kiếm địa điểm (?keyword=...&category=...)
+   - GET  /api/v1/places/:id             : Xem chi tiết 1 địa điểm
+   - POST /api/v1/places                 : Thêm địa điểm mới
+   - GET  /api/v1/places/distance        : Tính khoảng cách giữa 2 tọa độ
+   - POST /api/v1/places/optimize-route  : Gợi ý thứ tự di chuyển tối ưu
+
+5. HỢP ĐỒNG ẨN/KHÔI PHỤC SAU MIGRATION 004_member_feature_contracts.sql:
+   - places.is_active: BOOLEAN NOT NULL DEFAULT TRUE; API dùng isActive khi trả
+     dữ liệu trạng thái. Không thêm deleted_at, không xóa vật lý địa điểm khi ẩn.
+   - Ẩn: cập nhật is_active = FALSE. Khôi phục: cập nhật is_active = TRUE.
+   - Các truy vấn công khai (danh sách, tìm kiếm, điểm trên bản đồ, gợi ý/Smart Swap)
+     phải lọc is_active = TRUE; không chỉ lọc ở frontend.
+   - API quản lý được phép xem/ẩn/khôi phục địa điểm đã ẩn sau khi kiểm tra quyền
+     quản lý/Admin trong service. Không cho request công khai tự bỏ điều kiện lọc.
+   - Các liên kết lịch trình đã tồn tại tới địa điểm vẫn được giữ nguyên khi ẩn;
+     không tự xóa bản ghi lịch trình/ảnh hay đặt lại dữ liệu chuyến đi.
+   - Luồng ẩn/khôi phục và query quản lý vẫn cần triển khai trong feature places;
+     việc có is_active trong DB chưa làm các truy vấn scaffold tự lọc.
+
+6. DANH MỤC VÀ UPLOAD ẢNH:
+   - Dùng Object.values(PLACE_CATEGORIES) trong shared/constants/categories.js để đồng bộ với DB:
+     ATTRACTION, RESTAURANT, CAFE, HOTEL, ENTERTAINMENT, NATURE, CULTURE, SHOPPING, OTHER.
+   - Validation riêng hiện còn thiếu SHOPPING; Thành cần chuyển sang danh mục chung.
+   - Ảnh địa điểm: dùng shared/middlewares/upload.middleware.js để upload multipart
+     lên Cloudinary, rồi lưu URL vào places.image_url (API imageUrl). Feature tự
+     triển khai route upload/cập nhật, kiểm tra quyền và mapping request/response.
+================================================================================

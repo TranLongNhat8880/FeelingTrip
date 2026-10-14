@@ -22,6 +22,8 @@ PHÂN HỆ: ADMIN (CỔNG QUẢN TRỊ VIÊN HỆ THỐNG) - src/features/admin/
    - ../../shared/utils/response.util.js         -> sendSuccess, sendError
 
 4. CÁC API CẦN TRIỂN KHAI TRONG PHÂN HỆ NÀY:
+   Đây là API dự kiến; routes/service/repository hiện vẫn là scaffold. Tùng cần
+   triển khai luồng Admin và kiểm tra role/quyền; migration không tự tạo endpoint.
    - GET  /api/v1/admin/users                 : Lấy danh sách tất cả tài khoản
    - PUT  /api/v1/admin/users/:id/status      : Khóa / Mở khóa tài khoản người dùng
    - GET  /api/v1/admin/ekyc/pending          : Lấy danh sách hồ sơ CCCD đang chờ duyệt
@@ -29,4 +31,28 @@ PHÂN HỆ: ADMIN (CỔNG QUẢN TRỊ VIÊN HỆ THỐNG) - src/features/admin/
    - PUT  /api/v1/admin/ekyc/:id/reject       : Từ chối hồ sơ xác minh CCCD
    - GET  /api/v1/admin/reports               : Xem danh sách các báo cáo vi phạm
    - PUT  /api/v1/admin/reports/:id/resolve   : Xử lý xong báo cáo vi phạm
+
+5. HỢP ĐỒNG eKYC SAU MIGRATION 004_member_feature_contracts.sql:
+   - users.verification_rejection_reason: VARCHAR(500), cho phép NULL.
+   - API reject nhận reason (validation hiện có: 3..500 ký tự sau trim), service
+     lưu vào verification_rejection_reason, chuyển verification_status = REJECTED
+     và is_verified = FALSE trong cùng transaction.
+   - API approve chuyển verification_status = VERIFIED, is_verified = TRUE và
+     xóa verification_rejection_reason về NULL trong cùng transaction.
+   - Khi người dùng nộp lại hồ sơ, feature users chuyển PENDING và xóa lý do cũ
+     về NULL; Admin xem hồ sơ mới, không tái sử dụng kết quả/lý do của lần trước.
+   - API profile/eKYC của users dự kiến trả verificationRejectionReason để người
+     dùng biết cần sửa gì. Không cần sửa response đăng nhập để thay cho API hồ sơ.
+   - Các chuyển trạng thái trên phải do service thực hiện; thêm cột không tự
+     đồng bộ is_verified, verification_status hay xóa lý do.
+
+6. BÁO CÁO VÀ ĐỊA ĐIỂM:
+   - user_reports.evidence_image_url chứa URL ảnh bằng chứng, có thể NULL. API
+     quản trị báo cáo cần map thành evidenceImageUrl khi trả dữ liệu cho Admin.
+   - places.is_active dùng FALSE để ẩn, TRUE để khôi phục, mặc định TRUE.
+     API quản lý được xem địa điểm ẩn sau khi kiểm tra quyền; dữ liệu công khai
+     chỉ lấy is_active = TRUE. Không thêm deleted_at hoặc xóa vật lý khi ẩn.
+   - Phần endpoint/quyền quản lý địa điểm cần thống nhất với feature places,
+     không tự coi việc có cột mới là đã triển khai API quản trị địa điểm.
+   - Giữ nguyên tích hợp ngân hàng/Bank Hub và phạm vi thu hồi token hiện có.
 ================================================================================

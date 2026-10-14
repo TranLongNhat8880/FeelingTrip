@@ -12,16 +12,56 @@ PHÂN HỆ: REVIEWS (ĐÁNH GIÁ, BÁO CÁO VI PHẠM & AN TOÀN SOS) - src/feat
    - reviews.routes.js: Định nghĩa các endpoints đánh giá và an toàn.
    - reviews.controller.js: Tiếp nhận request.
    - reviews.service.js: Nghiệp vụ lưu đánh giá, tính điểm tín nhiệm trung bình, lưu báo cáo.
-   - reviews.repository.js: Thao tác trực tiếp với Database (viết SQL bảng 'trip_reviews', 'user_reports').
+   - reviews.repository.js: Thao tác trực tiếp với Database (trip_reviews, user_reports,
+     user_blocks, emergency_contacts, sos_alerts).
 
 3. CÁC FILE DÙNG CHUNG CẦN GỌI (SHARED):
    - ../../shared/middlewares/auth.middleware.js -> authenticate
    - ../../shared/utils/response.util.js         -> sendSuccess, sendError
 
 4. CÁC API CẦN TRIỂN KHAI TRONG PHÂN HỆ NÀY:
+   Các API dưới đây là dự kiến; routes/service/repository hiện vẫn là scaffold.
+   Thành triển khai feature và mapping dữ liệu, không chỉ bổ sung migration DB.
    - POST /api/v1/reviews/member       : Đánh giá thành viên (chỉ được đánh giá người cùng đi tour)
    - POST /api/v1/reviews/trip         : Đánh giá chất lượng chuyến đi
    - POST /api/v1/reviews/report       : Báo cáo tài khoản xấu hoặc hành vi lừa đảo
    - POST /api/v1/reviews/block        : Chặn người dùng khác
    - POST /api/v1/reviews/sos          : Kích hoạt tín hiệu khẩn cấp SOS (lưu tọa độ hiện tại)
+
+5. HỢP ĐỒNG LƯU TRỮ SAU MIGRATION 004_member_feature_contracts.sql:
+   Sau migration 006, findTripContext kiểm tra người đã từng tham gia: giữ cả
+   membership ACTIVE/LEFT/REMOVED cho quyền đánh giá khi chuyến đi COMPLETED.
+   Không dùng predicate này để cấp quyền thao tác của thành viên đang hoạt động.
+   Đọc database/HUONG_DAN_DB_PHU.md; rời/kick không DELETE membership.
+   - trip_reviews dùng reviewee_id để phân biệt hai loại đánh giá:
+     + Đánh giá chuyến đi: reviewee_id = NULL; chỉ một đánh giá cho mỗi
+       (trip_id, reviewer_id), được chặn tại DB bởi idx_trip_reviews_trip_unique.
+     + Đánh giá thành viên: reviewee_id khác NULL; chỉ một đánh giá cho mỗi
+       (trip_id, reviewer_id, reviewee_id), bởi idx_trip_reviews_member_unique.
+     + Ví dụ: A được đánh giá chuyến T một lần, B một lần trong T và C một lần
+       trong T; không được gửi thêm đánh giá cùng loại cho cùng đối tượng trong T.
+     + Kiểm tra ở service để trả lỗi rõ ràng; khi hai request đồng thời vẫn phải
+       xử lý lỗi unique SQLSTATE 23505, không trả SQL thô hoặc coi là lỗi server chung.
+     + Migration kiểm tra dữ liệu trùng và dừng nếu phát hiện; không xóa/gộp các
+       đánh giá cũ. Điều kiện cùng chuyến, chuyến đã kết thúc và quyền đánh giá
+       tiếp tục phải được feature kiểm tra, không thay bằng unique index.
+   - user_reports.evidence_image_url: TEXT, cho phép NULL. API dự kiến nhận
+     evidenceImageUrl (URL hợp lệ hoặc không có ảnh); Thành bổ sung validation,
+     mapping và SQL. Ảnh bằng chứng không bắt buộc cho mọi báo cáo.
+   - sos_alerts.message: VARCHAR(500), cho phép NULL; API nhận message tối đa
+     500 ký tự. Validation đã có trường này, cần đưa xuống repository khi lưu.
+   - Trạng thái SOS tại DB: ACTIVE (đang cần giúp), RESOLVED (đã an toàn),
+     FALSE_ALARM (báo nhầm). Feature triển khai luồng cập nhật và kiểm tra quyền;
+     việc DB chấp nhận trạng thái chưa đồng nghĩa API báo nhầm đã hoạt động.
+   - Các bảng user_blocks và emergency_contacts đã có từ migration 001; route,
+     service, repository và kiểm tra quyền vẫn thuộc phần reviews của Thành.
+
+6. UPLOAD ẢNH VÀ KIỂM TRA:
+   - Ảnh bằng chứng: feature dùng ../../shared/middlewares/upload.middleware.js
+     để nhận multipart/upload Cloudinary, lấy URL rồi lưu evidence_image_url.
+     Không lưu file nhị phân vào bảng và không tự coi một URL là kết quả upload.
+   - Được thêm file .test.js riêng trong backend/test/ cho feature; tránh sửa các
+     test dùng chung hiện có nếu chưa thống nhất. Runner tự lấy các file .test.js.
+   - Test DB dùng chung shared-contracts.test.js kiểm tra hợp đồng 004; feature
+     vẫn cần test API về quyền, dữ liệu không hợp lệ và đánh giá trùng.
 ================================================================================

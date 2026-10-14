@@ -1,0 +1,51 @@
+================================================================================
+THƯ MỤC: TESTS (KIỂM THỬ TỰ ĐỘNG) - backend/test/
+================================================================================
+
+1. TÁC DỤNG CỦA THƯ MỤC NÀY:
+   Chứa toàn bộ các bài kiểm thử tự động (Unit Tests & Integration Tests) của hệ thống backend.
+   Sử dụng framework kiểm thử có sẵn của Node.js (`node:test` và `node:assert/strict`), không cần cài thêm thư viện nặng như Jest hay Mocha.
+
+2. CÁC FILE KIỂM THỬ:
+
+   A. money.test.js:
+      - Kiểm thử thuật toán rút gọn nợ Min Cash Flow:
+        + Case tối ưu số giao dịch từ 4 xuống 3 cho counterexample nổi tiếng của thuật toán tham lam `[-8, -7, -5, +12, +8]`.
+        + Kiểm tra tính bảo toàn nợ (tổng tiền không đổi, net balance về 0).
+        + Kiểm tra từ chối số nợ không cân bằng hoặc chứa số lẻ thập phân.
+        + Kiểm thử độ tin cậy trên nhiều kích thước nhóm ngẫu nhiên từ 2 đến 20 thành viên.
+      - Kiểm thử dịch vụ VietQR:
+        + Kiểm tra định dạng số tiền nguyên VND.
+        + Kiểm tra chống Path Traversal trong tham số bankBin.
+
+   B. backend.test.js:
+      - Bộ 25 kịch bản tích hợp End-to-End mô phỏng toàn diện qua HTTP API thực tế:
+        + Auth & Security: Đăng ký, OTP email, đăng nhập, quên mật khẩu, thu hồi token khi đổi mật khẩu/bị ban, rate limit IP.
+        + Expenses & Split Bill: Phân quyền truy cập chuyến đi (người ngoài bị 403), tạo hóa đơn chia đều, chia theo số tiền, chia theo %, xử lý làm tròn phần trăm an toàn.
+        + Công nợ & VietQR: Rút gọn nợ đồng thời không làm trùng mã QR, cập nhật ngân sách chuyến đi chỉ dành cho Leader, bảo lưu số dư của cựu thành viên.
+        + Webhook SePay: Xác thực API Key an toàn (Timing-safe), kiểm tra chiều tiền vào, kiểm tra đúng STK/ngân hàng và số tiền, chống xử lý lặp giao dịch (Idempotency).
+        + AI Planner: Validate thứ tự các ngày và khung giờ tăng dần, cấu trúc JSON có cấu trúc, rollback toàn bộ nếu có lỗi khi lưu lịch trình vào database.
+
+   C. shared-contracts.test.js:
+      - Kiểm tra migration 004 trên cấu trúc cũ: giữ dữ liệu, thêm trường và chạy lại.
+      - Kiểm tra is_active không NULL, ẩn/khôi phục và giới hạn 500 ký tự cho lý do eKYC/tin nhắn SOS.
+      - Chấp nhận FALSE_ALARM; từ chối trạng thái SOS không hợp lệ.
+      - Chặn đánh giá trùng cho từng thành viên và cả đánh giá chuyến đi (reviewee_id NULL).
+      - Dữ liệu cũ trùng: migration báo lỗi rõ ràng, giữ cả hai đánh giá và rollback DDL.
+      - So sánh contract trong schema mới với DB nâng cấp, chạy tất cả migrations theo thứ tự.
+      - Dùng bảng tạm/schema trong transaction trên DB test; không tác động DB ứng dụng.
+
+   Thành viên được thêm file *.test.js mới trực tiếp trong backend/test/ cho feature
+   của mình. Runner npm test tự tìm các file đó. Trao đổi với Nhật trước khi sửa
+   test chung hiện có hoặc scripts/test.js.
+
+3. HƯỚNG DẪN CHẠY TEST:
+   - Chạy toàn bộ test tích hợp kèm tự động tạo schema test trong DB:
+     ```bash
+     npm test
+     ```
+   - Chạy riêng unit test thuật toán (không cần kết nối DB):
+     ```bash
+     node --test test/money.test.js
+     ```
+================================================================================

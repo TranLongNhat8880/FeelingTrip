@@ -1,24 +1,38 @@
-﻿================================================================================
-PHÂN HỆ: AI TRAVEL PLANNER (GỢI Ý LỊCH TRÌNH THÔNG MINH) - src/features/ai-planner/
+================================================================================
+PHÂN HỆ: AI TRAVEL PLANNER (LẬP KẾ HOẠCH DU LỊCH BẰNG AI) - src/features/ai-planner/
+Phụ trách chính: NHẬT
 ================================================================================
 
 1. TÁC DỤNG CỦA PHÂN HỆ:
-   Sử dụng AI (Google Gemini API) để tự động sinh ra một lịch trình du lịch chi tiết
-   dựa trên các thông tin cơ bản: Điểm đến, số ngày, ngân sách, phong cách du lịch.
-   Dữ liệu trả về dạng JSON chuẩn để người dùng có thể chỉnh sửa và lưu vào chuyến đi.
+   - Tự động tạo lịch trình du lịch thông minh, chi tiết theo từng ngày dựa trên Google Gemini AI (mô hình mặc định: gemini-1.5-flash).
+   - Tham số đầu vào: Điểm đến (destination), số ngày (durationDays: 1 - 14 ngày), phong cách du lịch (travelStyle: TIẾT KIỆM, NGHỈ DƯỠNG, TRẢI NGHIỆM, CHECK-IN...), ngân sách dự kiến (estimatedBudget) và sở thích cá nhân.
+   - Đầu ra là JSON có cấu trúc nghiêm ngặt (Structured JSON), bao gồm từng ngày (Day 1, Day 2...), mốc thời gian (HH:mm), tên hoạt động, danh mục địa điểm, và chi phí dự tính.
+   - Cho phép người dùng lưu trực tiếp toàn bộ lịch trình gợi ý thành chuyến đi thật trong cơ sở dữ liệu chỉ với 1 click.
 
-2. CẤU TRÚC 4 TẦNG (Controller - Service - Repository):
-   - aiPlanner.routes.js: Định nghĩa endpoint tạo lịch trình AI.
-   - aiPlanner.controller.js: Nhận prompt và tham số từ client.
-   - aiPlanner.service.js: Gọi Gemini API với Structured JSON Output và định dạng dữ liệu.
-   - aiPlanner.repository.js: Thao tác lưu lịch trình do AI tạo vào DB nếu người dùng bấm "Lưu".
+2. CẤU TRÚC 4 TẦNG (Controller - Service - Repository - Validation):
+   - aiPlanner.routes.js: Khai báo endpoint sinh lịch trình và lưu lịch trình vào chuyến đi.
+   - aiPlanner.controller.js: Nhận tham số từ Client, xử lý mã trạng thái HTTP và gọi Service.
+   - aiPlanner.service.js: Gọi Gemini REST API, kiểm tra định dạng và chuẩn hóa JSON qua `itinerary.util.js`.
+   - aiPlanner.repository.js: Lưu đồng thời chuyến đi (`trips`), các ngày (`itineraries`) và từng hoạt động (`itinerary_items`) trong 1 Transaction duy nhất (nguyên tử hóa - atomic rollback nếu có bất kỳ lỗi nào).
+   - aiPlanner.validation.js: Kiểm tra tính hợp lệ của tham số yêu cầu (điểm đến, số ngày, ngân sách, ngày bắt đầu).
 
-3. CÁC FILE DÙNG CHUNG CẦN GỌI (SHARED):
-   - ../../shared/services/gemini.service.js     -> generateItineraryWithGemini
-   - ../../shared/middlewares/auth.middleware.js -> authenticate
-   - ../../shared/utils/response.util.js         -> sendSuccess, sendError
+3. ĐẶC ĐIỂM KỸ THUẬT & AN TOÀN HỆ THỐNG:
+   - Header bảo mật: Truyền API Key qua header `x-goog-api-key` (không để lộ trên URL query string).
+   - AbortSignal Timeout: Tự động ngắt kết nối nếu Gemini không phản hồi trong khoảng thời gian quy định (`GEMINI_TIMEOUT_MS`).
+   - Kiểm tra ràng buộc thời gian & chi phí (`itinerary.util.js`):
+     + Giờ giấc trong ngày phải tăng dần (ví dụ: 08:00 -> 12:00 -> 18:30).
+     + Danh mục hoạt động (category) phải thuộc danh sách chuẩn: RESTAURANT, CAFE, ATTRACTION, HOTEL, ENTERTAINMENT, NATURE, CULTURE, SHOPPING, OTHER.
+     + Chi phí của từng hoạt động phải là số nguyên VND không âm và tổng chi phí không được vượt quá ngân sách yêu cầu.
+   - Chế độ Local Fallback có kiểm soát: Khi Gemini gặp lỗi (503 / hết quota), hệ thống sẽ chỉ trả lịch trình mẫu nếu biến môi trường `AI_ALLOW_FALLBACK=true`, kèm nhãn cảnh báo `source: 'fallback'`. Nếu biến này tắt, hệ thống sẽ trả lỗi minh bạch để người dùng thử lại.
 
-4. CÁC API CẦN TRIỂN KHAI TRONG PHÂN HỆ NÀY:
-   - POST /api/v1/ai-planner/generate : Sinh lịch trình du lịch tự động bằng Gemini AI
-   - POST /api/v1/ai-planner/save     : Lưu lịch trình vừa sinh bởi AI thành chuyến đi thật
+4. DANH SÁCH API CỦA PHÂN HỆ:
+   - POST /api/v1/ai-planner/generate
+     + Quyền: Đăng nhập (hoặc Public nếu có cấu hình cho phép thử nghiệm).
+     + Body: { destination, durationDays, estimatedBudget?, travelStyle?, preferences? }
+     + Mô tả: Sinh lịch trình du lịch thông minh dạng JSON có cấu trúc.
+
+   - POST /api/v1/ai-planner/save
+     + Quyền: Người dùng đã đăng nhập (cần Token).
+     + Body: { tripName, destination, startDate, estimatedBudget?, itineraryData }
+     + Mô tả: Tạo chuyến đi thật (trips) kèm mã mời (invite_code 6 ký tự) và lưu toàn bộ ngày cùng các hoạt động chi tiết vào database.
 ================================================================================

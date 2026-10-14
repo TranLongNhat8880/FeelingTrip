@@ -18,9 +18,38 @@ PHÂN HỆ: USERS (HỒ SƠ CÁ NHÂN & eKYC CCCD) - src/features/users/
    - ../../shared/constants/httpStatus.js        -> HTTP_STATUS
 
 4. CÁC API CẦN TRIỂN KHAI TRONG PHÂN HỆ NÀY:
+   Các API profile/eKYC dưới đây là hợp đồng dự kiến; routes/service/repository
+   hiện vẫn là scaffold và Thành cần triển khai. Có cột DB không có nghĩa API đã có.
    - GET  /api/v1/users/profile         : Lấy thông tin cá nhân của user đang đăng nhập
    - PUT  /api/v1/users/profile         : Cập nhật thông tin (avatar, nickname, sđt, bio)
-   - POST /api/v1/users/bank-account    : Lưu thông tin ngân hàng (ngân hàng, STK, tên chủ TK)
    - POST /api/v1/users/ekyc-verify     : Gửi yêu cầu xác minh CCCD (dữ liệu quét QR hoặc ảnh thẻ)
    - GET  /api/v1/users/trust-score/:id : Xem điểm tín nhiệm & đánh giá của 1 user công khai
+
+5. HỢP ĐỒNG eKYC SAU MIGRATION 004_member_feature_contracts.sql:
+   - DB users.verification_rejection_reason: VARCHAR(500), cho phép NULL.
+   - API profile/eKYC dự kiến trả verificationStatus và verificationRejectionReason
+     cho chính người dùng sở hữu hồ sơ; không phụ thuộc riêng response đăng nhập.
+   - Admin từ chối: verification_status = REJECTED, is_verified = FALSE và lưu
+     lý do vào verification_rejection_reason trong cùng lần cập nhật (Tùng xử lý).
+   - Người dùng nộp lại hồ sơ hợp lệ: lưu hồ sơ mới, chuyển PENDING và xóa lý do
+     từ chối cũ về NULL trong cùng transaction. Việc nộp lại không tự cấp tích xanh.
+   - Admin duyệt: verification_status = VERIFIED, is_verified = TRUE và xóa lý do
+     cũ về NULL (Tùng xử lý). Quy tắc chuyển trạng thái thuộc service, không tự
+     xảy ra chỉ do thêm cột DB.
+   - Không cho người dùng tự ghi verificationStatus, verificationRejectionReason
+     hay is_verified bằng API cập nhật profile; các giá trị này do hệ thống quản lý.
+
+6. ẢNH VÀ LIÊN KẾT NGÂN HÀNG:
+   - Dùng ../../shared/middlewares/upload.middleware.js khi triển khai route upload
+     ảnh avatar/CCCD/selfie: multipart -> Cloudinary -> URL để lưu vào cột tương ứng.
+     Middleware đã có; feature vẫn cần gắn route, kiểm tra quyền và trả URL cho client.
+   - Các trường URL trong JSON và các trường multipart phải được feature thống
+     nhất, không coi dữ liệu URL là ảnh đã được upload trong cùng request.
+   - Tích hợp Bank Hub đã được mount tại /api/v1/users/me/bank:
+     + GET /accounts: xem tài khoản ngân hàng liên kết của người đang đăng nhập.
+     + POST /link: tạo hosted link để liên kết, hủy hoặc khôi phục liên kết ngân hàng.
+     + POST /events và POST /ipn: nhận sự kiện/thông báo giao dịch từ Bank Hub.
+   - Giữ nguyên luồng Bank Hub hiện có. Không thay bằng API lưu thông tin ngân hàng
+     thủ công rồi coi đó là liên kết đã xác thực. Thanh toán tự động phải dựa trên
+     bankhub_accounts.active và thông tin liên kết hợp lệ.
 ================================================================================
