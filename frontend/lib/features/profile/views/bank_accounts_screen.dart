@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../shared/ui_kit.dart';
@@ -45,9 +46,7 @@ class _BankAccountsScreenState extends State<BankAccountsScreen> {
     super.initState();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (widget.viewModel.profile == null) {
-        widget.viewModel.loadProfile();
-      }
+      widget.viewModel.loadProfile();
       widget.viewModel.loadBankAccounts();
     });
   }
@@ -371,6 +370,311 @@ class _BankAccountsScreenState extends State<BankAccountsScreen> {
     );
   }
 
+  String _formatAccountNumber(String raw) {
+    final clean = raw.replaceAll(RegExp(r'\s+'), '');
+    final buffer = StringBuffer();
+    for (int i = 0; i < clean.length; i++) {
+      if (i > 0 && i % 4 == 0) buffer.write('  ');
+      buffer.write(clean[i]);
+    }
+    return buffer.toString();
+  }
+
+  Widget _buildLuxuryBankCard({
+    required String bankName,
+    required String accountNumber,
+    required String accountHolderName,
+    String? bankBin,
+  }) {
+    final displayBankName = bankName.trim().isNotEmpty
+        ? bankName
+        : (_bankList[bankBin] ?? 'Ngân hàng thụ hưởng');
+    final displayName = accountHolderName.trim().isNotEmpty
+        ? accountHolderName.toUpperCase()
+        : 'CHỦ TÀI KHOẢN';
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFF064E3B), // Deep emerald
+            Color(0xFF047857), // Forest emerald
+            Color(0xFF0F766E), // Deep teal
+            Color(0xFF115E59),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF064E3B).withValues(alpha: 0.35),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
+          ),
+          BoxShadow(
+            color: const Color(0xFF047857).withValues(alpha: 0.18),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            right: -25,
+            bottom: -35,
+            child: Icon(
+              Icons.account_balance_rounded,
+              size: 190,
+              color: Colors.white.withValues(alpha: 0.06),
+            ),
+          ),
+          Positioned(
+            right: 40,
+            top: -20,
+            child: Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.04),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(7),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.18),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(
+                              Icons.account_balance_rounded,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              displayBankName,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.3,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.25),
+                        ),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.qr_code_2_rounded,
+                            size: 14,
+                            color: Colors.white,
+                          ),
+                          SizedBox(width: 4),
+                          Text(
+                            'VietQR 24/7',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 22),
+                Row(
+                  children: [
+                    Container(
+                      width: 42,
+                      height: 30,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [
+                            Color(0xFFFFDF7A),
+                            Color(0xFFE5A638),
+                            Color(0xFFF9D46A),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: const Color(0xFFB8860B),
+                          width: 0.5,
+                        ),
+                      ),
+                      child: Center(
+                        child: Container(
+                          width: 32,
+                          height: 18,
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: Colors.black26,
+                              width: 0.8,
+                            ),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Transform.rotate(
+                      angle: 1.5708,
+                      child: Icon(
+                        Icons.wifi_rounded,
+                        color: Colors.white.withValues(alpha: 0.65),
+                        size: 22,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _formatAccountNumber(accountNumber),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 21,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 2.2,
+                          fontFamily: 'monospace',
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(
+                        Icons.copy_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                      tooltip: 'Sao chép số tài khoản',
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: accountNumber));
+                        AppFeedback.show(
+                          context,
+                          'Đã sao chép số tài khoản $accountNumber',
+                          tone: AppStatusTone.success,
+                        );
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'CHỦ TÀI KHOẢN',
+                            style: TextStyle(
+                              color: const Color(0xFFA7F3D0).withValues(alpha: 0.9),
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1.2,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            displayName,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.8,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF10B981).withValues(alpha: 0.25),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: const Color(0xFF34D399).withValues(alpha: 0.4),
+                        ),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.check_circle_rounded,
+                            color: Color(0xFF34D399),
+                            size: 14,
+                          ),
+                          SizedBox(width: 5),
+                          Text(
+                            'Tài khoản chính',
+                            style: TextStyle(
+                              color: Color(0xFFD1FAE5),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildAccountCard(BankAccountModel account) {
     final bankName = account.bankName.trim().isEmpty
         ? 'Ngân hàng'
@@ -388,9 +692,9 @@ class _BankAccountsScreenState extends State<BankAccountsScreen> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              CircleAvatar(
+              const CircleAvatar(
                 radius: 24,
-                child: const Icon(Icons.account_balance_outlined),
+                child: Icon(Icons.account_balance_outlined),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -464,9 +768,12 @@ class _BankAccountsScreenState extends State<BankAccountsScreen> {
 
   Widget _buildContent() {
     final viewModel = widget.viewModel;
+    final profile = viewModel.profile;
+    final hasManualBank = profile?.bankAccountNumber != null &&
+        profile!.bankAccountNumber!.trim().isNotEmpty;
     final accounts = viewModel.bankAccounts;
 
-    if (viewModel.isLoadingBankAccounts && accounts.isEmpty) {
+    if (viewModel.isLoadingBankAccounts && accounts.isEmpty && profile == null) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 80),
         child: Center(
@@ -475,100 +782,190 @@ class _BankAccountsScreenState extends State<BankAccountsScreen> {
       );
     }
 
-    if (viewModel.errorMessage != null && accounts.isEmpty) {
+    if (viewModel.errorMessage != null && accounts.isEmpty && !hasManualBank) {
       return ErrorState(
         message: viewModel.errorMessage!,
-        onRetry: viewModel.loadBankAccounts,
+        onRetry: () {
+          viewModel.loadProfile();
+          viewModel.loadBankAccounts();
+        },
       );
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const AppInlineNotice(
-          message:
-              'FeelingTrip không yêu cầu bạn tự nhập hoặc lưu mật khẩu '
-              'ngân hàng. Việc liên kết được thực hiện trên trang bảo mật '
-              'của SePay Bank Hub.',
-          tone: AppStatusTone.info,
-        ),
-
         if (_activeHostedLink != null) ...[
-          const SizedBox(height: 16),
           _buildHostedLinkCard(),
+          const SizedBox(height: 20),
         ],
 
-        const SizedBox(height: 24),
-
-        SectionHeader(
-          title: 'Tài khoản đã liên kết',
-          subtitle: accounts.isEmpty
-              ? 'Bạn chưa liên kết tài khoản ngân hàng nào.'
-              : '${accounts.length} tài khoản trong Bank Hub',
-          action: IconButton(
-            tooltip: 'Tải lại',
-            onPressed: viewModel.isLoadingBankAccounts
-                ? null
-                : viewModel.loadBankAccounts,
-            icon: const Icon(Icons.refresh_rounded),
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        if (accounts.isEmpty)
-          AppCard(
-            outlined: true,
-            child: Column(
-              children: [
-                const Icon(Icons.account_balance_wallet_outlined, size: 52),
-                const SizedBox(height: 12),
-                Text(
-                  'Chưa có tài khoản ngân hàng',
-                  style: Theme.of(context).textTheme.titleMedium,
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Thiết lập tài khoản ngân hàng để nhận tiền chia sẻ chi phí và tự động tạo mã VietQR.',
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 16),
-                CustomButton(
-                  text: 'Thiết lập tài khoản ngân hàng',
-                  icon: Icons.account_balance_rounded,
-                  onPressed: _showManualBankBottomSheet,
-                ),
-              ],
+        if (hasManualBank) ...[
+          SectionHeader(
+            title: 'Tài khoản nhận tiền chính',
+            subtitle: 'Đang dùng để tạo mã VietQR và thanh toán chia tiền',
+            action: IconButton(
+              tooltip: 'Tải lại',
+              onPressed: () {
+                viewModel.loadProfile();
+                viewModel.loadBankAccounts();
+              },
+              icon: const Icon(Icons.refresh_rounded),
             ),
-          )
-        else
+          ),
+          const SizedBox(height: 14),
+
+          _buildLuxuryBankCard(
+            bankName: profile.bankName ?? _bankList[profile.bankBin] ?? 'Ngân hàng',
+            accountNumber: profile.bankAccountNumber!,
+            accountHolderName: profile.bankAccountName ?? profile.fullName ?? '',
+            bankBin: profile.bankBin,
+          ),
+          const SizedBox(height: 16),
+
+          const AppInlineNotice(
+            message:
+                'Tài khoản này được đặt làm tài khoản thụ hưởng mặc định. Khi chia tiền chuyến đi, các thành viên sẽ quét mã VietQR để chuyển tiền trực tiếp cho bạn.',
+            tone: AppStatusTone.success,
+          ),
+          const SizedBox(height: 16),
+
+          CustomButton(
+            text: 'Chỉnh sửa tài khoản nhận tiền',
+            icon: Icons.edit_note_rounded,
+            onPressed: _showManualBankBottomSheet,
+          ),
+          const SizedBox(height: 10),
+
+          CustomButton(
+            text: 'Mở SePay Bank Hub (Tự động)',
+            icon: Icons.sync_rounded,
+            variant: AppButtonVariant.secondary,
+            isLoading: viewModel.isCreatingBankLink,
+            onPressed: viewModel.isCreatingBankLink
+                ? null
+                : () {
+                    _prepareHostedLink(purpose: BankLinkPurpose.link);
+                  },
+          ),
+        ] else if (accounts.isNotEmpty) ...[
+          SectionHeader(
+            title: 'Tài khoản đã liên kết',
+            subtitle: '${accounts.length} tài khoản trong Bank Hub',
+            action: IconButton(
+              tooltip: 'Tải lại',
+              onPressed: viewModel.loadBankAccounts,
+              icon: const Icon(Icons.refresh_rounded),
+            ),
+          ),
+          const SizedBox(height: 16),
+
           ...accounts.expand(
             (account) => [
               _buildAccountCard(account),
               const SizedBox(height: 14),
             ],
           ),
+          const SizedBox(height: 12),
 
-        const SizedBox(height: 12),
+          CustomButton(
+            text: 'Thêm tài khoản ngân hàng',
+            icon: Icons.account_balance_rounded,
+            onPressed: _showManualBankBottomSheet,
+          ),
+        ] else ...[
+          const AppInlineNotice(
+            message:
+                'FeelingTrip không yêu cầu bạn tự nhập hoặc lưu mật khẩu '
+                'ngân hàng. Tài khoản chỉ dùng để nhận tiền và tạo mã VietQR.',
+            tone: AppStatusTone.info,
+          ),
+          const SizedBox(height: 24),
 
-        CustomButton(
-          text: 'Cập nhật tài khoản nhận tiền',
-          icon: Icons.edit_note_rounded,
-          onPressed: _showManualBankBottomSheet,
-        ),
-        const SizedBox(height: 10),
+          SectionHeader(
+            title: 'Tài khoản ngân hàng',
+            subtitle: 'Bạn chưa thiết lập tài khoản nhận tiền nào.',
+            action: IconButton(
+              tooltip: 'Tải lại',
+              onPressed: () {
+                viewModel.loadProfile();
+                viewModel.loadBankAccounts();
+              },
+              icon: const Icon(Icons.refresh_rounded),
+            ),
+          ),
+          const SizedBox(height: 16),
 
-        CustomButton(
-          text: 'Mở SePay Bank Hub (Nâng cao)',
-          icon: Icons.add_link_rounded,
-          variant: AppButtonVariant.secondary,
-          isLoading: viewModel.isCreatingBankLink,
-          onPressed: viewModel.isCreatingBankLink
-              ? null
-              : () {
-                  _prepareHostedLink(purpose: BankLinkPurpose.link);
-                },
-        ),
+          AppCard(
+            outlined: true,
+            child: Column(
+              children: [
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF10B981).withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Center(
+                    child: Icon(
+                      Icons.account_balance_wallet_outlined,
+                      size: 38,
+                      color: Color(0xFF059669),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Chưa có tài khoản ngân hàng',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Thiết lập tài khoản ngân hàng để nhận tiền chia sẻ chi phí và tự động tạo mã VietQR khi quyết toán chuyến đi.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Color(0xFF6B7280), height: 1.4),
+                ),
+                const SizedBox(height: 20),
+                CustomButton(
+                  text: 'Thiết lập tài khoản ngân hàng',
+                  icon: Icons.account_balance_rounded,
+                  onPressed: _showManualBankBottomSheet,
+                ),
+                const SizedBox(height: 10),
+                CustomButton(
+                  text: 'Kết nối SePay Bank Hub (Tự động)',
+                  icon: Icons.add_link_rounded,
+                  variant: AppButtonVariant.secondary,
+                  isLoading: viewModel.isCreatingBankLink,
+                  onPressed: viewModel.isCreatingBankLink
+                      ? null
+                      : () {
+                          _prepareHostedLink(purpose: BankLinkPurpose.link);
+                        },
+                ),
+              ],
+            ),
+          ),
+        ],
+
+        if (hasManualBank && accounts.isNotEmpty) ...[
+          const SizedBox(height: 24),
+          const SectionHeader(
+            title: 'Tài khoản Bank Hub kết nối tự động',
+            subtitle: 'Dùng cho gạch nợ tự động SePay B2B',
+          ),
+          const SizedBox(height: 12),
+          ...accounts.expand(
+            (account) => [
+              _buildAccountCard(account),
+              const SizedBox(height: 14),
+            ],
+          ),
+        ],
       ],
     );
   }
