@@ -8,6 +8,7 @@ const upload = require('../../shared/middlewares/upload.middleware');
 const {
     reviewMemberSchema,
     reviewTripSchema,
+    tripReviewsQuerySchema,
     reportSchema,
     blockUserSchema,
     createEmergencyContactSchema,
@@ -38,6 +39,12 @@ router.post(
     '/trip',
     validate({ body: reviewTripSchema }),
     reviewsController.reviewTrip
+);
+
+router.get(
+    '/trip/:id',
+    validate({ params: idParamSchema, query: tripReviewsQuerySchema }),
+    reviewsController.getTripReviews
 );
 
 // ============================================================================

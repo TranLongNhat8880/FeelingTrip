@@ -500,6 +500,32 @@ const updateSosStatus = async ({ sosId, userId, status }) => {
     return mapSos(updatedSos);
 };
 
+const getTripReviews = async ({ tripId, page = 1, limit = 20 }) => {
+    const result = await reviewsRepository.findPublicTripReviews({ tripId, page, limit });
+    if (!result) {
+        throw apiError(HTTP_STATUS.NOT_FOUND, 'Không tìm thấy lịch trình công khai đã hoàn thành');
+    }
+    const total = Number(result.review_count);
+    return {
+        tripId: result.trip_id,
+        averageRating: Number(result.average_rating),
+        reviewCount: total,
+        items: result.items.map(review => ({
+            id: review.id,
+            tripId: result.trip_id,
+            rating: review.rating,
+            comment: review.comment,
+            createdAt: review.created_at,
+            reviewer: {
+                id: review.reviewer.id,
+                displayName: review.reviewer.displayName,
+                avatarUrl: review.reviewer.avatarUrl,
+            },
+        })),
+        pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
+};
+
 const getActiveSos = async ({ userId, tripId }) => {
     const sos = await reviewsRepository.findActiveSos({ userId, tripId: tripId || null });
     return sos ? mapSos(sos) : null;
@@ -526,6 +552,7 @@ const getSosHistory = async ({ userId, limit = 20, offset = 0 }) => {
 module.exports = {
     reviewMember,
     reviewTrip,
+    getTripReviews,
     createReport,
     blockUser,
     unblockUser,

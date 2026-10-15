@@ -127,6 +127,41 @@ const createReview = async ({
     return rows[0];
 };
 
+// One read snapshot: permission, summary and page cannot disagree if the trip
+// becomes PRIVATE or reviews are added while the request is being processed.
+const findPublicTripReviews = async ({ tripId, page, limit }) => {
+    const { rows } = await db.query(`
+      SELECT t.id AS trip_id, summary.review_count, summary.average_rating,
+        COALESCE(review_page.items, '[]'::jsonb) AS items
+      FROM trips t
+      CROSS JOIN LATERAL (
+        SELECT COUNT(*)::int AS review_count,
+          COALESCE(ROUND(AVG(r.rating)::numeric, 2), 0) AS average_rating
+        FROM trip_reviews r
+        WHERE r.trip_id = t.id AND r.reviewee_id IS NULL
+      ) summary
+      CROSS JOIN LATERAL (
+        SELECT jsonb_agg(item ORDER BY item.created_at DESC, item.id DESC) AS items
+        FROM (
+          SELECT r.id, r.rating, r.comment, r.created_at,
+            jsonb_build_object(
+              'id', u.id,
+              'displayName', COALESCE(NULLIF(BTRIM(u.nickname), ''),
+                NULLIF(BTRIM(u.full_name), ''), 'Người dùng'),
+              'avatarUrl', u.avatar_url
+            ) AS reviewer
+          FROM trip_reviews r
+          JOIN users u ON u.id = r.reviewer_id
+          WHERE r.trip_id = t.id AND r.reviewee_id IS NULL
+          ORDER BY r.created_at DESC, r.id DESC
+          LIMIT $2 OFFSET $3
+        ) item
+      ) review_page
+      WHERE t.id = $1 AND t.privacy_type = 'PUBLIC' AND t.status = 'COMPLETED'
+    `, [tripId, limit, (page - 1) * limit]);
+    return rows[0] || null;
+};
+
 /**
  * Tìm user để kiểm tra đối tượng báo cáo/chặn.
  */
@@ -544,6 +579,7 @@ module.exports = {
     findTripContext,
     findExistingReview,
     createReview,
+    findPublicTripReviews,
     findUserById,
     findTripById,
     findReportTripContext,
