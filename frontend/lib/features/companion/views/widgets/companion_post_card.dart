@@ -16,6 +16,9 @@ class CompanionPostCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     final trip = post.trip;
+    final score = post.creator.trustScore.toStringAsFixed(
+      post.creator.trustScore % 1 == 0 ? 0 : 1,
+    );
     final endDate =
         trip.endDate ??
         (trip.startDate != null && (trip.durationDays ?? 0) > 0
@@ -23,7 +26,7 @@ class CompanionPostCard extends StatelessWidget {
             : null);
     final dates = trip.startDate == null
         ? 'Chưa có lịch'
-        : '${DateFormat('dd/MM').format(trip.startDate!)}${endDate == null ? '' : ' – ${DateFormat('dd/MM').format(endDate)}'}';
+        : '${DateFormat('dd/MM/yyyy').format(trip.startDate!)}${endDate == null ? '' : ' – ${DateFormat('dd/MM/yyyy').format(endDate)}'}';
 
     final statusColor = post.isClosed
         ? AppColors.error
@@ -47,6 +50,7 @@ class CompanionPostCard extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
+          hoverColor: Colors.transparent,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
             child: Column(
@@ -58,6 +62,7 @@ class CompanionPostCard extends StatelessWidget {
                     Tooltip(
                       message: 'Xem hồ sơ ${post.creator.displayName}',
                       child: InkWell(
+                        hoverColor: Colors.transparent,
                         borderRadius: BorderRadius.circular(24),
                         onTap: post.creator.id.trim().isEmpty
                             ? null
@@ -77,54 +82,82 @@ class CompanionPostCard extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          InkWell(
+                            hoverColor: Colors.transparent,
+                            onTap: post.creator.id.trim().isEmpty
+                                ? null
+                                : () => PublicProfileScreen.open(
+                                    context,
+                                    userId: post.creator.id,
+                                  ),
+                            child: Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    post.creator.displayName,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: text.titleSmall?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                                if (post.creator.reviewCount > 0) ...[
+                                  const SizedBox(width: 8),
+                                  const Icon(
+                                    Icons.star_rounded,
+                                    size: 13,
+                                    color: AppColors.warning,
+                                  ),
+                                  const SizedBox(width: 2),
+                                  Flexible(
+                                    child: Text(
+                                      '$score · ${post.creator.reviewCount} đánh giá',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: text.labelSmall?.copyWith(
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 4),
                           Row(
                             children: [
-                              Flexible(
+                              Expanded(
                                 child: Text(
-                                  post.creator.displayName,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: text.titleSmall?.copyWith(
-                                    fontWeight: FontWeight.bold,
+                                  DateFormat(
+                                    'HH:mm · dd/MM/yyyy',
+                                  ).format(post.createdAt),
+                                  style: text.labelSmall?.copyWith(
+                                    color: AppColors.textSecondary,
                                   ),
                                 ),
                               ),
-                              if (post.creator.isVerified) ...[
-                                const SizedBox(width: 4),
-                                const Icon(
-                                  Icons.verified_rounded,
-                                  size: 15,
-                                  color: AppColors.primary,
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
                                 ),
-                              ],
+                                decoration: BoxDecoration(
+                                  color: statusBgColor,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  statusText,
+                                  style: TextStyle(
+                                    color: statusColor,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
                             ],
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            DateFormat('HH:mm · dd/MM').format(post.createdAt),
-                            style: text.labelSmall?.copyWith(
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
                         ],
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: statusBgColor,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        statusText,
-                        style: TextStyle(
-                          color: statusColor,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                        ),
                       ),
                     ),
                   ],

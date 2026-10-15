@@ -2,7 +2,6 @@ import 'travel_decoration.dart';
 import '../../core/constants/app_sizes.dart';
 import '../../core/constants/app_colors.dart';
 import 'package:flutter/material.dart';
-import '../buttons/app_icon_button.dart';
 
 class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
   const AppTopBar({
@@ -48,10 +47,11 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
     leading: showBack && Navigator.canPop(context)
         ? Padding(
             padding: const EdgeInsets.all(4),
-            child: AppIconButton(
-              icon: Icons.arrow_back_ios_new_rounded,
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
               tooltip: 'Quay lại',
               onPressed: () => Navigator.maybePop(context),
+              style: IconButton.styleFrom(hoverColor: Colors.transparent),
             ),
           )
         : null,

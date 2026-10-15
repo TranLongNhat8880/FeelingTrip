@@ -272,10 +272,7 @@ void main() {
     );
     expect(find.text('—'), findsOneWidget);
     expect(find.text('0.0/5'), findsNothing);
-    expect(
-      find.textContaining('Chưa có đánh giá bạn đồng hành.'),
-      findsOneWidget,
-    );
+    expect(find.text('Chưa có đánh giá'), findsOneWidget);
   });
 
   testWidgets('404 inactive or missing user has a clear error state', (
@@ -473,6 +470,90 @@ void main() {
       expect(profileOpens, 1);
       expect(removals, 0);
       expect(tester.takeException(), isNull);
+    },
+  );
+  testWidgets('post creator name opens profile rather than the post', (
+    tester,
+  ) async {
+    var postOpens = 0;
+    await mobile(
+      tester,
+      Scaffold(
+        body: CompanionPostCard(post: postFixture(), onTap: () => postOpens++),
+      ),
+    );
+    await tester.tap(find.text('Trưởng nhóm'));
+    await tester.pumpAndSettle();
+    expect(find.byType(PublicProfileScreen), findsOneWidget);
+    expect(requested, ['leader']);
+    expect(postOpens, 0);
+    await tester.tap(find.byTooltip('Quay lại'));
+    await tester.pumpAndSettle();
+    expect(find.text('Bài tuyển kiểm thử'), findsOneWidget);
+  });
+
+  testWidgets('detail author opens profile and returns to the same post', (
+    tester,
+  ) async {
+    final auth = AuthViewModel();
+    addTearDown(auth.dispose);
+    await mobile(
+      tester,
+      AuthScope(
+        auth: auth,
+        child: CompanionDetailScreen(
+          postId: 'post-test',
+          repository: PostRepository(),
+        ),
+      ),
+    );
+    expect(find.text('Người đăng chưa có đánh giá'), findsOneWidget);
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AppBar),
+        matching: find.text('Trưởng nhóm'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(requested, ['leader']);
+    expect(find.byType(PublicProfileScreen), findsOneWidget);
+    await tester.tap(find.byTooltip('Quay lại'));
+    await tester.pumpAndSettle();
+    expect(find.byType(PublicProfileScreen), findsNothing);
+    expect(find.byType(CompanionDetailScreen), findsOneWidget);
+  });
+
+  testWidgets(
+    'post shows creator rating only when reviews exist and omits verification badges',
+    (tester) async {
+      final base = postFixture();
+      final rated = CompanionPost(
+        id: base.id,
+        title: base.title,
+        targetMembersCount: 3,
+        currentMembersCount: 2,
+        createdAt: base.createdAt,
+        trip: base.trip,
+        creator: const CreatorInfo(
+          id: 'leader',
+          fullName: 'Trưởng nhóm',
+          isVerified: true,
+          trustScore: 4.7,
+          reviewCount: 12,
+        ),
+      );
+      await mobile(tester, Scaffold(body: CompanionPostCard(post: rated)));
+      expect(find.text('4.7 · 12 đánh giá'), findsOneWidget);
+      expect(find.text('Đã xác minh danh tính'), findsNothing);
+      final inks = tester.widgetList<InkWell>(find.byType(InkWell));
+      expect(inks.every((ink) => ink.hoverColor == Colors.transparent), isTrue);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: Scaffold(body: CompanionPostCard(post: base)),
+        ),
+      );
+      expect(find.textContaining(' · 12 đánh giá'), findsNothing);
     },
   );
 }
