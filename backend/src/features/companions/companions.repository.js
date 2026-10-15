@@ -346,6 +346,7 @@ const getCompanionPostDetail = async (postId) => {
       t.estimated_budget AS trip_estimated_budget,
       t.cover_image_url AS trip_cover_image_url,
       t.status AS trip_status,
+      t.privacy_type AS trip_privacy_type,
       u.full_name AS creator_name,
       u.nickname AS creator_nickname,
       u.avatar_url AS creator_avatar_url,

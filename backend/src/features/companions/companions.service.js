@@ -260,6 +260,15 @@ const getCompanionPostDetail = async ({ postId, userId }) => {
         throw apiError(404, 'Bài viết không tồn tại');
     }
 
+    if (post.trip_privacy_type === 'PRIVATE') {
+        const isMember = userId
+            ? await companionsRepository.isTripMember(post.trip_id, userId)
+            : false;
+        if (!isMember && post.creator_id !== userId) {
+            throw apiError(403, 'Chuyến đi này ở chế độ riêng tư');
+        }
+    }
+
     const members = await tripRepository.findSafeMembers(post.trip_id);
     const myRequest = userId ? await companionsRepository.getExistingRequest(postId, userId) : null;
     // Yêu cầu đã duyệt chỉ còn hiệu lực khi người dùng vẫn trong nhóm.
@@ -343,6 +352,10 @@ const createJoinRequest = async ({ postId, userId, introduction }) => {
         const trip = await companionsRepository.getTripByIdForUpdate(post.trip_id, client);
         if (!trip || trip.status === 'CANCELLED' || trip.status === 'COMPLETED') {
             throw apiError(400, 'Không thể gửi yêu cầu cho chuyến đi đã kết thúc hoặc đã hủy');
+        }
+
+        if (trip.privacy_type === 'PRIVATE') {
+            throw apiError(400, 'Không thể gửi yêu cầu tham gia chuyến đi riêng tư');
         }
 
         // Đọc lại sau khi khóa chuyến để lấy sức chứa và trạng thái mới nhất.
