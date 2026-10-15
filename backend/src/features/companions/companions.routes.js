@@ -5,6 +5,16 @@ const authenticate = require('../../shared/middlewares/auth.middleware');
 const validate = require('../../shared/middlewares/validate.middleware');
 const schemaValidate = require('./companions.validation');
 
+// Bài tuyển công khai của người đang được xem hồ sơ.
+router.get('/users/:userId/posts',
+    authenticate,
+    validate({
+        params: schemaValidate.publicPostsUserParamSchema,
+        query: schemaValidate.publicPostsQuerySchema,
+    }),
+    companionsController.getPublicPostsByUser
+);
+
 // Bài tuyển của người dùng
 router.get('/my-posts',
     authenticate,

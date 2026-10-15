@@ -153,6 +153,17 @@ const getMySentRequests = async (req, res, next) => {
   }
 };
 
+const getPublicPostsByUser = async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    const { page, limit } = req.query;
+    const result = await companionsService.getPublicPostsByUser({ userId, page, limit });
+    return sendSuccess(res, result, 'Bài viết công khai của người dùng', HTTP_STATUS.OK);
+  } catch (error) {
+    next(error);
+  }
+};
+
 const getMyPosts = async (req, res, next) => {
   try {
     const userId = req.user.id;
@@ -165,6 +176,7 @@ const getMyPosts = async (req, res, next) => {
 };
 
 module.exports = {
+  getPublicPostsByUser,
   getMyPosts,
   getMySentRequests,
   getPostedTripIds,

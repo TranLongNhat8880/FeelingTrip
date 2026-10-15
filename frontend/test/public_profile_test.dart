@@ -8,6 +8,8 @@ import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:feeling_trip/core/network/api_client.dart';
+import 'package:feeling_trip/core/constants/api_endpoints.dart';
+import 'package:feeling_trip/features/companion/views/companion_my_posts_screen.dart';
 import 'package:feeling_trip/core/theme/app_theme.dart';
 import 'package:feeling_trip/features/auth/viewmodels/auth_viewmodel.dart';
 import 'package:feeling_trip/features/companion/models/companion_post_model.dart';
@@ -117,13 +119,35 @@ Future<void> mobile(
 void main() {
   late http.Client originalClient;
   final requested = <String>[];
+  final requestedPosts = <String>[];
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     originalClient = ApiClient.client;
     requested.clear();
+    requestedPosts.clear();
     // Offline mock only; an unexpected endpoint fails the test.
     ApiClient.client = MockClient((request) async {
       expect(request.method, 'GET');
+      if (request.url.path.contains('/companions/users/') &&
+          request.url.path.endsWith('/posts')) {
+        requestedPosts.add(
+          request.url.pathSegments[request.url.pathSegments.length - 2],
+        );
+        return http.Response(
+          jsonEncode({
+            'data': {
+              'posts': [],
+              'pagination': {
+                'totalItems': 0,
+                'totalPages': 0,
+                'currentPage': 1,
+                'limit': 20,
+              },
+            },
+          }),
+          200,
+        );
+      }
       expect(request.url.path, contains('/users/trust-score/'));
       final id = request.url.pathSegments.last;
       requested.add(id);
@@ -221,11 +245,11 @@ void main() {
     await mobile(tester, const PublicProfileScreen(userId: 'member-b'));
     expect(find.text('Tên member-b'), findsNWidgets(2));
     expect(find.text('Họ tên member-b'), findsOneWidget);
-    expect(find.text('4.7/5'), findsOneWidget);
-    expect(find.text('3'), findsOneWidget);
-    expect(find.text('Đã xác minh danh tính'), findsOneWidget);
+    expect(find.text('4.7 · 3 đánh giá'), findsOneWidget);
+    expect(find.text('Đã xác minh'), findsOneWidget);
     expect(find.text('Thích khám phá và đi bộ.'), findsOneWidget);
-    expect(find.text('Thông tin cá nhân'), findsOneWidget);
+    expect(find.text('Thông tin'), findsOneWidget);
+    expect(find.byTooltip('Tải lại hồ sơ'), findsNothing);
     expect(find.text('Họ và tên'), findsOneWidget);
     expect(find.text('Biệt danh'), findsOneWidget);
     expect(find.text('21 tuổi'), findsOneWidget);
@@ -270,7 +294,7 @@ void main() {
       tester,
       PublicProfileScreen(userId: 'new-user', repository: repo),
     );
-    expect(find.text('—'), findsOneWidget);
+    expect(find.text('—'), findsNothing);
     expect(find.text('0.0/5'), findsNothing);
     expect(find.text('Chưa có đánh giá'), findsOneWidget);
   });
@@ -314,10 +338,9 @@ void main() {
     );
     repo.count = 4;
     repo.score = 4.5;
-    await tester.tap(find.byTooltip('Tải lại hồ sơ'));
+    await tester.drag(find.byType(ListView), const Offset(0, 400));
     await tester.pumpAndSettle();
-    expect(find.text('4.5/5'), findsOneWidget);
-    expect(find.text('4'), findsOneWidget);
+    expect(find.text('4.5 · 4 đánh giá'), findsOneWidget);
   });
 
   testWidgets('reusing screen with another userId loads the new user', (
@@ -507,7 +530,7 @@ void main() {
         ),
       ),
     );
-    expect(find.text('Người đăng chưa có đánh giá'), findsOneWidget);
+    expect(find.text('Người đăng chưa có đánh giá'), findsNothing);
     await tester.tap(
       find.descendant(
         of: find.byType(AppBar),
@@ -554,6 +577,24 @@ void main() {
         ),
       );
       expect(find.textContaining(' · 12 đánh giá'), findsNothing);
+    },
+  );
+  testWidgets(
+    'profile article link opens the viewed user public posts, not my posts',
+    (tester) async {
+      await mobile(tester, const PublicProfileScreen(userId: 'member-b'));
+      await tester.ensureVisible(find.text('Bài viết'));
+      await tester.tap(find.text('Bài viết'));
+      await tester.pumpAndSettle();
+      final screen = tester.widget<CompanionMyPostsScreen>(
+        find.byType(CompanionMyPostsScreen),
+      );
+      expect(screen.userId, 'member-b');
+      if (!ApiEndpoints.useMockData) expect(requestedPosts, ['member-b']);
+      expect(find.text('Chưa có bài viết công khai'), findsOneWidget);
+      await tester.tap(find.byTooltip('Quay lại'));
+      await tester.pumpAndSettle();
+      expect(find.byType(PublicProfileScreen), findsOneWidget);
     },
   );
 }

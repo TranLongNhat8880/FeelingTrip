@@ -57,6 +57,10 @@ abstract class CompanionRepository {
   Future<void> updatePost(String postId, Map<String, dynamic> data);
   Future<void> closePost(String postId);
   Future<List<Map<String, dynamic>>> getMyPosts({int page = 1});
+  Future<List<Map<String, dynamic>>> getPublicPosts({
+    required String userId,
+    int page = 1,
+  });
   Future<List<Map<String, dynamic>>> getMySentRequests({
     String? status,
     int page = 1,

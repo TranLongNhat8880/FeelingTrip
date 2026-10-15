@@ -151,6 +151,18 @@ class ApiCompanionRepository implements CompanionRepository {
   }
 
   @override
+  Future<List<Map<String, dynamic>>> getPublicPosts({
+    required String userId,
+    int page = 1,
+  }) async {
+    final response = await ApiClient.get(
+      '${ApiEndpoints.companions}/users/${Uri.encodeComponent(userId)}/posts?page=$page&limit=20',
+    );
+    final rows = response['data']['posts'] as List;
+    return rows.map((r) => Map<String, dynamic>.from(r)).toList();
+  }
+
+  @override
   Future<List<Map<String, dynamic>>> getMyPosts({int page = 1}) async {
     final rows =
         (await ApiClient.get(
