@@ -91,31 +91,6 @@ class BlockedUserModel {
   }
 }
 
-class EmergencyContactModel {
-  const EmergencyContactModel({
-    required this.id,
-    required this.fullName,
-    required this.phone,
-    this.relationship,
-    this.createdAt,
-  });
-
-  final String id;
-  final String fullName;
-  final String phone;
-  final String? relationship;
-  final DateTime? createdAt;
-
-  factory EmergencyContactModel.fromJson(Map<String, dynamic> json) =>
-      EmergencyContactModel(
-        id: '${json['id'] ?? ''}',
-        fullName: '${json['fullName'] ?? ''}',
-        phone: '${json['phone'] ?? ''}',
-        relationship: _string(json['relationship']),
-        createdAt: _date(json['createdAt']),
-      );
-}
-
 String? _string(Object? value) {
   final text = value?.toString().trim();
   return text == null || text.isEmpty ? null : text;

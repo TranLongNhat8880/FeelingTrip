@@ -1,7 +1,7 @@
 ﻿const db = require('../../config/database');
 
 // ============================================================================
-// REPOSITORY: Reviews, Reports, Blocks, Emergency Contacts
+// REPOSITORY: Reviews, Reports, Blocks
 // ============================================================================
 
 /**
@@ -328,121 +328,6 @@ const findBlockedUsers = async (blockerId) => {
     return rows;
 };
 
-/**
- * Danh sách liên hệ khẩn cấp của người dùng.
- */
-const findEmergencyContacts = async (userId) => {
-    const query = `
-    SELECT
-      id,
-      full_name,
-      phone,
-      relationship,
-      created_at
-    FROM emergency_contacts
-    WHERE user_id = $1
-    ORDER BY created_at DESC, id DESC;
-  `;
-
-    const { rows } = await db.query(query, [userId]);
-    return rows;
-};
-
-/**
- * Tạo liên hệ khẩn cấp.
- */
-const createEmergencyContact = async ({
-    userId,
-    fullName,
-    phone,
-    relationship,
-}) => {
-    const query = `
-    INSERT INTO emergency_contacts (
-      user_id,
-      full_name,
-      phone,
-      relationship
-    )
-    VALUES ($1, $2, $3, $4)
-    RETURNING
-      id,
-      full_name,
-      phone,
-      relationship,
-      created_at;
-  `;
-
-    const { rows } = await db.query(query, [
-        userId,
-        fullName,
-        phone,
-        relationship,
-    ]);
-
-    return rows[0];
-};
-
-/**
- * Cập nhật liên hệ khẩn cấp thuộc sở hữu của user.
- */
-const updateEmergencyContact = async ({
-    contactId,
-    userId,
-    contactData,
-}) => {
-    const columnMap = {
-        fullName: 'full_name',
-        phone: 'phone',
-        relationship: 'relationship',
-    };
-
-    const updates = [];
-    const values = [contactId, userId];
-
-    for (const [field, column] of Object.entries(columnMap)) {
-        if (contactData[field] !== undefined) {
-            values.push(contactData[field]);
-            updates.push(`${column} = $${values.length}`);
-        }
-    }
-
-    if (updates.length === 0) {
-        return null;
-    }
-
-    const query = `
-    UPDATE emergency_contacts
-    SET ${updates.join(', ')}
-    WHERE id = $1
-      AND user_id = $2
-    RETURNING
-      id,
-      full_name,
-      phone,
-      relationship,
-      created_at;
-  `;
-
-    const { rows } = await db.query(query, values);
-    return rows[0] || null;
-};
-
-/**
- * Xóa liên hệ khẩn cấp thuộc sở hữu của user.
- */
-const deleteEmergencyContact = async ({ contactId, userId }) => {
-    const query = `
-    DELETE FROM emergency_contacts
-    WHERE id = $1
-      AND user_id = $2
-    RETURNING id;
-  `;
-
-    const { rows } = await db.query(query, [contactId, userId]);
-    return rows[0] || null;
-};
-
 module.exports = {
     findTripContext,
     findExistingReview,
@@ -455,8 +340,4 @@ module.exports = {
     createBlock,
     deleteBlock,
     findBlockedUsers,
-    findEmergencyContacts,
-    createEmergencyContact,
-    updateEmergencyContact,
-    deleteEmergencyContact,
 };

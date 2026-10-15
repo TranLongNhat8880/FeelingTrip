@@ -3,7 +3,7 @@ const apiError = require('../../shared/utils/apiError.util');
 const HTTP_STATUS = require('../../shared/constants/httpStatus');
 
 // ============================================================================
-// SERVICE: Reviews, Reports, Blocks, Emergency Contacts
+// SERVICE: Reviews, Reports, Blocks
 // ============================================================================
 
 const mapReview = (review) => ({
@@ -25,14 +25,6 @@ const mapReport = (report) => ({
     evidenceImageUrl: report.evidence_image_url,
     status: report.status,
     createdAt: report.created_at,
-});
-
-const mapEmergencyContact = (contact) => ({
-    id: contact.id,
-    fullName: contact.full_name,
-    phone: contact.phone,
-    relationship: contact.relationship,
-    createdAt: contact.created_at,
 });
 
 /**
@@ -328,86 +320,6 @@ const getBlockedUsers = async (userId) => {
     }));
 };
 
-/**
- * Danh sách liên hệ khẩn cấp.
- */
-const getEmergencyContacts = async (userId) => {
-    const contacts = await reviewsRepository.findEmergencyContacts(userId);
-    return contacts.map(mapEmergencyContact);
-};
-
-/**
- * Thêm liên hệ khẩn cấp.
- */
-const createEmergencyContact = async ({
-    userId,
-    fullName,
-    phone,
-    relationship,
-}) => {
-    const contact = await reviewsRepository.createEmergencyContact({
-        userId,
-        fullName,
-        phone,
-        relationship: relationship === '' || relationship === undefined
-            ? null
-            : relationship,
-    });
-
-    return mapEmergencyContact(contact);
-};
-
-/**
- * Cập nhật liên hệ khẩn cấp.
- */
-const updateEmergencyContact = async ({
-    contactId,
-    userId,
-    contactData,
-}) => {
-    const normalizedData = { ...contactData };
-
-    if (normalizedData.relationship === '') {
-        normalizedData.relationship = null;
-    }
-
-    const contact = await reviewsRepository.updateEmergencyContact({
-        contactId,
-        userId,
-        contactData: normalizedData,
-    });
-
-    if (!contact) {
-        throw apiError(
-            HTTP_STATUS.NOT_FOUND,
-            'Không tìm thấy người liên hệ khẩn cấp'
-        );
-    }
-
-    return mapEmergencyContact(contact);
-};
-
-/**
- * Xóa liên hệ khẩn cấp.
- */
-const deleteEmergencyContact = async ({ contactId, userId }) => {
-    const deleted = await reviewsRepository.deleteEmergencyContact({
-        contactId,
-        userId,
-    });
-
-    if (!deleted) {
-        throw apiError(
-            HTTP_STATUS.NOT_FOUND,
-            'Không tìm thấy người liên hệ khẩn cấp'
-        );
-    }
-
-    return {
-        id: deleted.id,
-    };
-};
-
 const getTripReviews = async ({ tripId, page = 1, limit = 20 }) => {
     const result = await reviewsRepository.findPublicTripReviews({ tripId, page, limit });
     if (!result) {
@@ -442,8 +354,4 @@ module.exports = {
     blockUser,
     unblockUser,
     getBlockedUsers,
-    getEmergencyContacts,
-    createEmergencyContact,
-    updateEmergencyContact,
-    deleteEmergencyContact,
 };

@@ -1,19 +1,18 @@
 ﻿================================================================================
-PHÂN HỆ: REVIEWS (ĐÁNH GIÁ, BÁO CÁO VI PHẠM & LIÊN HỆ KHẨN CẤP) - src/features/reviews/
+PHÂN HỆ: REVIEWS (ĐÁNH GIÁ, BÁO CÁO VI PHẠM & CHẶN NGƯỜI DÙNG) - src/features/reviews/
 ================================================================================
 
 1. TÁC DỤNG CỦA PHÂN HỆ:
    - Đánh giá thành viên và chuyến đi sau khi kết thúc (chấm sao và viết nhận xét).
    - Báo cáo tài khoản xấu hoặc chuyến đi vi phạm để gửi lên Admin.
    - Chặn người dùng gây phiền phức.
-   - Quản lý thông tin liên hệ khẩn cấp.
 
 2. CẤU TRÚC 4 TẦNG (Controller - Service - Repository):
    - reviews.routes.js: Định nghĩa các endpoints đánh giá và an toàn.
    - reviews.controller.js: Tiếp nhận request.
    - reviews.service.js: Nghiệp vụ lưu đánh giá, tính điểm tín nhiệm trung bình, lưu báo cáo.
    - reviews.repository.js: Thao tác trực tiếp với Database (trip_reviews, user_reports,
-     user_blocks, emergency_contacts).
+     user_blocks).
 
 3. CÁC FILE DÙNG CHUNG CẦN GỌI (SHARED):
    - ../../shared/middlewares/auth.middleware.js -> authenticate
@@ -80,8 +79,9 @@ PHÂN HỆ: REVIEWS (ĐÁNH GIÁ, BÁO CÁO VI PHẠM & LIÊN HỆ KHẨN CẤP)
    - Chức năng SOS đã được gỡ khỏi ứng dụng và API. Bảng sos_alerts và các
      migration đã phát hành được giữ nguyên để bảo toàn dữ liệu cũ; không còn
      luồng chạy ghi/đọc SOS trong feature reviews. Không tự DROP bảng/xóa dữ liệu.
-   - Các bảng user_blocks và emergency_contacts đã có từ migration 001; route,
-     service, repository và kiểm tra quyền vẫn thuộc phần reviews của Thành.
+   - Bảng user_blocks đã có từ migration 001. Bảng emergency_contacts được giữ
+     nguyên trong database để bảo toàn dữ liệu cũ, nhưng không còn route, service
+     hay repository chạy trong feature reviews. Không tự DROP bảng/xóa dữ liệu.
 
 6. UPLOAD ẢNH VÀ KIỂM TRA:
    - Ảnh bằng chứng: feature dùng ../../shared/middlewares/upload.middleware.js
