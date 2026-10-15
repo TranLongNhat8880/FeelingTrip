@@ -113,7 +113,18 @@ const myRequestsQuerySchema = Joi.object({
   postId: Joi.string().guid({ version: ['uuidv4', 'uuidv5'] }).optional(),
 });
 
+const publicPostsUserParamSchema = Joi.object({
+  userId: Joi.string().guid({ version: ['uuidv4', 'uuidv5'] }).required(),
+});
+
+const publicPostsQuerySchema = Joi.object({
+  page: Joi.number().integer().min(1).default(1),
+  limit: Joi.number().integer().min(1).max(50).default(20),
+});
+
 module.exports = {
+  publicPostsUserParamSchema,
+  publicPostsQuerySchema,
   companionFeedQuerySchema,
   createCompanionPostSchema,
   updateCompanionPostSchema,

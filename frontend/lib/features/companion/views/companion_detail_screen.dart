@@ -234,11 +234,34 @@ class _CompanionDetailScreenState extends State<CompanionDetailScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                post.creator.displayName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.titleSmall,
+              Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      post.creator.displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                  ),
+                  if (post.creator.reviewCount > 0) ...[
+                    const SizedBox(width: 6),
+                    const Icon(
+                      Icons.star_rounded,
+                      size: 12,
+                      color: AppColors.warning,
+                    ),
+                    const SizedBox(width: 2),
+                    Text(
+                      '${post.creator.trustScore.toStringAsFixed(post.creator.trustScore % 1 == 0 ? 0 : 1)} · ${post.creator.reviewCount}',
+                      semanticsLabel:
+                          '${post.creator.trustScore.toStringAsFixed(post.creator.trustScore % 1 == 0 ? 0 : 1)} · ${post.creator.reviewCount} đánh giá',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ],
               ),
               Text(
                 DateFormat('HH:mm · dd/MM/yyyy').format(post.createdAt),
@@ -264,41 +287,6 @@ class _CompanionDetailScreenState extends State<CompanionDetailScreen> {
       child: ListView(
         padding: const EdgeInsets.only(bottom: 24),
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-            child: InkWell(
-              hoverColor: Colors.transparent,
-              onTap: post.creator.id.trim().isEmpty
-                  ? null
-                  : () => PublicProfileScreen.open(
-                      context,
-                      userId: post.creator.id,
-                    ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.star_outline_rounded,
-                    size: 18,
-                    color: AppColors.warning,
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      post.creator.reviewCount > 0
-                          ? 'Người đăng: ${post.creator.trustScore.toStringAsFixed(1)}/5 · ${post.creator.reviewCount} đánh giá'
-                          : 'Người đăng chưa có đánh giá',
-                      style: text.bodySmall,
-                    ),
-                  ),
-                  const Icon(
-                    Icons.chevron_right_rounded,
-                    size: 18,
-                    color: AppColors.textSecondary,
-                  ),
-                ],
-              ),
-            ),
-          ),
           if (trip.coverImageUrl?.isNotEmpty == true)
             Align(
               alignment: Alignment.center,

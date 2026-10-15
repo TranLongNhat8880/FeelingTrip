@@ -527,6 +527,30 @@ class MockCompanionRepository implements CompanionRepository {
   }
 
   @override
+  Future<List<Map<String, dynamic>>> getPublicPosts({
+    required String userId,
+    int page = 1,
+  }) async => _mockPosts
+      .where((p) => p.creator.id == userId && !p.isClosed)
+      .skip((page - 1) * 20)
+      .take(20)
+      .map(
+        (p) => {
+          'id': p.id,
+          'title': p.title,
+          'status': ['COMPLETED', 'CANCELLED'].contains(p.trip.status)
+              ? 'CLOSED'
+              : p.status,
+          'trip_id': p.trip.id,
+          'trip_name': p.trip.name,
+          'trip_status': p.trip.status,
+          'trip_cover_image_url': p.trip.coverImageUrl,
+          'destination': p.trip.destination,
+        },
+      )
+      .toList();
+
+  @override
   Future<List<Map<String, dynamic>>> getMyPosts({int page = 1}) async =>
       _mockPosts
           .where((p) => p.creator.id == 'current-user')
@@ -538,6 +562,8 @@ class MockCompanionRepository implements CompanionRepository {
               'title': p.title,
               'status': p.status,
               'trip_name': p.trip.name,
+              'trip_cover_image_url': p.trip.coverImageUrl,
+              'trip_status': p.trip.status,
               'destination': p.trip.destination,
             },
           )

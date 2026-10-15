@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../shared/ui_kit.dart';
+import '../../companion/views/companion_my_posts_screen.dart';
 import '../models/trust_score_model.dart';
 import '../repositories/profile_repository.dart';
 import '../viewmodels/public_profile_viewmodel.dart';
@@ -63,185 +64,227 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
     return '${local.day.toString().padLeft(2, '0')}/${local.month.toString().padLeft(2, '0')}/${local.year}';
   }
 
-  Widget _metric(String value, String label, IconData icon) => Expanded(
-    child: AppCard(
-      color: Theme.of(
-        context,
-      ).colorScheme.primaryContainer.withValues(alpha: .35),
-      child: Column(
-        children: [
-          Icon(icon),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: Theme.of(context).textTheme.headlineSmall,
-            textAlign: TextAlign.center,
-          ),
-          Text(label, textAlign: TextAlign.center),
-        ],
-      ),
-    ),
-  );
-
   Widget _content(TrustScoreModel profile) {
+    final text = Theme.of(context).textTheme;
     final name = profile.displayName.trim().isEmpty
         ? 'Người dùng'
         : profile.displayName;
     final hasReviews = profile.reviewCount > 0;
+    final score = profile.trustScore.toStringAsFixed(
+      profile.trustScore % 1 == 0 ? 0 : 1,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        AppCard(
-          softShadow: true,
-          child: Column(
-            children: [
-              AvatarPlaceholder(
-                name: name,
-                imageUrl: profile.avatarUrl,
-                radius: 44,
-              ),
-              const SizedBox(height: 14),
-              Text(
-                name,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-              const SizedBox(height: 12),
-              AppStatusBadge(
-                label: profile.isVerified
-                    ? 'Đã xác minh danh tính'
-                    : 'Chưa xác minh danh tính',
-                icon: profile.isVerified
-                    ? Icons.verified_outlined
-                    : Icons.person_outline,
-                tone: profile.isVerified
-                    ? AppStatusTone.success
-                    : AppStatusTone.neutral,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Tham gia FeelingTrip: ${_date(profile.memberSince)}',
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 20),
-        const SectionHeader(title: 'Thông tin cá nhân'),
-        const SizedBox(height: 10),
-        AppCard(
-          child: Column(
-            children: [
-              _infoRow(Icons.person_outline, 'Họ và tên', profile.fullName),
-              const Divider(height: 24),
-              _infoRow(Icons.badge_outlined, 'Biệt danh', profile.nickname),
-              const Divider(height: 24),
-              _infoRow(
-                Icons.cake_outlined,
-                'Độ tuổi',
-                profile.age == null ? null : '${profile.age} tuổi',
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 20),
-        const SectionHeader(title: 'Giới thiệu'),
-        const SizedBox(height: 10),
-        AppCard(
-          child: Text(
-            profile.bio?.trim().isNotEmpty == true
-                ? profile.bio!
-                : 'Người dùng chưa thêm giới thiệu.',
-          ),
-        ),
-        const SizedBox(height: 20),
-        const SectionHeader(
-          title: 'Điểm tín nhiệm',
-          subtitle: 'Tổng hợp từ đánh giá bạn đồng hành.',
-        ),
-        const SizedBox(height: 12),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _metric(
-              hasReviews ? '${profile.trustScore.toStringAsFixed(1)}/5' : '—',
-              'Điểm trung bình',
-              Icons.star_outline_rounded,
+            AvatarPlaceholder(
+              name: name,
+              imageUrl: profile.avatarUrl,
+              radius: 36,
             ),
-            const SizedBox(width: 12),
-            _metric(
-              '${profile.reviewCount}',
-              'Lượt đánh giá',
-              Icons.rate_review_outlined,
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    style: text.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.badge_outlined,
+                        size: 17,
+                        color: profile.isVerified
+                            ? const Color(0xFF008B57)
+                            : const Color(0xFF5D6889),
+                      ),
+                      const SizedBox(width: 5),
+                      Expanded(
+                        child: Text(
+                          profile.isVerified
+                              ? 'Đã xác minh'
+                              : 'Chưa xác minh danh tính',
+                          style: text.bodySmall?.copyWith(
+                            color: profile.isVerified
+                                ? const Color(0xFF008B57)
+                                : const Color(0xFF5D6889),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (profile.memberSince != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'Tham gia ${_date(profile.memberSince)}',
+                      style: text.bodySmall?.copyWith(
+                        color: const Color(0xFF5D6889),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ),
           ],
         ),
-        if (!hasReviews) ...[
-          const SizedBox(height: 12),
-          const Text('Chưa có đánh giá'),
-        ],
+        const SizedBox(height: 24),
+        Row(
+          children: [
+            Icon(
+              hasReviews ? Icons.star_rounded : Icons.star_outline_rounded,
+              size: 20,
+              color: hasReviews
+                  ? const Color(0xFFE9A000)
+                  : const Color(0xFF969DB3),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                hasReviews
+                    ? '$score · ${profile.reviewCount} đánh giá'
+                    : 'Chưa có đánh giá',
+                style: text.bodyMedium,
+              ),
+            ),
+          ],
+        ),
+        const Divider(height: 40),
+        Text(
+          'Giới thiệu',
+          style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          profile.bio?.trim().isNotEmpty == true
+              ? profile.bio!
+              : 'Chưa thêm giới thiệu.',
+          style: text.bodyMedium?.copyWith(
+            height: 1.5,
+            color: const Color(0xFF5D6889),
+          ),
+        ),
+        const SizedBox(height: 24),
+        const Divider(height: 1),
+        ListTile(
+          minTileHeight: 52,
+          hoverColor: Colors.transparent,
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.article_outlined),
+          title: const Text('Bài viết'),
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: () => Navigator.push<void>(
+            context,
+            MaterialPageRoute(
+              builder: (_) => CompanionMyPostsScreen(userId: profile.id),
+            ),
+          ),
+        ),
+        const Divider(height: 1),
+        const SizedBox(height: 24),
+        Text(
+          'Thông tin',
+          style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 12),
+        _infoRow('Họ và tên', profile.fullName),
+        const Divider(height: 1),
+        _infoRow('Biệt danh', profile.nickname),
+        const Divider(height: 1),
+        _infoRow('Độ tuổi', profile.age == null ? null : '${profile.age} tuổi'),
+        const Divider(height: 1),
       ],
     );
   }
 
-  Widget _infoRow(IconData icon, String label, String? value) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 4),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
-        const SizedBox(width: 10),
-        Expanded(child: Text(label)),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            value?.trim().isNotEmpty == true ? value! : 'Chưa cập nhật',
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+  Widget _infoRow(String label, String? value) {
+    final available = value?.trim().isNotEmpty == true;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(flex: 2, child: Text(label)),
+          const SizedBox(width: 16),
+          Expanded(
+            flex: 3,
+            child: Text(
+              available ? value! : 'Chưa cập nhật',
+              textAlign: TextAlign.end,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: available ? null : const Color(0xFF969DB3),
+              ),
+            ),
           ),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: _vm,
-    builder: (context, _) => AppScaffold(
-      title: 'Hồ sơ người dùng',
-      scrollable: true,
-      actions: [
-        IconButton(
-          tooltip: 'Tải lại hồ sơ',
-          onPressed: _vm.isLoading || widget.userId.trim().isEmpty
-              ? null
-              : () => _vm.load(widget.userId),
-          icon: const Icon(Icons.refresh),
-        ),
-      ],
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 680),
-          child: _vm.isLoading
-              ? const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 80),
-                  child: LoadingIndicator(
-                    message: 'Đang tải hồ sơ người dùng...',
-                  ),
-                )
-              : _vm.profile != null
-              ? _content(_vm.profile!)
-              : ErrorState(
-                  title: _vm.notFound
-                      ? 'Không tìm thấy người dùng'
-                      : 'Chưa tải được hồ sơ',
-                  message:
-                      _vm.errorMessage ?? 'Không thể tải hồ sơ người dùng.',
-                  onRetry: widget.userId.trim().isEmpty
-                      ? null
-                      : () => _vm.load(widget.userId),
-                ),
+    builder: (context, _) => Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        automaticallyImplyLeading: false,
+        leading: Navigator.canPop(context)
+            ? IconButton(
+                tooltip: 'Quay lại',
+                icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+                onPressed: () => Navigator.maybePop(context),
+                style: IconButton.styleFrom(hoverColor: Colors.transparent),
+              )
+            : null,
+      ),
+      body: SafeArea(
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 680),
+            child: RefreshIndicator(
+              onRefresh: () async {
+                if (widget.userId.trim().isNotEmpty) {
+                  await _vm.load(widget.userId);
+                }
+              },
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+                children: [
+                  if (_vm.isLoading)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 80),
+                      child: LoadingIndicator(
+                        message: 'Đang tải hồ sơ người dùng...',
+                      ),
+                    )
+                  else if (_vm.profile != null)
+                    _content(_vm.profile!)
+                  else
+                    ErrorState(
+                      title: _vm.notFound
+                          ? 'Không tìm thấy người dùng'
+                          : 'Chưa tải được hồ sơ',
+                      message:
+                          _vm.errorMessage ?? 'Không thể tải hồ sơ người dùng.',
+                      onRetry: widget.userId.trim().isEmpty
+                          ? null
+                          : () => _vm.load(widget.userId),
+                    ),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     ),

@@ -645,11 +645,37 @@ const getMySentRequests = async ({ userId, page = 1, limit = 20, status }) => {
     };
 };
 
+const getPublicPostsByUser = async ({ userId, page = 1, limit = 20 }) => {
+    const user = await usersRepository.findTrustScoreByUserId(userId);
+    if (!user) {
+        throw apiError(404, 'Không tìm thấy người dùng');
+    }
+
+    const pageNum = parseInt(page, 10) || 1;
+    const limitNum = parseInt(limit, 10) || 20;
+    const { rows, total } = await companionsRepository.getPublicPostsByUser({
+        userId,
+        limit: limitNum,
+        offset: (pageNum - 1) * limitNum,
+    });
+
+    return {
+        posts: rows,
+        pagination: {
+            totalItems: total,
+            totalPages: Math.ceil(total / limitNum),
+            currentPage: pageNum,
+            limit: limitNum,
+        },
+    };
+};
+
 const getMyPosts = (userId, page, limit) => {
     return companionsRepository.getMyPosts(userId, page, limit);
 };
 
 module.exports = {
+    getPublicPostsByUser,
     getMyPosts,
     getMySentRequests,
     getPostedTripIds,
