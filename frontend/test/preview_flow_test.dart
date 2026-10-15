@@ -158,6 +158,16 @@ void main() {
       lessThan(100),
     );
     await capture(tester, key, 'home-mobile');
+    expect(find.byType(TextField), findsNothing);
+    await tester.tap(find.text('Tìm điểm đến du lịch...'));
+    await tester.pumpAndSettle();
+    expect(find.text('Gợi ý điểm đến'), findsNothing);
+    expect(find.text('Hà Nội'), findsNothing);
+    await tester.enterText(find.byType(TextField), 'ha');
+    await tester.pumpAndSettle();
+    expect(find.text('Hà Nội'), findsOneWidget);
+    expect(find.text('Hà Nam'), findsOneWidget);
+    await capture(tester, key, 'search-suggestions-mobile');
     await tester.enterText(find.byType(TextField), 'Sapa');
     await tester.testTextInput.receiveAction(TextInputAction.search);
     await tester.pumpAndSettle();
@@ -165,6 +175,8 @@ void main() {
       find.text('Nhóm leo núi Fansipan – Cuối tuần tháng 10'),
       findsOneWidget,
     );
+    await tester.pageBack();
+    await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Bộ lọc'));
     await tester.pumpAndSettle();
     await capture(tester, key, 'feed-filter');
@@ -254,7 +266,7 @@ void main() {
       await tester.tap(find.text('Thông báo').last);
       await tester.pumpAndSettle();
       expect(find.text('Hồ sơ của bạn đã được xác minh'), findsNothing);
-      expect(find.text('Chưa đọc (2)'), findsOneWidget);
+      expect(find.text('Chưa đọc'), findsOneWidget);
       await capture(tester, key, 'notifications-mobile');
       await tester.tap(find.byTooltip('Thao tác thông báo'));
       await tester.pumpAndSettle();
@@ -262,7 +274,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Hủy'));
       await tester.pumpAndSettle();
-      expect(find.text('Chưa đọc (2)'), findsOneWidget);
+      expect(find.text('Chưa đọc'), findsOneWidget);
       await tester.tap(find.byTooltip('Thao tác thông báo'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Đánh dấu tất cả đã đọc'));

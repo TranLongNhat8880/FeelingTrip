@@ -216,49 +216,41 @@ class _CompanionDetailScreenState extends State<CompanionDetailScreen> {
     );
   }
 
-  Widget _author(CompanionPost post) => Row(
-    children: [
-      AvatarPlaceholder(
-        name: post.creator.displayName,
-        imageUrl: post.creator.avatarUrl,
-        radius: 18,
-      ),
-      const SizedBox(width: 10),
-      Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Flexible(
-                  child: Text(
-                    post.creator.displayName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleSmall,
-                  ),
-                ),
-                if (post.creator.isVerified)
-                  const Padding(
-                    padding: EdgeInsets.only(left: 4),
-                    child: Icon(
-                      Icons.verified_rounded,
-                      size: 15,
-                      color: AppColors.primary,
-                    ),
-                  ),
-              ],
-            ),
-            Text(
-              DateFormat('HH:mm · dd/MM').format(post.createdAt),
-              style: Theme.of(
-                context,
-              ).textTheme.labelSmall?.copyWith(color: AppColors.textSecondary),
-            ),
-          ],
+  Widget _author(CompanionPost post) => InkWell(
+    hoverColor: Colors.transparent,
+    onTap: post.creator.id.trim().isEmpty
+        ? null
+        : () => PublicProfileScreen.open(context, userId: post.creator.id),
+    child: Row(
+      children: [
+        AvatarPlaceholder(
+          name: post.creator.displayName,
+          imageUrl: post.creator.avatarUrl,
+          radius: 18,
         ),
-      ),
-    ],
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                post.creator.displayName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              Text(
+                DateFormat('HH:mm · dd/MM/yyyy').format(post.createdAt),
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
   );
 
   Widget _buildContent(CompanionPost post) {
@@ -272,6 +264,41 @@ class _CompanionDetailScreenState extends State<CompanionDetailScreen> {
       child: ListView(
         padding: const EdgeInsets.only(bottom: 24),
         children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+            child: InkWell(
+              hoverColor: Colors.transparent,
+              onTap: post.creator.id.trim().isEmpty
+                  ? null
+                  : () => PublicProfileScreen.open(
+                      context,
+                      userId: post.creator.id,
+                    ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.star_outline_rounded,
+                    size: 18,
+                    color: AppColors.warning,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      post.creator.reviewCount > 0
+                          ? 'Người đăng: ${post.creator.trustScore.toStringAsFixed(1)}/5 · ${post.creator.reviewCount} đánh giá'
+                          : 'Người đăng chưa có đánh giá',
+                      style: text.bodySmall,
+                    ),
+                  ),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    size: 18,
+                    color: AppColors.textSecondary,
+                  ),
+                ],
+              ),
+            ),
+          ),
           if (trip.coverImageUrl?.isNotEmpty == true)
             Align(
               alignment: Alignment.center,

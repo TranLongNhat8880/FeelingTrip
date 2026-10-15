@@ -176,18 +176,10 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
             ),
           ],
         ),
-        const SizedBox(height: 12),
-        AppInlineNotice(
-          message: hasReviews
-              ? 'Điểm thể hiện trải nghiệm do các bạn đồng hành đánh giá, không phải cam kết về mức độ an toàn của người dùng.'
-              : 'Chưa có đánh giá bạn đồng hành. Chưa đủ dữ liệu để tính điểm tín nhiệm.',
-          tone: AppStatusTone.info,
-        ),
-        const SizedBox(height: 20),
-        const AppInlineNotice(
-          message:
-              'Đây là hồ sơ công khai. Số điện thoại, ngày sinh đầy đủ, giới tính, vai trò, ngân hàng và giấy tờ xác minh không được hiển thị tại đây.',
-        ),
+        if (!hasReviews) ...[
+          const SizedBox(height: 12),
+          const Text('Chưa có đánh giá'),
+        ],
       ],
     );
   }

@@ -193,7 +193,7 @@ class NotificationScreen extends StatelessWidget {
                     Expanded(
                       child: _tab(
                         context,
-                        'Chưa đọc (${viewModel.unreadCount})',
+                        'Chưa đọc',
                         viewModel.unreadOnly,
                         () => viewModel.filter(true),
                       ),
