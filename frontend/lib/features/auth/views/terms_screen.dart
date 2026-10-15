@@ -79,20 +79,14 @@ Các hành vi bị nghiêm cấm bao gồm:
 • Thao túng khoản chi, công nợ hoặc thông tin thanh toán.
 • Lừa đảo, quấy rối, đe dọa hoặc công khai trái phép thông tin cá nhân.
 • Đăng tải nội dung trái pháp luật hoặc xâm phạm quyền của người khác.
-• Báo cáo sai sự thật, lạm dụng chức năng chặn hoặc SOS để gây phiền nhiễu.
+• Báo cáo sai sự thật hoặc lạm dụng chức năng chặn để gây phiền nhiễu.
 • Truy cập trái phép, khai thác lỗ hổng nhằm gây hại hoặc làm gián đoạn hệ thống.""",
       null,
     ),
     (
-      'Lịch trình AI và chức năng SOS',
-      """Lịch trình do trí tuệ nhân tạo gợi ý mang tính tham khảo. Người dùng cần kiểm tra lại địa điểm, giờ hoạt động, chi phí, điều kiện di chuyển và tính khả thi trước khi sử dụng.
-
-Chức năng SOS hỗ trợ phát cảnh báo và chia sẻ thông tin cần trợ giúp theo phạm vi chức năng đang được cung cấp. Khả năng gửi và tiếp nhận cảnh báo phụ thuộc vào kết nối mạng, quyền truy cập vị trí và tình trạng hoạt động của các dịch vụ liên quan.
-
-SOS không thay thế việc liên hệ cơ quan khẩn cấp hoặc lực lượng cứu hộ và không bảo đảm có người ứng cứu ngay lập tức. Trong tình huống nguy hiểm, người dùng cần chủ động liên hệ cơ quan có thẩm quyền hoặc người hỗ trợ phù hợp.
-
-Không được cố ý tạo cảnh báo SOS giả hoặc sử dụng chức năng này để quấy rối người khác.""",
-      'Cảnh báo an toàn: Tính năng SOS không thay thế cho các đầu số khẩn cấp quốc gia (113, 114, 115). Hãy ưu tiên liên hệ cơ quan chuyên trách trong tình huống nguy hiểm.',
+      'Lịch trình AI',
+      """Lịch trình do trí tuệ nhân tạo gợi ý mang tính tham khảo. Người dùng cần kiểm tra lại địa điểm, giờ hoạt động, chi phí, điều kiện di chuyển và tính khả thi trước khi sử dụng.""",
+      null,
     ),
     (
       'Xử lý vi phạm và hỗ trợ tranh chấp',
