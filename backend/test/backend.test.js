@@ -1061,3 +1061,44 @@ test('member with unsettled expenses debt cannot be kicked', async () => {
 });
 
 
+
+test('companion privacy changes hide posts and block outsider access and join requests', async () => {
+  const repo = require('../src/features/companions/companions.repository');
+  const service = require('../src/features/companions/companions.service');
+  await db.query("UPDATE users SET is_verified=TRUE, verification_status='VERIFIED' WHERE id=$1", [outsiderUser]);
+  await db.query("UPDATE trips SET privacy_type='PUBLIC', status='UPCOMING' WHERE id=$1", [tripId]);
+  const post = await repo.createCompanionPost({
+    tripId, creatorId: userA, title: 'Test recruitment', content: 'Join our test trip',
+    targetMembersCount: 4, currentMembersCount: 2,
+  });
+  assert.equal((await service.getCompanionPostDetail({ postId: post.id, userId: outsiderUser })).id, post.id);
+  assert.equal((await repo.getCompanionFeed({})).total, 1);
+  assert.deepEqual(await repo.getPostedTripIds(userA), [tripId]);
+
+  await db.query("UPDATE trips SET privacy_type='PRIVATE' WHERE id=$1", [tripId]);
+  assert.equal((await repo.getCompanionFeed({})).total, 0);
+  assert.deepEqual(await repo.getPostedTripIds(userA), []);
+  for (const viewer of [outsiderUser, null]) {
+    await assert.rejects(service.getCompanionPostDetail({ postId: post.id, userId: viewer }), { status: 403 });
+  }
+  for (const viewer of [userA, userB]) {
+    assert.equal((await service.getCompanionPostDetail({ postId: post.id, userId: viewer })).id, post.id);
+  }
+  await assert.rejects(service.createJoinRequest({ postId: post.id, userId: outsiderUser, introduction: 'Please let me join' }),
+    { status: 400, message: 'Không thể gửi yêu cầu tham gia chuyến đi riêng tư' });
+  assert.equal((await db.query('SELECT COUNT(*)::int AS n FROM companion_requests WHERE post_id=$1', [post.id])).rows[0].n, 0);
+  await db.query("UPDATE trip_members SET membership_status='REMOVED' WHERE trip_id=$1 AND user_id=$2", [tripId, userB]);
+  await assert.rejects(service.getCompanionPostDetail({ postId: post.id, userId: userB }), { status: 403 });
+
+  await db.query("UPDATE trips SET privacy_type='PUBLIC' WHERE id=$1", [tripId]);
+  assert.equal((await repo.getCompanionFeed({})).total, 1);
+  assert.deepEqual(await repo.getPostedTripIds(userA), [tripId]);
+  assert.equal((await service.getCompanionPostDetail({ postId: post.id, userId: outsiderUser })).id, post.id);
+  await service.createJoinRequest({ postId: post.id, userId: outsiderUser, introduction: 'Please let me join' });
+  assert.equal((await db.query('SELECT COUNT(*)::int AS n FROM companion_requests WHERE post_id=$1', [post.id])).rows[0].n, 1);
+  await repo.deleteCompanionPost(post.id);
+  await db.query("UPDATE trips SET privacy_type='PRIVATE' WHERE id=$1", [tripId]);
+  await db.query("UPDATE trips SET privacy_type='PUBLIC' WHERE id=$1", [tripId]);
+  assert.equal((await repo.getCompanionFeed({})).total, 0);
+  assert.deepEqual(await repo.getPostedTripIds(userA), []);
+});
