@@ -16,7 +16,6 @@ import '../../review/models/review_model.dart';
 import '../../review/viewmodels/review_viewmodel.dart';
 import '../../review/views/report_screen.dart';
 import '../../review/views/review_form_screen.dart';
-import '../../review/views/sos_screen.dart';
 import '../models/trip_model.dart';
 import '../repositories/trip_repository.dart';
 import '../viewmodels/trip_viewmodel.dart';
@@ -374,18 +373,6 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     return AppScaffold(
       title: trip?.name ?? 'Chi tiết chuyến đi',
       actions: [
-        if (trip?.status == 'ONGOING' && trip?.membershipStatus == 'ACTIVE')
-          TextButton.icon(
-            icon: const Icon(Icons.sos, color: Colors.red),
-            label: const Text('SOS', style: TextStyle(color: Colors.red)),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) =>
-                    SosScreen(tripId: trip!.id, tripName: trip.name),
-              ),
-            ),
-          ),
         if (trip?.isEditable == true)
           IconButton(
             tooltip: 'Chỉnh sửa chuyến đi',

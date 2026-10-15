@@ -1,7 +1,7 @@
 const Joi = require('joi');
 
 // ============================================================================
-// VALIDATION: Reviews, Reports, Blocks, Emergency Contacts & SOS
+// VALIDATION: Reviews, Reports, Blocks, Emergency Contacts
 // ============================================================================
 
 const uuidSchema = Joi.string().guid({
@@ -175,72 +175,13 @@ const updateEmergencyContactSchema = Joi.object({
     'object.min': 'Phải cung cấp ít nhất một thông tin cần cập nhật',
   });
 
-/**
- * Kích hoạt tín hiệu SOS.
- */
-const emergencySosSchema = Joi.object({
-  tripId: uuidSchema.allow(null).messages({
-    'string.guid': 'Mã chuyến đi phải là UUID hợp lệ',
-  }),
-
-  latitude: Joi.number()
-    .min(-90)
-    .max(90)
-    .required()
-    .messages({
-      'number.base': 'Vĩ độ phải là số',
-      'number.min': 'Vĩ độ không được nhỏ hơn -90',
-      'number.max': 'Vĩ độ không được lớn hơn 90',
-      'any.required': 'Vĩ độ hiện tại là bắt buộc',
-    }),
-
-  longitude: Joi.number()
-    .min(-180)
-    .max(180)
-    .required()
-    .messages({
-      'number.base': 'Kinh độ phải là số',
-      'number.min': 'Kinh độ không được nhỏ hơn -180',
-      'number.max': 'Kinh độ không được lớn hơn 180',
-      'any.required': 'Kinh độ hiện tại là bắt buộc',
-    }),
-
-  message: Joi.string()
-    .trim()
-    .max(500)
-    .allow(null, '')
-    .messages({
-      'string.max': 'Tin nhắn khẩn cấp không được vượt quá 500 ký tự',
-    }),
-});
-
-const activeSosQuerySchema = Joi.object({ tripId: uuidSchema });
 const tripReviewsQuerySchema = Joi.object({
   page: Joi.number().integer().min(1).max(100000).default(1),
   limit: Joi.number().integer().min(1).max(50).default(20),
 });
-const sosHistoryQuerySchema = Joi.object({
-  limit: Joi.number().integer().min(1).max(50).default(20),
-  offset: Joi.number().integer().min(0).max(1000000).default(0),
-});
 
 /**
- * Kết thúc cảnh báo SOS.
- *
- * Không cho client tự chuyển về ACTIVE.
- */
-const updateSosStatusSchema = Joi.object({
-  status: Joi.string()
-    .valid('RESOLVED', 'FALSE_ALARM')
-    .required()
-    .messages({
-      'any.only': 'Trạng thái SOS phải là RESOLVED hoặc FALSE_ALARM',
-      'any.required': 'Trạng thái SOS là bắt buộc',
-    }),
-});
-
-/**
- * Param UUID chung cho contactId, SOS ID và user ID cần bỏ chặn.
+ * Param UUID chung cho contactId, tripId và user ID cần bỏ chặn.
  */
 const idParamSchema = Joi.object({
   id: uuidSchema.required().messages({
@@ -257,9 +198,5 @@ module.exports = {
   blockUserSchema,
   createEmergencyContactSchema,
   updateEmergencyContactSchema,
-  emergencySosSchema,
-  activeSosQuerySchema,
-  sosHistoryQuerySchema,
-  updateSosStatusSchema,
   idParamSchema,
 };

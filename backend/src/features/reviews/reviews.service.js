@@ -3,7 +3,7 @@ const apiError = require('../../shared/utils/apiError.util');
 const HTTP_STATUS = require('../../shared/constants/httpStatus');
 
 // ============================================================================
-// SERVICE: Reviews, Reports, Blocks, Emergency Contacts & SOS
+// SERVICE: Reviews, Reports, Blocks, Emergency Contacts
 // ============================================================================
 
 const mapReview = (review) => ({
@@ -33,18 +33,6 @@ const mapEmergencyContact = (contact) => ({
     phone: contact.phone,
     relationship: contact.relationship,
     createdAt: contact.created_at,
-});
-
-const mapSos = (sos) => ({
-    id: sos.id,
-    userId: sos.user_id,
-    tripId: sos.trip_id,
-    latitude: sos.latitude,
-    longitude: sos.longitude,
-    message: sos.message,
-    status: sos.status,
-    createdAt: sos.created_at,
-    resolvedAt: sos.resolved_at,
 });
 
 /**
@@ -420,86 +408,6 @@ const deleteEmergencyContact = async ({ contactId, userId }) => {
     };
 };
 
-/**
- * Kích hoạt SOS.
- *
- * Nếu có tripId, người gửi phải tham gia chuyến đi đó.
- */
-const createSos = async ({
-    userId,
-    tripId,
-    latitude,
-    longitude,
-    message,
-}) => {
-    if (tripId) {
-        const trip = await reviewsRepository.findSosTripContext({ tripId, userId });
-
-        if (!trip) {
-            throw apiError(HTTP_STATUS.NOT_FOUND, 'Không tìm thấy chuyến đi');
-        }
-
-        if (!trip.is_member) {
-            throw apiError(
-                HTTP_STATUS.FORBIDDEN,
-                'Bạn không phải thành viên của chuyến đi này'
-            );
-        }
-        if (trip.status !== 'ONGOING') {
-            throw apiError(HTTP_STATUS.CONFLICT, 'Chỉ ghi nhận SOS cho chuyến đi đang diễn ra');
-        }
-    }
-
-    const sos = await reviewsRepository.createSos({
-        userId,
-        tripId: tripId || null,
-        latitude,
-        longitude,
-        message: message === '' || message === undefined ? null : message,
-    });
-
-    return mapSos(sos);
-};
-
-/**
- * Chuyển SOS từ ACTIVE sang RESOLVED hoặc FALSE_ALARM.
- */
-const updateSosStatus = async ({ sosId, userId, status }) => {
-    const existingSos = await reviewsRepository.findSosByIdForUser({
-        sosId,
-        userId,
-    });
-
-    if (!existingSos) {
-        throw apiError(
-            HTTP_STATUS.NOT_FOUND,
-            'Không tìm thấy cảnh báo SOS'
-        );
-    }
-
-    if (existingSos.status !== 'ACTIVE') {
-        throw apiError(
-            HTTP_STATUS.CONFLICT,
-            'Cảnh báo SOS này đã được kết thúc'
-        );
-    }
-
-    const updatedSos = await reviewsRepository.updateSosStatus({
-        sosId,
-        userId,
-        status,
-    });
-
-    if (!updatedSos) {
-        throw apiError(
-            HTTP_STATUS.CONFLICT,
-            'Trạng thái SOS vừa được thay đổi bởi một yêu cầu khác'
-        );
-    }
-
-    return mapSos(updatedSos);
-};
-
 const getTripReviews = async ({ tripId, page = 1, limit = 20 }) => {
     const result = await reviewsRepository.findPublicTripReviews({ tripId, page, limit });
     if (!result) {
@@ -526,29 +434,6 @@ const getTripReviews = async ({ tripId, page = 1, limit = 20 }) => {
     };
 };
 
-const getActiveSos = async ({ userId, tripId }) => {
-    const sos = await reviewsRepository.findActiveSos({ userId, tripId: tripId || null });
-    return sos ? mapSos(sos) : null;
-};
-
-const getSosHistory = async ({ userId, limit = 20, offset = 0 }) => {
-    const rows = await reviewsRepository.findSosHistory({ userId, limit: limit + 1, offset });
-    return {
-        items: rows.slice(0, limit).map(sos => ({
-            id: sos.id,
-            tripId: sos.trip_id,
-            tripName: sos.trip_name || null,
-            latitude: sos.latitude,
-            longitude: sos.longitude,
-            message: sos.message,
-            status: sos.status,
-            createdAt: sos.created_at,
-            resolvedAt: sos.resolved_at,
-        })),
-        hasMore: rows.length > limit,
-    };
-};
-
 module.exports = {
     reviewMember,
     reviewTrip,
@@ -561,8 +446,4 @@ module.exports = {
     createEmergencyContact,
     updateEmergencyContact,
     deleteEmergencyContact,
-    createSos,
-    getActiveSos,
-    getSosHistory,
-    updateSosStatus,
 };

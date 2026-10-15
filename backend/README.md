@@ -35,7 +35,7 @@ backend/
 │       ├── itineraries/     # Lịch trình ngày, hoạt động, Smart Swap
 │       ├── companions/      # Bảng tin Newsfeed tìm bạn đồng hành
 │       ├── expenses/        # Chi phí, Split Bill, VietQR
-│       ├── reviews/         # Đánh giá, báo cáo, SOS
+│       ├── reviews/         # Đánh giá, báo cáo, chặn người dùng, liên hệ khẩn cấp
 │       ├── ai-planner/      # Tích hợp AI gợi ý lịch trình
 │       └── admin/           # Phê duyệt, quản trị hệ thống
 ```

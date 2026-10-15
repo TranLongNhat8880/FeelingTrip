@@ -13,10 +13,6 @@ const {
     blockUserSchema,
     createEmergencyContactSchema,
     updateEmergencyContactSchema,
-    emergencySosSchema,
-    activeSosQuerySchema,
-    sosHistoryQuerySchema,
-    updateSosStatusSchema,
     idParamSchema,
 } = require('./reviews.validation');
 
@@ -116,28 +112,6 @@ router.delete(
     '/emergency-contacts/:id',
     validate({ params: idParamSchema }),
     reviewsController.deleteEmergencyContact
-);
-
-// ============================================================================
-// SOS
-// ============================================================================
-
-router.get('/sos/active', validate({ query: activeSosQuerySchema }), reviewsController.getActiveSos);
-router.get('/sos/history', validate({ query: sosHistoryQuerySchema }), reviewsController.getSosHistory);
-
-router.post(
-    '/sos',
-    validate({ body: emergencySosSchema }),
-    reviewsController.createSos
-);
-
-router.put(
-    '/sos/:id/status',
-    validate({
-        params: idParamSchema,
-        body: updateSosStatusSchema,
-    }),
-    reviewsController.updateSosStatus
 );
 
 module.exports = router;

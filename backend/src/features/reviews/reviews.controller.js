@@ -3,7 +3,7 @@ const { sendSuccess } = require('../../shared/utils/response.util');
 const HTTP_STATUS = require('../../shared/constants/httpStatus');
 
 // ============================================================================
-// CONTROLLER: Reviews, Reports, Blocks, Emergency Contacts & SOS
+// CONTROLLER: Reviews, Reports, Blocks, Emergency Contacts
 // ============================================================================
 
 /**
@@ -223,54 +223,6 @@ const deleteEmergencyContact = async (req, res, next) => {
     }
 };
 
-/**
- * [POST] /api/v1/reviews/sos
- */
-const createSos = async (req, res, next) => {
-    try {
-        const result = await reviewsService.createSos({
-            userId: req.user.id,
-            tripId: req.body.tripId,
-            latitude: req.body.latitude,
-            longitude: req.body.longitude,
-            message: req.body.message,
-        });
-
-        return sendSuccess(
-            res,
-            result,
-            'Đã ghi nhận SOS; người dùng cần chủ động gọi hoặc gửi tin nhắn',
-            HTTP_STATUS.CREATED
-        );
-    } catch (error) {
-        next(error);
-    }
-};
-
-/**
- * [PUT] /api/v1/reviews/sos/:id/status
- */
-const updateSosStatus = async (req, res, next) => {
-    try {
-        const result = await reviewsService.updateSosStatus({
-            sosId: req.params.id,
-            userId: req.user.id,
-            status: req.body.status,
-        });
-
-        return sendSuccess(
-            res,
-            result,
-            req.body.status === 'FALSE_ALARM'
-                ? 'Đã đánh dấu cảnh báo là báo nhầm'
-                : 'Đã xác nhận người dùng an toàn',
-            HTTP_STATUS.OK
-        );
-    } catch (error) {
-        next(error);
-    }
-};
-
 const getTripReviews = async (req, res, next) => {
     try {
         const result = await reviewsService.getTripReviews({
@@ -279,24 +231,6 @@ const getTripReviews = async (req, res, next) => {
             limit: req.query.limit,
         });
         return sendSuccess(res, result, 'Đánh giá lịch trình cộng đồng', HTTP_STATUS.OK);
-    } catch (error) { next(error); }
-};
-
-const getSosHistory = async (req, res, next) => {
-    try {
-        const result = await reviewsService.getSosHistory({
-            userId: req.user.id,
-            limit: req.query.limit,
-            offset: req.query.offset,
-        });
-        return sendSuccess(res, result, 'Lịch sử SOS của bạn', HTTP_STATUS.OK);
-    } catch (error) { next(error); }
-};
-
-const getActiveSos = async (req, res, next) => {
-    try {
-        const result = await reviewsService.getActiveSos({ userId: req.user.id, tripId: req.query.tripId });
-        return sendSuccess(res, result, 'Trạng thái SOS của bạn', HTTP_STATUS.OK);
     } catch (error) { next(error); }
 };
 
@@ -312,8 +246,4 @@ module.exports = {
     createEmergencyContact,
     updateEmergencyContact,
     deleteEmergencyContact,
-    createSos,
-    getActiveSos,
-    getSosHistory,
-    updateSosStatus,
 };
