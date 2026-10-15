@@ -11,8 +11,6 @@ const {
     tripReviewsQuerySchema,
     reportSchema,
     blockUserSchema,
-    createEmergencyContactSchema,
-    updateEmergencyContactSchema,
     idParamSchema,
 } = require('./reviews.validation');
 
@@ -82,36 +80,6 @@ router.delete(
     '/block/:id',
     validate({ params: idParamSchema }),
     reviewsController.unblockUser
-);
-
-// ============================================================================
-// EMERGENCY CONTACTS
-// ============================================================================
-
-router.get(
-    '/emergency-contacts',
-    reviewsController.getEmergencyContacts
-);
-
-router.post(
-    '/emergency-contacts',
-    validate({ body: createEmergencyContactSchema }),
-    reviewsController.createEmergencyContact
-);
-
-router.put(
-    '/emergency-contacts/:id',
-    validate({
-        params: idParamSchema,
-        body: updateEmergencyContactSchema,
-    }),
-    reviewsController.updateEmergencyContact
-);
-
-router.delete(
-    '/emergency-contacts/:id',
-    validate({ params: idParamSchema }),
-    reviewsController.deleteEmergencyContact
 );
 
 module.exports = router;

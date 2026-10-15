@@ -3,7 +3,7 @@ const { sendSuccess } = require('../../shared/utils/response.util');
 const HTTP_STATUS = require('../../shared/constants/httpStatus');
 
 // ============================================================================
-// CONTROLLER: Reviews, Reports, Blocks, Emergency Contacts
+// CONTROLLER: Reviews, Reports, Blocks
 // ============================================================================
 
 /**
@@ -139,90 +139,6 @@ const getBlockedUsers = async (req, res, next) => {
     }
 };
 
-/**
- * [GET] /api/v1/reviews/emergency-contacts
- */
-const getEmergencyContacts = async (req, res, next) => {
-    try {
-        const result = await reviewsService.getEmergencyContacts(req.user.id);
-
-        return sendSuccess(
-            res,
-            result,
-            'Lấy danh sách liên hệ khẩn cấp thành công',
-            HTTP_STATUS.OK
-        );
-    } catch (error) {
-        next(error);
-    }
-};
-
-/**
- * [POST] /api/v1/reviews/emergency-contacts
- */
-const createEmergencyContact = async (req, res, next) => {
-    try {
-        const result = await reviewsService.createEmergencyContact({
-            userId: req.user.id,
-            fullName: req.body.fullName,
-            phone: req.body.phone,
-            relationship: req.body.relationship,
-        });
-
-        return sendSuccess(
-            res,
-            result,
-            'Thêm người liên hệ khẩn cấp thành công',
-            HTTP_STATUS.CREATED
-        );
-    } catch (error) {
-        next(error);
-    }
-};
-
-/**
- * [PUT] /api/v1/reviews/emergency-contacts/:id
- */
-const updateEmergencyContact = async (req, res, next) => {
-    try {
-        const result = await reviewsService.updateEmergencyContact({
-            contactId: req.params.id,
-            userId: req.user.id,
-            contactData: req.body,
-        });
-
-        return sendSuccess(
-            res,
-            result,
-            'Cập nhật người liên hệ khẩn cấp thành công',
-            HTTP_STATUS.OK
-        );
-    } catch (error) {
-        next(error);
-    }
-};
-
-/**
- * [DELETE] /api/v1/reviews/emergency-contacts/:id
- */
-const deleteEmergencyContact = async (req, res, next) => {
-    try {
-        const result = await reviewsService.deleteEmergencyContact({
-            contactId: req.params.id,
-            userId: req.user.id,
-        });
-
-        return sendSuccess(
-            res,
-            result,
-            'Xóa người liên hệ khẩn cấp thành công',
-            HTTP_STATUS.OK
-        );
-    } catch (error) {
-        next(error);
-    }
-};
-
 const getTripReviews = async (req, res, next) => {
     try {
         const result = await reviewsService.getTripReviews({
@@ -242,8 +158,4 @@ module.exports = {
     blockUser,
     unblockUser,
     getBlockedUsers,
-    getEmergencyContacts,
-    createEmergencyContact,
-    updateEmergencyContact,
-    deleteEmergencyContact,
 };

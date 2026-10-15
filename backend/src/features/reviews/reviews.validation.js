@@ -1,7 +1,7 @@
 const Joi = require('joi');
 
 // ============================================================================
-// VALIDATION: Reviews, Reports, Blocks, Emergency Contacts
+// VALIDATION: Reviews, Reports, Blocks
 // ============================================================================
 
 const uuidSchema = Joi.string().guid({
@@ -103,85 +103,13 @@ const blockUserSchema = Joi.object({
   }),
 });
 
-/**
- * Tạo người liên hệ khẩn cấp.
- */
-const createEmergencyContactSchema = Joi.object({
-  fullName: Joi.string()
-    .trim()
-    .min(2)
-    .max(100)
-    .required()
-    .messages({
-      'string.empty': 'Tên người liên hệ không được để trống',
-      'string.min': 'Tên người liên hệ phải có ít nhất 2 ký tự',
-      'string.max': 'Tên người liên hệ không được vượt quá 100 ký tự',
-      'any.required': 'Tên người liên hệ là bắt buộc',
-    }),
-
-  phone: Joi.string()
-    .trim()
-    .pattern(/^\+?[0-9]{9,15}$/)
-    .required()
-    .messages({
-      'string.empty': 'Số điện thoại không được để trống',
-      'string.pattern.base':
-        'Số điện thoại phải gồm 9 đến 15 chữ số và có thể bắt đầu bằng dấu +',
-      'any.required': 'Số điện thoại là bắt buộc',
-    }),
-
-  relationship: Joi.string()
-    .trim()
-    .max(100)
-    .allow(null, '')
-    .messages({
-      'string.max': 'Mối quan hệ không được vượt quá 100 ký tự',
-    }),
-});
-
-/**
- * Cập nhật người liên hệ khẩn cấp.
- */
-const updateEmergencyContactSchema = Joi.object({
-  fullName: Joi.string()
-    .trim()
-    .min(2)
-    .max(100)
-    .messages({
-      'string.empty': 'Tên người liên hệ không được để trống',
-      'string.min': 'Tên người liên hệ phải có ít nhất 2 ký tự',
-      'string.max': 'Tên người liên hệ không được vượt quá 100 ký tự',
-    }),
-
-  phone: Joi.string()
-    .trim()
-    .pattern(/^\+?[0-9]{9,15}$/)
-    .messages({
-      'string.empty': 'Số điện thoại không được để trống',
-      'string.pattern.base':
-        'Số điện thoại phải gồm 9 đến 15 chữ số và có thể bắt đầu bằng dấu +',
-    }),
-
-  relationship: Joi.string()
-    .trim()
-    .max(100)
-    .allow(null, '')
-    .messages({
-      'string.max': 'Mối quan hệ không được vượt quá 100 ký tự',
-    }),
-})
-  .min(1)
-  .messages({
-    'object.min': 'Phải cung cấp ít nhất một thông tin cần cập nhật',
-  });
-
 const tripReviewsQuerySchema = Joi.object({
   page: Joi.number().integer().min(1).max(100000).default(1),
   limit: Joi.number().integer().min(1).max(50).default(20),
 });
 
 /**
- * Param UUID chung cho contactId, tripId và user ID cần bỏ chặn.
+ * Param UUID chung cho tripId và user ID cần bỏ chặn.
  */
 const idParamSchema = Joi.object({
   id: uuidSchema.required().messages({
@@ -196,7 +124,5 @@ module.exports = {
   tripReviewsQuerySchema,
   reportSchema,
   blockUserSchema,
-  createEmergencyContactSchema,
-  updateEmergencyContactSchema,
   idParamSchema,
 };
