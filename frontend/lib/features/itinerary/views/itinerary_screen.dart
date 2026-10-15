@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/app_utils.dart';
@@ -96,13 +97,16 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
             label: 'Tiêu đề ngày',
             hint: 'Ví dụ: Khám phá trung tâm, Check-in biển...',
             controller: controller,
+            inputFormatters: [LengthLimitingTextInputFormatter(255)],
           ),
           const SizedBox(height: 16),
           CustomButton(
             text: 'Lưu tiêu đề',
             onPressed: () {
               final value = controller.text.trim();
-              if (value.isNotEmpty) Navigator.pop(context, value);
+              if (value.isNotEmpty && value.length <= 255) {
+                Navigator.pop(context, value);
+              }
             },
           ),
         ],

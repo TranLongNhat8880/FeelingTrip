@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_sizes.dart';
 import '../../../core/utils/app_utils.dart';
 import '../../../shared/ui_kit.dart';
 import '../../review/repositories/trip_reviews_repository.dart';
@@ -8,8 +10,9 @@ import '../../review/views/widgets/trip_reviews_section.dart';
 import '../models/itinerary_model.dart';
 import '../repositories/itinerary_repository.dart';
 import '../viewmodels/itinerary_viewmodel.dart';
-import 'itinerary_screen.dart';
 import '../../admin/views/plan_library_screen.dart';
+import 'itinerary_screen.dart';
+import 'public_itinerary_search_screen.dart';
 
 class PublicItinerariesScreen extends StatefulWidget {
   const PublicItinerariesScreen({
@@ -17,11 +20,17 @@ class PublicItinerariesScreen extends StatefulWidget {
     this.repository,
     this.initialDestination,
     this.reviewsRepository,
+    this.embedded = false,
+    this.onMenuTap,
+    this.onProfileTap,
   });
 
   final ItineraryRepository? repository;
   final String? initialDestination;
   final TripReviewsRepository? reviewsRepository;
+  final bool embedded;
+  final VoidCallback? onMenuTap;
+  final VoidCallback? onProfileTap;
 
   @override
   State<PublicItinerariesScreen> createState() =>
@@ -30,16 +39,15 @@ class PublicItinerariesScreen extends StatefulWidget {
 
 class _PublicItinerariesScreenState extends State<PublicItinerariesScreen> {
   late final PublicItineraryViewModel _viewModel;
-  late final TextEditingController _destination;
-  final _keyword = TextEditingController();
+  String? _activeFilter;
 
   @override
   void initState() {
     super.initState();
-    _destination = TextEditingController(text: widget.initialDestination);
+    _activeFilter = widget.initialDestination;
     _viewModel = PublicItineraryViewModel(repository: widget.repository)
       ..addListener(_onChanged)
-      ..load(destination: widget.initialDestination);
+      ..load(destination: _activeFilter);
   }
 
   void _onChanged() {
@@ -50,26 +58,108 @@ class _PublicItinerariesScreenState extends State<PublicItinerariesScreen> {
   void dispose() {
     _viewModel.removeListener(_onChanged);
     _viewModel.dispose();
-    _destination.dispose();
-    _keyword.dispose();
     super.dispose();
   }
 
-  Future<void> _search() =>
-      _viewModel.load(destination: _destination.text, keyword: _keyword.text);
+  Future<void> _refresh() => _viewModel.load(destination: _activeFilter);
+
+  void _clearFilter() {
+    setState(() => _activeFilter = null);
+    _viewModel.load();
+  }
+
+  Future<void> _openSearch() async {
+    final query = await Navigator.push<String?>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PublicItinerarySearchScreen(
+          repository: widget.repository,
+          destinations: _viewModel.plans
+              .map((p) => p.destination)
+              .where((d) => d.isNotEmpty)
+              .toSet()
+              .toList(),
+          initialQuery: _activeFilter,
+        ),
+      ),
+    );
+    if (query != null && query.trim().isNotEmpty && mounted) {
+      setState(() => _activeFilter = query.trim());
+      _viewModel.load(keyword: query.trim());
+    }
+  }
 
   @override
-  Widget build(BuildContext context) => AppScaffold(
-    title: 'Kho lịch trình',
-    padding: EdgeInsets.zero,
-    body: RefreshIndicator(
-      onRefresh: _search,
+  Widget build(BuildContext context) {
+    final hasActiveFilter =
+        _activeFilter != null && _activeFilter!.trim().isNotEmpty;
+    final content = RefreshIndicator(
+      onRefresh: _refresh,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 80),
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 80),
         children: [
-          const AppInlineNotice(
-            message:
-                'Chỉ hiển thị chuyến đi công khai đã hoàn thành. Khi nhân bản, hệ thống tạo một chuyến đi riêng để bạn chỉnh sửa.',
+          Semantics(
+            button: true,
+            label: 'Tìm kiếm lịch trình cộng đồng',
+            child: Material(
+              color: AppColors.inputSurface,
+              borderRadius: BorderRadius.circular(28),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(28),
+                onTap: _openSearch,
+                child: Container(
+                  constraints: const BoxConstraints(minHeight: 48),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(28),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.search_rounded,
+                        color: AppColors.textHint,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          hasActiveFilter
+                              ? _activeFilter!
+                              : 'Tìm kiếm lịch trình, điểm đến...',
+                          style: TextStyle(
+                            color: hasActiveFilter
+                                ? AppColors.textPrimary
+                                : AppColors.textHint,
+                            fontSize: 14,
+                            fontWeight: hasActiveFilter
+                                ? FontWeight.w500
+                                : FontWeight.normal,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (hasActiveFilter)
+                        GestureDetector(
+                          onTap: _clearFilter,
+                          child: const Padding(
+                            padding: EdgeInsets.only(left: 8),
+                            child: Icon(
+                              Icons.cancel_rounded,
+                              color: AppColors.textSecondary,
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ),
           const SizedBox(height: 12),
           CustomButton(
@@ -82,45 +172,30 @@ class _PublicItinerariesScreenState extends State<PublicItinerariesScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          CustomTextField(
-            label: 'Điểm đến',
-            controller: _destination,
-            prefixIcon: Icons.location_on_outlined,
-          ),
-          const SizedBox(height: 10),
-          AppSearchField(
-            controller: _keyword,
-            hint: 'Tên lịch trình hoặc điểm dừng',
-            onChanged: (_) {},
-          ),
-          const SizedBox(height: 10),
-          CustomButton(
-            text: 'Tìm lịch trình',
-            icon: Icons.search_rounded,
-            variant: AppButtonVariant.secondary,
-            onPressed: _viewModel.isLoading ? null : _search,
-          ),
-          const SizedBox(height: 22),
           SectionHeader(
             title: 'Lịch trình cộng đồng',
-            subtitle: '${_viewModel.plans.length} kết quả phù hợp',
+            subtitle: hasActiveFilter
+                ? '${_viewModel.plans.length} kết quả cho “$_activeFilter”'
+                : '${_viewModel.plans.length} kết quả phù hợp',
           ),
           const SizedBox(height: 12),
           if (_viewModel.isLoading && _viewModel.plans.isEmpty)
-            const LoadingIndicator(message: 'Đang tìm lịch trình...')
+            const LoadingIndicator(message: 'Đang tải lịch trình...')
           else if (_viewModel.errorMessage != null && _viewModel.plans.isEmpty)
-            ErrorState(message: _viewModel.errorMessage!, onRetry: _search)
+            ErrorState(message: _viewModel.errorMessage!, onRetry: _refresh)
           else if (_viewModel.plans.isEmpty)
-            const EmptyStateWidget(
-              icon: Icons.auto_awesome_outlined,
+            EmptyStateWidget(
+              icon: Icons.search_off_rounded,
               title: 'Chưa có lịch trình phù hợp',
-              message: 'Thử thay đổi điểm đến hoặc từ khóa tìm kiếm.',
+              message: hasActiveFilter
+                  ? 'Không tìm thấy lịch trình cho “$_activeFilter”. Thử thay đổi từ khóa.'
+                  : 'Hiện chưa có lịch trình công khai nào.',
             )
           else
             for (final plan in _viewModel.plans)
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
-                child: _PublicPlanCard(
+                child: PublicPlanCard(
                   plan: plan,
                   onTap: () => Navigator.push(
                     context,
@@ -136,12 +211,81 @@ class _PublicItinerariesScreenState extends State<PublicItinerariesScreen> {
               ),
         ],
       ),
-    ),
-  );
+    );
+
+    if (widget.embedded) {
+      return TravelBackdrop(
+        child: SafeArea(
+          bottom: false,
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: AppSizes.documentMaxWidth,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
+                    child: Row(
+                      children: [
+                        if (widget.onMenuTap != null)
+                          IconButton(
+                            tooltip: 'Mở menu',
+                            onPressed: widget.onMenuTap,
+                            icon: const Icon(
+                              Icons.menu_rounded,
+                              size: 24,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        const SizedBox(width: 4),
+                        const Expanded(
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: TravelBrand(width: 160),
+                          ),
+                        ),
+                        if (widget.onProfileTap != null)
+                          IconButton(
+                            tooltip: 'Mở trang cá nhân',
+                            onPressed: widget.onProfileTap,
+                            icon: const Icon(
+                              Icons.person_outline_rounded,
+                              size: 24,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+                    child: Text(
+                      'Kho lịch trình',
+                      style: Theme.of(context).textTheme.headlineMedium,
+                    ),
+                  ),
+                  Expanded(child: content),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return AppScaffold(
+      title: 'Kho lịch trình',
+      padding: EdgeInsets.zero,
+      body: content,
+    );
+  }
 }
 
-class _PublicPlanCard extends StatelessWidget {
-  const _PublicPlanCard({required this.plan, required this.onTap});
+class PublicPlanCard extends StatelessWidget {
+  const PublicPlanCard({super.key, required this.plan, required this.onTap});
 
   final PublicItinerarySummary plan;
   final VoidCallback onTap;
@@ -158,31 +302,119 @@ class _PublicPlanCard extends StatelessWidget {
             Expanded(
               child: Text(
                 plan.name,
-                style: Theme.of(context).textTheme.titleMedium,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
               ),
             ),
-            const Icon(Icons.chevron_right_rounded),
+            const SizedBox(width: 8),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: AppColors.textSecondary,
+            ),
           ],
         ),
         const SizedBox(height: 8),
-        Text(
-          '${plan.destination} · ${plan.durationDays} ngày',
-          style: Theme.of(
-            context,
-          ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
+        Row(
+          children: [
+            const Icon(
+              Icons.location_on_outlined,
+              size: 16,
+              color: AppColors.primary,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              plan.destination,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '·  ${plan.durationDays} ngày',
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
+            ),
+          ],
         ),
-        if (plan.description != null) ...[
+        if (plan.description != null && plan.description!.isNotEmpty) ...[
           const SizedBox(height: 8),
-          Text(plan.description!, maxLines: 2, overflow: TextOverflow.ellipsis),
+          Text(
+            plan.description!,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: AppColors.textSecondary,
+              height: 1.4,
+            ),
+          ),
         ],
         const SizedBox(height: 12),
-        Wrap(
-          spacing: 14,
+        Row(
           children: [
-            Text(
-              '★ ${plan.averageRating.toStringAsFixed(1)} (${plan.reviewCount})',
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF3C7),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.star_rounded,
+                    size: 15,
+                    color: Color(0xFFD97706),
+                  ),
+                  const SizedBox(width: 3),
+                  Text(
+                    plan.averageRating.toStringAsFixed(1),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF92400E),
+                    ),
+                  ),
+                  if (plan.reviewCount > 0)
+                    Text(
+                      ' (${plan.reviewCount})',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF92400E),
+                      ),
+                    ),
+                ],
+              ),
             ),
-            Text('${plan.cloneCount} lượt sử dụng'),
+            const SizedBox(width: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: AppColors.primarySurface,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.fork_right_rounded,
+                    size: 15,
+                    color: AppColors.primary,
+                  ),
+                  const SizedBox(width: 3),
+                  Text(
+                    '${plan.cloneCount} lượt dùng',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ],
@@ -245,6 +477,7 @@ class _PublicItineraryDetailScreenState
               label: 'Tên chuyến đi mới',
               controller: name,
               prefixIcon: Icons.luggage_outlined,
+              inputFormatters: [LengthLimitingTextInputFormatter(255)],
             ),
             const SizedBox(height: 14),
             AppSelectionField(
@@ -264,10 +497,21 @@ class _PublicItineraryDetailScreenState
             const SizedBox(height: 18),
             CustomButton(
               text: 'Tạo bản sao',
-              onPressed: () => Navigator.pop(context, (
-                name: name.text.trim(),
-                startDate: startDate,
-              )),
+              onPressed: () {
+                final trimmedName = name.text.trim();
+                if (trimmedName.length < 2) {
+                  AppFeedback.show(
+                    context,
+                    'Tên chuyến đi cần ít nhất 2 ký tự.',
+                    tone: AppStatusTone.warning,
+                  );
+                  return;
+                }
+                Navigator.pop(context, (
+                  name: trimmedName,
+                  startDate: startDate,
+                ));
+              },
             ),
           ],
         ),

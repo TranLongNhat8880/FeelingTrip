@@ -17,7 +17,7 @@ import '../../companion/models/companion_post_model.dart';
 import '../../companion/repositories/mock_companion_repository.dart';
 import '../../notification/viewmodels/notification_viewmodel.dart';
 import '../../notification/views/notification_screen.dart';
-import '../../admin/views/plan_library_screen.dart';
+import '../../itinerary/views/public_itineraries_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -49,13 +49,12 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  static const _titles = ['Trang chủ', 'Chuyến đi', 'Thông báo', 'Cá nhân'];
   final _scaffold = GlobalKey<ScaffoldState>();
   bool _logoutPromptOpen = false;
 
   void _select(int index) {
     setState(() => _tab = index);
-    if (index == 2) _notifications.load();
+    if (index == 3) _notifications.load();
     if (index == 1) _loadTrips();
   }
 
@@ -183,7 +182,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       IconButton(
                         tooltip: 'Mở trang cá nhân',
-                        onPressed: () => _select(3),
+                        onPressed: () => _select(4),
                         icon: AvatarPlaceholder(
                           name: name,
                           imageUrl: user.avatarUrl,
@@ -200,7 +199,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Text(_titles[_tab], style: text.headlineMedium),
+                        Text('Chuyến đi', style: text.headlineMedium),
                         const SizedBox(height: 8),
                         if (_tab == 1) ...[
                           // ── TAB 1: KẾ HOẠCH & CHUYẾN ĐI CỦA TÔI ──
@@ -405,6 +404,10 @@ class _HomeScreenState extends State<HomeScreen> {
             label: 'Chuyến đi',
             icon: Icons.luggage_outlined,
           ),
+          const AppNavigationItem(
+            label: 'Cộng đồng',
+            icon: Icons.alt_route_rounded,
+          ),
           AppNavigationItem(
             label: 'Thông báo',
             icon: Icons.notifications_none_rounded,
@@ -414,16 +417,18 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       body: IndexedStack(
-        index: _tab == 0
-            ? 0
-            : _tab == 2
-            ? 1
-            : 2,
+        index: _tab,
         children: [
           CompanionFeedScreen(
             embedded: true,
             active: _tab == 0,
-            onProfileTap: () => _select(3),
+            onProfileTap: () => _select(4),
+          ),
+          legacyTabs,
+          PublicItinerariesScreen(
+            embedded: true,
+            onMenuTap: () => _scaffold.currentState?.openDrawer(),
+            onProfileTap: () => _select(4),
           ),
           Center(
             child: ConstrainedBox(
@@ -433,17 +438,12 @@ class _HomeScreenState extends State<HomeScreen> {
               child: NotificationScreen(viewModel: _notifications),
             ),
           ),
-          if (_tab == 3)
-            PersonalContent(
-              user: user,
-              loading: auth.isLoading,
-              error: auth.errorMessage,
-              onLogout: _confirmLogout,
-            )
-          else if (_tab == 1)
-            legacyTabs
-          else
-            const SizedBox.shrink(),
+          PersonalContent(
+            user: user,
+            loading: auth.isLoading,
+            error: auth.errorMessage,
+            onLogout: _confirmLogout,
+          ),
         ],
       ),
     );
@@ -543,12 +543,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 color: Color(0xFF0D9488),
               ),
               title: const Text('Kho lịch trình & mẫu'),
+              selected: _tab == 2,
+              selectedColor: AppColors.primary,
               onTap: () {
                 Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const PlanLibraryScreen()),
-                );
+                _select(2);
               },
             ),
             ListTile(
@@ -605,6 +604,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
               },
             ),
+            ListTile(
+              leading: const Icon(Icons.mail_outline),
+              title: const Text('Lời mời của tôi'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, AppRoutes.tripInvitations);
+              },
+            ),
             const Divider(height: 20),
             const Padding(
               padding: EdgeInsets.fromLTRB(20, 8, 20, 8),
@@ -643,7 +650,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ListTile(
               leading: const Icon(Icons.notifications_none_rounded),
               title: const Text('Thông báo'),
-              selected: _tab == 2,
+              selected: _tab == 3,
               selectedColor: AppColors.primary,
               trailing: _notifications.unreadCount > 0
                   ? Container(
@@ -667,7 +674,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   : null,
               onTap: () {
                 Navigator.pop(context);
-                _select(2);
+                _select(3);
               },
             ),
             if (user.isAdmin) ...[
