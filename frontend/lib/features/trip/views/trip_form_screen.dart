@@ -13,9 +13,15 @@ import '../repositories/trip_repository.dart';
 import '../viewmodels/trip_viewmodel.dart';
 
 class TripFormScreen extends StatefulWidget {
-  const TripFormScreen({super.key, this.repository, this.trip});
+  const TripFormScreen({
+    super.key,
+    this.repository,
+    this.trip,
+    this.initialConvertToPublic = false,
+  });
   final TripRepository? repository;
   final TripModel? trip;
+  final bool initialConvertToPublic;
 
   @override
   State<TripFormScreen> createState() => _TripFormScreenState();
@@ -102,6 +108,9 @@ class _TripFormScreenState extends State<TripFormScreen> {
     _startLabel = TextEditingController(text: AppUtils.formatDate(_startDate));
     _endLabel = TextEditingController(text: AppUtils.formatDate(_endDate));
     _isPublic = trip?.isPublic ?? false;
+    if (_editing && widget.trip?.isPublic != true && widget.initialConvertToPublic) {
+      _isPublic = true;
+    }
   }
 
   void _onChanged() {
@@ -505,7 +514,13 @@ class _TripFormScreenState extends State<TripFormScreen> {
     title: _editing ? 'Chỉnh sửa chuyến đi' : 'Tạo chuyến đi',
     scrollable: true,
     bottomAction: CustomButton(
-      text: _editing ? 'Lưu thay đổi' : 'Tạo chuyến đi',
+      text: _editing
+          ? (_isConvertingToPublic
+              ? 'Lưu & Đăng tuyển bạn'
+              : (widget.trip?.isPublic == true && !_isPublic
+                  ? 'Lưu & Chuyển về Riêng tư'
+                  : 'Lưu thay đổi'))
+          : 'Tạo chuyến đi',
       isLoading: _viewModel.isSubmitting,
       onPressed: _viewModel.isSubmitting ? null : _save,
     ),
@@ -537,9 +552,13 @@ class _TripFormScreenState extends State<TripFormScreen> {
               validator: (value) {
                 final text = (value ?? '').trim();
                 if (text.isEmpty && !_editing) return null;
-                return text.length < 2
-                    ? 'Tên chuyến đi cần ít nhất 2 ký tự'
-                    : null;
+                if (text.length < 2) {
+                  return 'Tên chuyến đi cần ít nhất 2 ký tự';
+                }
+                if (text.length > 255) {
+                  return 'Tên chuyến đi không được vượt quá 255 ký tự';
+                }
+                return null;
               },
             ),
             const SizedBox(height: 14),
@@ -557,9 +576,16 @@ class _TripFormScreenState extends State<TripFormScreen> {
                 ),
                 onPressed: _pickDestinationFromMap,
               ),
-              validator: (value) => (value ?? '').trim().length < 2
-                  ? 'Vui lòng nhập điểm đến'
-                  : null,
+              validator: (value) {
+                final text = (value ?? '').trim();
+                if (text.length < 2) {
+                  return 'Vui lòng nhập điểm đến (tối thiểu 2 ký tự)';
+                }
+                if (text.length > 255) {
+                  return 'Điểm đến không được vượt quá 255 ký tự';
+                }
+                return null;
+              },
             ),
             _destinationCoordinatesBadge(),
             const SizedBox(height: 12),
@@ -592,50 +618,14 @@ class _TripFormScreenState extends State<TripFormScreen> {
                   '${_endDate.difference(_startDate).inDays + 1} ngày · ${AppUtils.formatDate(_startDate)} – ${AppUtils.formatDate(_endDate)}',
             ),
             const SizedBox(height: 24),
-            Text(
-              'Ai có thể xem chuyến đi?',
-              style: Theme.of(context).textTheme.titleMedium,
+            SectionHeader(
+              title: 'Quyền riêng tư',
+              subtitle: _editing
+                  ? 'Quản lý trạng thái công khai và tìm bạn đồng hành.'
+                  : 'Mặc định chuyến đi mới được bảo mật riêng tư.',
             ),
             const SizedBox(height: 10),
-            SegmentedButton<bool>(
-              segments: const [
-                ButtonSegment<bool>(
-                  value: false,
-                  icon: Icon(Icons.lock_outline_rounded),
-                  label: Text('Nhóm riêng tư'),
-                ),
-                ButtonSegment<bool>(
-                  value: true,
-                  icon: Icon(Icons.public_rounded),
-                  label: Text('Nhóm công khai'),
-                ),
-              ],
-              selected: {_isPublic},
-              onSelectionChanged: (values) {
-                final selected = values.first;
-                if (selected) {
-                  final isVerified =
-                      AuthScope.of(context).user?.hasVerifiedEkyc == true;
-                  if (!isVerified) {
-                    AppFeedback.show(
-                      context,
-                      'Bạn cần hoàn thành xác minh danh tính (eKYC) trước khi chọn tạo chuyến đi công khai.',
-                      tone: AppStatusTone.warning,
-                    );
-                    return;
-                  }
-                }
-                setState(() => _isPublic = selected);
-              },
-            ),
-            const SizedBox(height: 10),
-            AppInlineNotice(
-              message: _isPublic
-                  ? 'Nhóm công khai sẽ tự động tạo bài đăng trên Bảng tin ghép đoàn để mọi người có thể xem và gửi yêu cầu tham gia.'
-                  : 'Nhóm riêng tư chỉ nhận thành viên qua mã hoặc lời mời trực tiếp.',
-              tone: _isPublic ? AppStatusTone.success : AppStatusTone.info,
-            ),
-            if (_isConvertingToPublic) _companionSetupSection(),
+            _privacySection(),
             const SizedBox(height: 20),
             AppCard(
               outlined: true,
@@ -659,6 +649,13 @@ class _TripFormScreenState extends State<TripFormScreen> {
                     controller: _description,
                     maxLines: 4,
                     prefixIcon: Icons.notes_outlined,
+                    validator: (value) {
+                      final text = (value ?? '').trim();
+                      if (text.isNotEmpty && text.length > 2000) {
+                        return 'Mô tả không được vượt quá 2000 ký tự';
+                      }
+                      return null;
+                    },
                   ),
                   const SizedBox(height: 14),
                   ImagePickerField(
@@ -711,6 +708,369 @@ class _TripFormScreenState extends State<TripFormScreen> {
     return text.length < min || text.length > max
         ? 'Nhập từ $min đến $max ký tự'
         : null;
+  }
+
+  bool get _isUserEkycVerified {
+    try {
+      final user = AuthScope.of(context).user;
+      return user?.hasVerifiedEkyc == true;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  void _switchToPublic() {
+    if (!_isUserEkycVerified) {
+      AppFeedback.show(
+        context,
+        'Bạn cần hoàn thành xác minh danh tính (eKYC) trước khi chuyển chuyến đi sang công khai.',
+        tone: AppStatusTone.warning,
+      );
+      return;
+    }
+    setState(() => _isPublic = true);
+  }
+
+  Future<void> _switchToPrivate() async {
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: 'Chuyển về Nhóm riêng tư?',
+      message:
+          'Bài đăng tìm bạn đồng hành sẽ bị ẩn khỏi Bảng tin cộng đồng. Chuyến đi sẽ chỉ nhận thêm thành viên qua mã mời.',
+      confirmLabel: 'Chuyển về riêng tư',
+    );
+    if (confirmed && mounted) {
+      setState(() => _isPublic = false);
+    }
+  }
+
+  Widget _privacySection() {
+    if (!_editing) {
+      return AppCard(
+        outlined: true,
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: const BoxDecoration(
+                color: AppColors.primarySurface,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.lock_rounded,
+                color: AppColors.primary,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        'Chế độ: Nhóm riêng tư',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                      const SizedBox(width: 8),
+                      const AppStatusBadge(
+                        label: 'Mặc định',
+                        tone: AppStatusTone.info,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Chỉ những người nhận được mã mời trực tiếp mới có thể tham gia. Bạn có thể mở công khai để tuyển bạn đồng hành bất cứ lúc nào sau khi tạo chuyến đi.',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.textSecondary,
+                          height: 1.4,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final wasOriginallyPublic = widget.trip?.isPublic == true;
+
+    if (!wasOriginallyPublic) {
+      if (!_isPublic) {
+        return AppCard(
+          outlined: true,
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppColors.inputSurface,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: const Icon(
+                      Icons.lock_outline_rounded,
+                      color: AppColors.textSecondary,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Quyền riêng tư: Nhóm riêng tư',
+                          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Chỉ thành viên nhận được mã mời mới có thể tham gia. Chuyến đi chưa hiển thị trên Bảng tin ghép đoàn cộng đồng.',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: AppColors.textSecondary,
+                                height: 1.4,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              CustomButton(
+                text: 'Chuyển sang chuyến đi Công khai',
+                icon: Icons.public_rounded,
+                variant: AppButtonVariant.secondary,
+                onPressed: _switchToPublic,
+              ),
+            ],
+          ),
+        );
+      } else {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AppCard(
+              outlined: true,
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: const BoxDecoration(
+                          color: AppColors.primarySurface,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.public_rounded,
+                          color: AppColors.primary,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  'Quyền riêng tư: Công khai',
+                                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.primaryDark,
+                                      ),
+                                ),
+                                const SizedBox(width: 8),
+                                const AppStatusBadge(
+                                  label: 'Sẽ công khai khi lưu',
+                                  tone: AppStatusTone.success,
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Hệ thống sẽ tạo bài đăng trên Bảng tin ghép đoàn để mọi người có thể tìm thấy và gửi yêu cầu tham gia.',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: AppColors.textSecondary,
+                                    height: 1.4,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      icon: const Icon(Icons.undo_rounded, size: 16),
+                      label: const Text('Giữ nhóm riêng tư'),
+                      onPressed: () => setState(() => _isPublic = false),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            _companionSetupSection(),
+          ],
+        );
+      }
+    } else {
+      if (_isPublic) {
+        return AppCard(
+          outlined: true,
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: const BoxDecoration(
+                      color: AppColors.primarySurface,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.public_rounded,
+                      color: AppColors.primary,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              'Quyền riêng tư: Nhóm công khai',
+                              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                            ),
+                            const SizedBox(width: 8),
+                            const AppStatusBadge(
+                              label: 'Đang mở',
+                              tone: AppStatusTone.success,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Chuyến đi đang hiển thị trên Bảng tin ghép đoàn để mọi người có thể tìm thấy và gửi yêu cầu tham gia.',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: AppColors.textSecondary,
+                                height: 1.4,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              CustomButton(
+                text: 'Chuyển về Nhóm riêng tư',
+                icon: Icons.lock_outline_rounded,
+                variant: AppButtonVariant.secondary,
+                onPressed: _switchToPrivate,
+              ),
+            ],
+          ),
+        );
+      } else {
+        return AppCard(
+          outlined: true,
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppColors.inputSurface,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: const Icon(
+                      Icons.lock_rounded,
+                      color: AppColors.primary,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              'Quyền riêng tư: Riêng tư',
+                              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                            ),
+                            const SizedBox(width: 8),
+                            const AppStatusBadge(
+                              label: 'Sẽ chuyển về Riêng tư',
+                              tone: AppStatusTone.warning,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Khi lưu, bài đăng tìm bạn đồng hành sẽ được ẩn khỏi Bảng tin và mã mời riêng tư sẽ được kích hoạt lại.',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: AppColors.textSecondary,
+                                height: 1.4,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  icon: const Icon(Icons.undo_rounded, size: 16),
+                  label: const Text('Giữ nhóm công khai'),
+                  onPressed: () => setState(() => _isPublic = true),
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+    }
   }
 
   Widget _companionSetupSection() {

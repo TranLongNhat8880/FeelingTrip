@@ -95,6 +95,37 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     }
   }
 
+  Future<void> _openConvertToPublic(TripModel trip) async {
+    bool isVerified = false;
+    try {
+      isVerified = AuthScope.of(context).user?.hasVerifiedEkyc == true;
+    } catch (_) {
+      isVerified = true;
+    }
+    if (!isVerified) {
+      AppFeedback.show(
+        context,
+        'Bạn cần hoàn thành xác minh danh tính (eKYC) trước khi chuyển chuyến đi sang công khai.',
+        tone: AppStatusTone.warning,
+      );
+      return;
+    }
+    final result = await Navigator.push<TripModel>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TripFormScreen(
+          repository: widget.repository,
+          trip: trip,
+          initialConvertToPublic: true,
+        ),
+      ),
+    );
+    if (result != null) {
+      await _viewModel.loadTrip(widget.tripId);
+      await _checkCompanionPost();
+    }
+  }
+
   Future<void> _transition(TripModel trip) async {
     final next = trip.status == 'UPCOMING' ? 'ONGOING' : 'COMPLETED';
     final confirmed = await AppConfirmDialog.show(
@@ -491,6 +522,10 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
               tone: AppStatusTone.info,
             ),
             AppStatusBadge(
+              label: trip.isPublic ? 'Nhóm công khai' : 'Nhóm riêng tư',
+              tone: trip.isPublic ? AppStatusTone.success : AppStatusTone.neutral,
+            ),
+            AppStatusBadge(
               label: '${trip.memberCount} thành viên · ${trip.totalDays} ngày',
               tone: AppStatusTone.neutral,
             ),
@@ -551,340 +586,12 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
           ),
           const SizedBox(height: 12),
         ],
-        if (_section != 'members') ...[
-          const SizedBox(height: 6),
-          Text(
-            trip.description?.isNotEmpty == true
-                ? trip.description!
-                : 'Chuyến đi chưa có mô tả.',
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
+        if (_section != 'members')
+          _overviewTab(
+            trip,
+            canTransition: canTransition,
+            currentUserId: currentUserId,
           ),
-          const SizedBox(height: 16),
-          if (canTransition) ...[
-            AppCard(
-              color: trip.status == 'UPCOMING'
-                  ? AppColors.primarySurface
-                  : AppColors.successSurface,
-              outlined: true,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: (trip.status == 'UPCOMING'
-                                  ? AppColors.primary
-                                  : AppColors.success)
-                              .withValues(alpha: 0.15),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          trip.status == 'UPCOMING'
-                              ? Icons.play_arrow_rounded
-                              : Icons.flag_rounded,
-                          color: trip.status == 'UPCOMING'
-                              ? AppColors.primary
-                              : AppColors.success,
-                          size: 24,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              trip.status == 'UPCOMING'
-                                  ? 'Sẵn sàng khởi hành'
-                                  : 'Chuyến đi đang diễn ra',
-                              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                    color: trip.status == 'UPCOMING'
-                                        ? AppColors.primary
-                                        : AppColors.success,
-                                  ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              trip.status == 'UPCOMING'
-                                  ? 'Bấm để chuyển trạng thái sang đang diễn ra.'
-                                  : 'Đánh dấu hoàn thành khi chuyến đi kết thúc.',
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: AppColors.textSecondary,
-                                  ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  CustomButton(
-                    text: trip.status == 'UPCOMING'
-                        ? 'Bắt đầu chuyến đi'
-                        : 'Hoàn thành chuyến đi',
-                    icon: trip.status == 'UPCOMING'
-                        ? Icons.play_arrow_rounded
-                        : Icons.flag_outlined,
-                    onPressed: _viewModel.isSubmitting
-                        ? null
-                        : () => _transition(trip),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 14),
-          ],
-          if (['COMPLETED', 'CANCELLED'].contains(trip.status)) ...[
-            AppInlineNotice(
-              message: trip.status == 'COMPLETED'
-                  ? 'Chuyến đi đã kết thúc. Bạn có thể xem lại lịch trình và đánh giá.'
-                  : 'Chuyến đi đã hủy. Thông tin được lưu lại để tra cứu.',
-            ),
-            const SizedBox(height: 14),
-          ],
-          AppCard(
-            outlined: true,
-            child: Column(
-              children: [
-                InfoRow(
-                  icon: Icons.location_on_outlined,
-                  label: 'Điểm đến',
-                  value: trip.destination,
-                ),
-                const Divider(),
-                InfoRow(
-                  icon: Icons.calendar_month_outlined,
-                  label: 'Thời gian',
-                  value:
-                      '${AppUtils.formatDate(trip.startDate)} – ${AppUtils.formatDate(trip.endDate)}',
-                ),
-                const Divider(),
-                InfoRow(
-                  icon: Icons.timelapse_outlined,
-                  label: 'Thời lượng',
-                  value: '${trip.totalDays} ngày',
-                ),
-                const Divider(),
-                InfoRow(
-                  icon: Icons.account_balance_wallet_outlined,
-                  label: 'Ngân sách',
-                  value: AppUtils.formatCurrency(trip.estimatedBudget),
-                ),
-                const Divider(),
-                InfoRow(
-                  icon: trip.isPublic ? Icons.public : Icons.lock_outline,
-                  label: 'Quyền riêng tư',
-                  value: trip.isPublic ? 'Công khai' : 'Riêng tư',
-                ),
-                if (trip.isLeader && !trip.isPublic && trip.inviteCode != null) ...[
-                  const Divider(),
-                  InfoRow(
-                    icon: Icons.key_outlined,
-                    label: 'Mã mời (1 lần)',
-                    value: trip.inviteCodeStatus == 'ACTIVE'
-                        ? trip.inviteCode!
-                        : (trip.inviteCodeStatus == 'USED'
-                            ? 'Đã sử dụng'
-                            : 'Đã thu hồi'),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          if (trip.isClone) ...[
-            const SizedBox(height: 12),
-            const AppInlineNotice(
-              message: 'Chuyến đi này được tạo từ một lịch trình cộng đồng.',
-            ),
-          ],
-          const SizedBox(height: 14),
-          CustomButton(
-            text: trip.isEditable ? 'Lập và xem lịch trình' : 'Xem lịch trình',
-            icon: Icons.route_outlined,
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => ItineraryScreen(
-                  tripId: trip.id,
-                  destination: trip.destination,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          CustomButton(
-            text: 'Chi phí và thanh toán',
-            icon: Icons.account_balance_wallet_outlined,
-            variant: AppButtonVariant.secondary,
-            onPressed: () => Navigator.pushNamed(
-              context,
-              AppRoutes.expenses,
-              arguments: {'tripId': trip.id},
-            ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: CustomButton(
-                  text: 'Địa điểm & bản đồ',
-                  icon: Icons.explore_outlined,
-                  variant: AppButtonVariant.secondary,
-                  onPressed: () =>
-                      Navigator.pushNamed(context, AppRoutes.places),
-                ),
-              ),
-
-              if (trip.isLeader &&
-                  _hasCompanionPost &&
-                  !['COMPLETED', 'CANCELLED'].contains(trip.status)) ...[
-                const SizedBox(width: 10),
-                Expanded(
-                  child: CustomButton(
-                    text: 'Duyệt ghép đoàn',
-                    icon: Icons.people_outline,
-                    variant: AppButtonVariant.secondary,
-                    onPressed: () => Navigator.pushNamed(
-                      context,
-                      AppRoutes.companionRequests,
-                    ),
-                  ),
-                ),
-              ],
-              if (trip.isLeader &&
-                  !trip.isPublic &&
-                  ['UPCOMING', 'ONGOING'].contains(trip.status)) ...[
-                const SizedBox(width: 10),
-                Expanded(
-                  child: CustomButton(
-                    text: 'Mã mời tham gia',
-                    icon: Icons.key_outlined,
-                    variant: AppButtonVariant.secondary,
-                    onPressed: () => _showInviteCode(trip),
-                  ),
-                ),
-              ],
-            ],
-          ),
-          if (trip.status == 'COMPLETED') ...[
-            const SizedBox(height: 10),
-            CustomButton(
-              text: _hasReviewedTrip
-                  ? 'Đã gửi đánh giá chuyến đi'
-                  : 'Đánh giá chuyến đi',
-              icon: _hasReviewedTrip
-                  ? Icons.check_circle_outline
-                  : Icons.star_outline_rounded,
-              variant: AppButtonVariant.secondary,
-              onPressed: _hasReviewedTrip ? null : () => _reviewTrip(trip),
-            ),
-            Builder(
-              builder: (context) {
-                final otherMembers = trip.members
-                    .where((m) => m.userId != currentUserId)
-                    .toList();
-                if (otherMembers.isEmpty) return const SizedBox.shrink();
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const SizedBox(height: 16),
-                    const SectionHeader(
-                      title: 'Đánh giá bạn đồng hành',
-                      subtitle:
-                          'Chia sẻ trải nghiệm đồng hành cùng các thành viên trong chuyến đi.',
-                    ),
-                    const SizedBox(height: 8),
-                    AppCard(
-                      outlined: true,
-                      child: Column(
-                        children: [
-                          for (var i = 0; i < otherMembers.length; i++) ...[
-                            Builder(
-                              builder: (context) {
-                                final member = otherMembers[i];
-                                final isReviewed =
-                                    _reviewedMemberIds.contains(member.userId);
-                                return ListTile(
-                                  contentPadding: EdgeInsets.zero,
-                                  leading: AvatarPlaceholder(
-                                    name: member.displayName,
-                                    imageUrl: member.avatarUrl,
-                                    radius: 20,
-                                  ),
-                                  title: Text(member.displayName),
-                                  subtitle: Text(
-                                    member.isLeader ? 'Trưởng nhóm' : 'Thành viên',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodySmall
-                                        ?.copyWith(
-                                          color: AppColors.textSecondary,
-                                        ),
-                                  ),
-                                  trailing: isReviewed
-                                      ? const AppStatusBadge(
-                                          label: 'Đã đánh giá',
-                                          tone: AppStatusTone.success,
-                                        )
-                                      : TextButton.icon(
-                                          onPressed: () =>
-                                              _reviewMember(trip, member),
-                                          icon: const Icon(
-                                            Icons.star_outline_rounded,
-                                            size: 18,
-                                          ),
-                                          label: const Text('Đánh giá'),
-                                          style: TextButton.styleFrom(
-                                            foregroundColor: AppColors.primary,
-                                          ),
-                                        ),
-                                );
-                              },
-                            ),
-                            if (i < otherMembers.length - 1) const Divider(),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ],
-          if (!trip.isLeader) ...[
-            const SizedBox(height: 10),
-            CustomButton(
-              text: 'Báo cáo chuyến đi',
-              icon: Icons.report_outlined,
-              variant: AppButtonVariant.secondary,
-              onPressed: () => _reportTrip(trip),
-            ),
-          ],
-          if (trip.isLeader &&
-              !['COMPLETED', 'CANCELLED'].contains(trip.status)) ...[
-            const SizedBox(height: 16),
-            CustomButton(
-              text: 'Hủy chuyến đi',
-              icon: Icons.cancel_outlined,
-              variant: AppButtonVariant.destructive,
-              onPressed: _viewModel.isSubmitting ? null : _cancel,
-            ),
-          ] else if (!trip.isLeader &&
-              ['UPCOMING', 'ONGOING'].contains(trip.status)) ...[
-            const SizedBox(height: 16),
-            CustomButton(
-              text: 'Rời chuyến đi',
-              icon: Icons.exit_to_app_rounded,
-              variant: AppButtonVariant.destructive,
-              onPressed: _viewModel.isSubmitting ? null : _leave,
-            ),
-          ],
-        ],
         if (_section == 'members') ...[
           const SizedBox(height: 22),
           SectionHeader(
@@ -954,6 +661,528 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
           ],
         ],
         const SizedBox(height: 24),
+      ],
+    );
+  }
+
+  Widget _compactInfoItem({
+    required IconData icon,
+    required String label,
+    required String value,
+    Widget? trailing,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(7),
+          decoration: BoxDecoration(
+            color: AppColors.inputSurface,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Icon(icon, size: 16, color: AppColors.primary),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              ?trailing,
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCompactInfoCard(TripModel trip) {
+    return AppCard(
+      outlined: true,
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _compactInfoItem(
+                  icon: Icons.location_on_outlined,
+                  label: 'Điểm đến',
+                  value: trip.destination,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _compactInfoItem(
+                  icon: Icons.account_balance_wallet_outlined,
+                  label: 'Ngân sách',
+                  value: AppUtils.formatCurrency(trip.estimatedBudget),
+                ),
+              ),
+            ],
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 10),
+            child: Divider(height: 1),
+          ),
+          Row(
+            children: [
+              Expanded(
+                child: _compactInfoItem(
+                  icon: Icons.calendar_month_outlined,
+                  label: 'Thời gian (${trip.totalDays} ngày)',
+                  value:
+                      '${AppUtils.formatDate(trip.startDate)} – ${AppUtils.formatDate(trip.endDate)}',
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _compactInfoItem(
+                  icon: trip.isPublic ? Icons.public : Icons.lock_outline,
+                  label: 'Quyền riêng tư',
+                  value: trip.isPublic ? 'Công khai' : 'Riêng tư',
+                  trailing: (trip.isLeader && !trip.isPublic && trip.inviteCode != null)
+                      ? InkWell(
+                          onTap: () => _showInviteCode(trip),
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.key_outlined,
+                                  size: 13,
+                                  color: AppColors.primary,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  trip.inviteCodeStatus == 'ACTIVE'
+                                      ? trip.inviteCode!
+                                      : (trip.inviteCodeStatus == 'USED'
+                                          ? 'Đã dùng'
+                                          : 'Đã thu hồi'),
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                      : null,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _overviewTab(
+    TripModel trip, {
+    required bool canTransition,
+    required String? currentUserId,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (trip.description?.isNotEmpty == true) ...[
+          const SizedBox(height: 4),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: AppColors.inputSurface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(
+                  Icons.format_quote_rounded,
+                  size: 18,
+                  color: AppColors.primary,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    trip.description!,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppColors.textPrimary,
+                          height: 1.4,
+                        ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+        ],
+        if (canTransition) ...[
+          AppCard(
+            color: trip.status == 'UPCOMING'
+                ? AppColors.primarySurface
+                : AppColors.successSurface,
+            outlined: true,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: (trip.status == 'UPCOMING'
+                            ? AppColors.primary
+                            : AppColors.success)
+                        .withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    trip.status == 'UPCOMING'
+                        ? Icons.play_arrow_rounded
+                        : Icons.flag_rounded,
+                    color: trip.status == 'UPCOMING'
+                        ? AppColors.primary
+                        : AppColors.success,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        trip.status == 'UPCOMING'
+                            ? 'Sẵn sàng khởi hành'
+                            : 'Chuyến đi đang diễn ra',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: trip.status == 'UPCOMING'
+                                  ? AppColors.primary
+                                  : AppColors.success,
+                            ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        trip.status == 'UPCOMING'
+                            ? 'Bấm để chuyển trạng thái chuyến đi.'
+                            : 'Đánh dấu hoàn thành khi kết thúc.',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppColors.textSecondary,
+                              fontSize: 12,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                CustomButton(
+                  text: trip.status == 'UPCOMING' ? 'Bắt đầu' : 'Hoàn thành',
+                  icon: trip.status == 'UPCOMING'
+                      ? Icons.play_arrow_rounded
+                      : Icons.flag_outlined,
+                  fullWidth: false,
+                  isLoading: _viewModel.isSubmitting,
+                  onPressed: _viewModel.isSubmitting
+                      ? null
+                      : () => _transition(trip),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (['COMPLETED', 'CANCELLED'].contains(trip.status)) ...[
+          AppInlineNotice(
+            message: trip.status == 'COMPLETED'
+                ? 'Chuyến đi đã kết thúc. Bạn có thể xem lại lịch trình và đánh giá.'
+                : 'Chuyến đi đã hủy. Thông tin được lưu lại để tra cứu.',
+          ),
+          const SizedBox(height: 12),
+        ],
+        _buildCompactInfoCard(trip),
+        if (trip.isLeader &&
+            !trip.isPublic &&
+            !['COMPLETED', 'CANCELLED'].contains(trip.status)) ...[
+          const SizedBox(height: 12),
+          AppCard(
+            outlined: true,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: const BoxDecoration(
+                    color: AppColors.primarySurface,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.group_add_rounded,
+                    color: AppColors.primary,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Tìm thêm bạn đồng hành?',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Mở công khai để đăng bài tuyển thành viên.',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppColors.textSecondary,
+                              fontSize: 12,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                CustomButton(
+                  text: 'Mở tìm bạn',
+                  icon: Icons.public_rounded,
+                  fullWidth: false,
+                  variant: AppButtonVariant.secondary,
+                  onPressed: () => _openConvertToPublic(trip),
+                ),
+              ],
+            ),
+          ),
+        ],
+        if (trip.isClone) ...[
+          const SizedBox(height: 12),
+          const AppInlineNotice(
+            message: 'Chuyến đi này được tạo từ một lịch trình cộng đồng.',
+          ),
+        ],
+        const SizedBox(height: 14),
+        CustomButton(
+          text: trip.isEditable ? 'Lập và xem lịch trình' : 'Xem lịch trình',
+          icon: Icons.route_outlined,
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ItineraryScreen(
+                tripId: trip.id,
+                destination: trip.destination,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: CustomButton(
+                text: 'Chi phí & Quỹ',
+                icon: Icons.account_balance_wallet_outlined,
+                variant: AppButtonVariant.secondary,
+                onPressed: () => Navigator.pushNamed(
+                  context,
+                  AppRoutes.expenses,
+                  arguments: {'tripId': trip.id},
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: CustomButton(
+                text: 'Bản đồ & Địa điểm',
+                icon: Icons.explore_outlined,
+                variant: AppButtonVariant.secondary,
+                onPressed: () =>
+                    Navigator.pushNamed(context, AppRoutes.places),
+              ),
+            ),
+          ],
+        ),
+        if (trip.isLeader &&
+            _hasCompanionPost &&
+            !['COMPLETED', 'CANCELLED'].contains(trip.status)) ...[
+          const SizedBox(height: 10),
+          CustomButton(
+            text: 'Duyệt yêu cầu ghép đoàn',
+            icon: Icons.people_outline,
+            variant: AppButtonVariant.secondary,
+            onPressed: () => Navigator.pushNamed(
+              context,
+              AppRoutes.companionRequests,
+            ),
+          ),
+        ],
+        if (trip.status == 'COMPLETED') ...[
+          const SizedBox(height: 12),
+          CustomButton(
+            text: _hasReviewedTrip
+                ? 'Đã gửi đánh giá chuyến đi'
+                : 'Đánh giá chuyến đi',
+            icon: _hasReviewedTrip
+                ? Icons.check_circle_outline
+                : Icons.star_outline_rounded,
+            variant: AppButtonVariant.secondary,
+            onPressed: _hasReviewedTrip ? null : () => _reviewTrip(trip),
+          ),
+          Builder(
+            builder: (context) {
+              final otherMembers = trip.members
+                  .where((m) => m.userId != currentUserId)
+                  .toList();
+              if (otherMembers.isEmpty) return const SizedBox.shrink();
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SizedBox(height: 16),
+                  const SectionHeader(
+                    title: 'Đánh giá bạn đồng hành',
+                    subtitle:
+                        'Chia sẻ trải nghiệm đồng hành cùng các thành viên trong chuyến đi.',
+                  ),
+                  const SizedBox(height: 8),
+                  AppCard(
+                    outlined: true,
+                    child: Column(
+                      children: [
+                        for (var i = 0; i < otherMembers.length; i++) ...[
+                          Builder(
+                            builder: (context) {
+                              final member = otherMembers[i];
+                              final isReviewed =
+                                  _reviewedMemberIds.contains(member.userId);
+                              return ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                leading: AvatarPlaceholder(
+                                  name: member.displayName,
+                                  imageUrl: member.avatarUrl,
+                                  radius: 20,
+                                ),
+                                title: Text(member.displayName),
+                                subtitle: Text(
+                                  member.isLeader ? 'Trưởng nhóm' : 'Thành viên',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodySmall
+                                      ?.copyWith(
+                                        color: AppColors.textSecondary,
+                                      ),
+                                ),
+                                trailing: isReviewed
+                                    ? const AppStatusBadge(
+                                        label: 'Đã đánh giá',
+                                        tone: AppStatusTone.success,
+                                      )
+                                    : TextButton.icon(
+                                        onPressed: () =>
+                                            _reviewMember(trip, member),
+                                        icon: const Icon(
+                                          Icons.star_outline_rounded,
+                                          size: 18,
+                                        ),
+                                        label: const Text('Đánh giá'),
+                                        style: TextButton.styleFrom(
+                                          foregroundColor: AppColors.primary,
+                                        ),
+                                      ),
+                              );
+                            },
+                          ),
+                          if (i < otherMembers.length - 1) const Divider(),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+        const SizedBox(height: 24),
+        Center(
+          child: Wrap(
+            spacing: 16,
+            alignment: WrapAlignment.center,
+            children: [
+              if (!trip.isLeader)
+                TextButton.icon(
+                  icon: const Icon(
+                    Icons.report_outlined,
+                    size: 16,
+                    color: AppColors.textSecondary,
+                  ),
+                  label: const Text(
+                    'Báo cáo chuyến đi',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 13,
+                    ),
+                  ),
+                  onPressed: () => _reportTrip(trip),
+                ),
+              if (trip.isLeader &&
+                  !['COMPLETED', 'CANCELLED'].contains(trip.status))
+                TextButton.icon(
+                  icon: const Icon(
+                    Icons.cancel_outlined,
+                    size: 16,
+                    color: AppColors.error,
+                  ),
+                  label: const Text(
+                    'Hủy chuyến đi',
+                    style: TextStyle(
+                      color: AppColors.error,
+                      fontSize: 13,
+                    ),
+                  ),
+                  onPressed: _viewModel.isSubmitting ? null : _cancel,
+                )
+              else if (!trip.isLeader &&
+                  ['UPCOMING', 'ONGOING'].contains(trip.status))
+                TextButton.icon(
+                  icon: const Icon(
+                    Icons.exit_to_app_rounded,
+                    size: 16,
+                    color: AppColors.error,
+                  ),
+                  label: const Text(
+                    'Rời chuyến đi',
+                    style: TextStyle(
+                      color: AppColors.error,
+                      fontSize: 13,
+                    ),
+                  ),
+                  onPressed: _viewModel.isSubmitting ? null : _leave,
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
       ],
     );
   }

@@ -360,28 +360,56 @@ class MockItineraryRepository implements ItineraryRepository {
     String? destination,
     int? durationDays,
     String? keyword,
-  }) async => PublicItineraryPage(items: [_publicSummary], total: 1);
+  }) async {
+    var items = List<PublicItinerarySummary>.of(_mockPublicPlans);
+    if (destination != null && destination.trim().isNotEmpty) {
+      final destNorm = destination.trim().toLowerCase();
+      items = items
+          .where((p) => p.destination.toLowerCase().contains(destNorm))
+          .toList();
+    }
+    if (durationDays != null) {
+      items = items.where((p) => p.durationDays == durationDays).toList();
+    }
+    if (keyword != null && keyword.trim().isNotEmpty) {
+      final kw = keyword.trim().toLowerCase();
+      items = items
+          .where((p) =>
+              p.name.toLowerCase().contains(kw) ||
+              p.destination.toLowerCase().contains(kw) ||
+              (p.description?.toLowerCase().contains(kw) ?? false))
+          .toList();
+    }
+    return PublicItineraryPage(items: items, total: items.length);
+  }
 
   @override
-  Future<PublicItineraryDetail> getPublicPlan(String sourceTripId) async =>
-      PublicItineraryDetail(
-        summary: _publicSummary,
-        days: const [
-          PublicItineraryDay(
-            dayNumber: 1,
-            title: 'Khám phá trung tâm',
-            items: [
-              PublicItineraryItem(
-                customName: 'Hồ Xuân Hương',
-                customAddress: 'Trung tâm Đà Lạt',
-                category: 'NATURE',
-                startTime: '08:00',
-                endTime: '10:00',
-              ),
-            ],
-          ),
-        ],
-      );
+  Future<PublicItineraryDetail> getPublicPlan(String sourceTripId) async {
+    final summary = _mockPublicPlans.firstWhere(
+      (p) => p.sourceTripId == sourceTripId,
+      orElse: () => _publicSummary,
+    );
+    return PublicItineraryDetail(
+      summary: summary,
+      days: [
+        PublicItineraryDay(
+          dayNumber: 1,
+          title: 'Khám phá trung tâm',
+          items: [
+            PublicItineraryItem(
+              customName: summary.destination == 'Hà Nội'
+                  ? 'Hồ Hoàn Kiếm'
+                  : 'Hồ Xuân Hương',
+              customAddress: 'Trung tâm ${summary.destination}',
+              category: 'NATURE',
+              startTime: '08:00',
+              endTime: '10:00',
+            ),
+          ],
+        ),
+      ],
+    );
+  }
 
   @override
   Future<ItineraryPlan> clonePlan(
@@ -390,16 +418,60 @@ class MockItineraryRepository implements ItineraryRepository {
     String? name,
   }) async => getItinerary('trip-clone-${_sequence++}');
 
-  PublicItinerarySummary get _publicSummary => const PublicItinerarySummary(
-    sourceTripId: 'public-trip-1',
-    name: 'Đà Lạt 3 ngày thư giãn',
-    destination: 'Đà Lạt',
-    durationDays: 3,
-    averageRating: 4.8,
-    reviewCount: 24,
-    cloneCount: 16,
-    description: 'Lịch trình nhẹ nhàng qua các điểm nổi bật ở Đà Lạt.',
-  );
+  PublicItinerarySummary get _publicSummary => _mockPublicPlans.first;
+
+  static const List<PublicItinerarySummary> _mockPublicPlans = [
+    PublicItinerarySummary(
+      sourceTripId: 'public-trip-1',
+      name: 'Đà Lạt 3 ngày thư giãn',
+      destination: 'Đà Lạt',
+      durationDays: 3,
+      averageRating: 4.8,
+      reviewCount: 24,
+      cloneCount: 16,
+      description: 'Lịch trình nhẹ nhàng qua các điểm nổi bật ở Đà Lạt.',
+    ),
+    PublicItinerarySummary(
+      sourceTripId: 'public-trip-2',
+      name: 'Chuyến đi Hà Nội 3 ngày khám phá phố cổ',
+      destination: 'Hà Nội',
+      durationDays: 3,
+      averageRating: 5.0,
+      reviewCount: 1,
+      cloneCount: 0,
+      description: 'Khám phá văn hóa ẩm thực và 36 phố phường Hà Nội.',
+    ),
+    PublicItinerarySummary(
+      sourceTripId: 'public-trip-3',
+      name: 'Hành trình di sản Đà Nẵng - Hội An',
+      destination: 'Đà Nẵng',
+      durationDays: 4,
+      averageRating: 4.7,
+      reviewCount: 19,
+      cloneCount: 12,
+      description: 'Bà Nà Hills, Cầu Rồng và phố cổ Hội An về đêm.',
+    ),
+    PublicItinerarySummary(
+      sourceTripId: 'public-trip-4',
+      name: 'Chinh phục Fansipan và săn mây Sa Pa',
+      destination: 'Sa Pa',
+      durationDays: 3,
+      averageRating: 4.9,
+      reviewCount: 31,
+      cloneCount: 25,
+      description: 'Hành trình trekking và cáp treo lên đỉnh Fansipan.',
+    ),
+    PublicItinerarySummary(
+      sourceTripId: 'public-trip-5',
+      name: 'Nghỉ dưỡng biển ngọc Phú Quốc',
+      destination: 'Phú Quốc',
+      durationDays: 4,
+      averageRating: 4.8,
+      reviewCount: 42,
+      cloneCount: 38,
+      description: 'Ngắm hoàng hôn Bãi Sao, lặn ngắm san hô và chợ đêm Phú Quốc.',
+    ),
+  ];
 
   List<ItineraryDay> _sampleDays(String tripId) => [
     ItineraryDay(
