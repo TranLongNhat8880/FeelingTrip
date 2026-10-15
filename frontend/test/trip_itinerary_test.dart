@@ -589,6 +589,115 @@ void main() {
       await tester.tap(find.text('Hủy'));
       await tester.pumpAndSettle();
     });
+
+    testWidgets('TripFormScreen create mode is private by default and hides companion section', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: TripFormScreen(
+            repository: MockTripRepository(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Chế độ: Nhóm riêng tư'), findsOneWidget);
+      expect(find.text('Mặc định'), findsOneWidget);
+      expect(find.byType(SegmentedButton<bool>), findsNothing);
+      expect(find.text('Thiết lập tìm bạn đồng hành'), findsNothing);
+      expect(find.text('Tạo chuyến đi'), findsNWidgets(2)); // Title and bottom button
+    });
+
+    testWidgets('TripFormScreen edit private trip allows converting to public and expands companion setup', (tester) async {
+      final privateTrip = TripModel(
+        id: 'test-private-1',
+        name: 'Chuyến đi riêng tư',
+        destination: 'Nha Trang',
+        startDate: DateTime.now().add(const Duration(days: 10)),
+        endDate: DateTime.now().add(const Duration(days: 14)),
+        estimatedBudget: 4000000,
+        privacyType: 'PRIVATE',
+        status: 'UPCOMING',
+        memberRole: 'LEADER',
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: TripFormScreen(
+            repository: MockTripRepository(),
+            trip: privateTrip,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Quyền riêng tư: Nhóm riêng tư'), findsOneWidget);
+      expect(find.text('Chuyển sang chuyến đi Công khai'), findsOneWidget);
+      expect(find.text('Thiết lập tìm bạn đồng hành'), findsNothing);
+
+      // Scroll to button and tap convert to public
+      await tester.ensureVisible(find.text('Chuyển sang chuyến đi Công khai'));
+      await tester.tap(find.text('Chuyển sang chuyến đi Công khai'));
+      await tester.pumpAndSettle();
+
+      // Now it reveals public status, revert button and companion setup section
+      expect(find.text('Quyền riêng tư: Công khai'), findsOneWidget);
+      expect(find.text('Sẽ công khai khi lưu'), findsOneWidget);
+      expect(find.text('Giữ nhóm riêng tư'), findsOneWidget);
+      expect(find.text('Thiết lập tìm bạn đồng hành'), findsOneWidget);
+      expect(find.text('Lưu & Đăng tuyển bạn'), findsOneWidget);
+
+      // Tap revert to private
+      await tester.ensureVisible(find.text('Giữ nhóm riêng tư'));
+      await tester.tap(find.text('Giữ nhóm riêng tư'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Quyền riêng tư: Nhóm riêng tư'), findsOneWidget);
+      expect(find.text('Thiết lập tìm bạn đồng hành'), findsNothing);
+    });
+
+    testWidgets('TripFormScreen edit public trip shows public card and allows switching to private', (tester) async {
+      final publicTrip = TripModel(
+        id: 'test-public-1',
+        name: 'Chuyến đi công khai',
+        destination: 'Hà Giang',
+        startDate: DateTime.now().add(const Duration(days: 10)),
+        endDate: DateTime.now().add(const Duration(days: 14)),
+        estimatedBudget: 6000000,
+        privacyType: 'PUBLIC',
+        status: 'UPCOMING',
+        memberRole: 'LEADER',
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: TripFormScreen(
+            repository: MockTripRepository(),
+            trip: publicTrip,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Quyền riêng tư: Nhóm công khai'), findsOneWidget);
+      expect(find.text('Đang mở'), findsOneWidget);
+      expect(find.text('Chuyển về Nhóm riêng tư'), findsOneWidget);
+
+      // Scroll to button and tap switch to private
+      await tester.ensureVisible(find.text('Chuyển về Nhóm riêng tư'));
+      await tester.tap(find.text('Chuyển về Nhóm riêng tư'));
+      await tester.pumpAndSettle();
+
+      // Confirm dialog appears
+      expect(find.text('Chuyển về Nhóm riêng tư?'), findsOneWidget);
+      await tester.tap(find.text('Chuyển về riêng tư'));
+      await tester.pumpAndSettle();
+
+      // Card updates to "Sẽ chuyển về Riêng tư"
+      expect(find.text('Quyền riêng tư: Riêng tư'), findsOneWidget);
+      expect(find.text('Sẽ chuyển về Riêng tư'), findsOneWidget);
+      expect(find.text('Giữ nhóm công khai'), findsOneWidget);
+      expect(find.text('Lưu & Chuyển về Riêng tư'), findsOneWidget);
+    });
   });
 }
 

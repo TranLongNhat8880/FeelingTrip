@@ -330,7 +330,7 @@ const listPublicTrips = async (client, query) => {
   if (query.durationDays) { params.push(query.durationDays); filters.push(`t.duration_days=$${params.length}`); }
   if (query.keyword) {
     params.push(`%${query.keyword}%`);
-    filters.push(`(t.name ILIKE $${params.length} OR t.description ILIKE $${params.length}
+    filters.push(`(t.name ILIKE $${params.length} OR t.destination ILIKE $${params.length} OR t.description ILIKE $${params.length}
       OR EXISTS (SELECT 1 FROM itineraries ki JOIN itinerary_items kii ON kii.itinerary_id=ki.id
         WHERE ki.trip_id=t.id AND kii.custom_name ILIKE $${params.length}))`);
   }

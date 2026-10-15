@@ -614,9 +614,14 @@ class _ItineraryItemFormScreenState extends State<ItineraryItemFormScreen> {
                 ? null
                 : 'Nhập ít nhất 3 ký tự để nhận gợi ý địa điểm.',
             onChanged: _isCatalogSource ? null : _onGeoapifyQueryChanged,
-            validator: (value) => (value ?? '').trim().isEmpty
-                ? 'Vui lòng nhập tên điểm dừng'
-                : null,
+            validator: (value) {
+              final text = (value ?? '').trim();
+              if (text.isEmpty) return 'Vui lòng nhập tên điểm dừng';
+              if (text.length > 255) {
+                return 'Tên điểm dừng không được vượt quá 255 ký tự';
+              }
+              return null;
+            },
           ),
           if (!_isCatalogSource) ...[
             const SizedBox(height: 8),
@@ -815,6 +820,13 @@ class _ItineraryItemFormScreenState extends State<ItineraryItemFormScreen> {
             controller: _note,
             prefixIcon: Icons.notes_rounded,
             maxLines: 3,
+            validator: (value) {
+              final text = (value ?? '').trim();
+              if (text.isNotEmpty && text.length > 1000) {
+                return 'Ghi chú không được vượt quá 1000 ký tự';
+              }
+              return null;
+            },
           ),
           const SizedBox(height: 90),
         ],

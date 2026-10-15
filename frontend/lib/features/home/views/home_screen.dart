@@ -405,7 +405,7 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: Icons.luggage_outlined,
           ),
           const AppNavigationItem(
-            label: 'Lịch trình',
+            label: 'Cộng đồng',
             icon: Icons.alt_route_rounded,
           ),
           AppNavigationItem(
@@ -602,6 +602,14 @@ class _HomeScreenState extends State<HomeScreen> {
                     builder: (_) => const CompanionMyPostsScreen(),
                   ),
                 );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.mail_outline),
+              title: const Text('Lời mời của tôi'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, AppRoutes.tripInvitations);
               },
             ),
             const Divider(height: 20),

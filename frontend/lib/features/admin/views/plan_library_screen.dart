@@ -38,7 +38,7 @@ class _PlanLibraryScreenState extends State<PlanLibraryScreen> {
   Widget build(BuildContext context) => widget.embedded
       ? _content(context)
       : AppScaffold(
-          title: 'Kho lịch trình',
+          title: 'Lịch trình mẫu hệ thống',
           padding: EdgeInsets.zero,
           body: _content(context),
         );
@@ -50,27 +50,6 @@ class _PlanLibraryScreenState extends State<PlanLibraryScreen> {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          if (!widget.embedded)
-            Wrap(
-              spacing: 8,
-              children: [
-                for (final entry in {
-                  'SYSTEM': 'Mẫu hệ thống',
-                  'COMMUNITY': 'Cộng đồng',
-                }.entries)
-                  ChoiceChip(
-                    labelStyle: Theme.of(context).textTheme.bodyMedium
-                        ?.copyWith(color: const Color(0xFF09143B)),
-                    label: Text(entry.value),
-                    selected: source == entry.key,
-                    onSelected: (_) {
-                      setState(() => source = entry.key);
-                      load();
-                    },
-                  ),
-              ],
-            ),
-          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
@@ -101,7 +80,7 @@ class _PlanLibraryScreenState extends State<PlanLibraryScreen> {
               ),
               DropdownMenuItem(
                 value: 'rating',
-                child: Text('Đánh giá cao (cộng đồng)'),
+                child: Text('Đánh giá cao'),
               ),
             ],
             onChanged: (v) {
@@ -118,7 +97,7 @@ class _PlanLibraryScreenState extends State<PlanLibraryScreen> {
           else if (vm.plans.isEmpty)
             const EmptyStateWidget(
               title: 'Chưa có lịch trình phù hợp',
-              message: 'Thử đổi từ khóa hoặc nguồn lịch trình.',
+              message: 'Thử đổi từ khóa tìm kiếm.',
               icon: Icons.route_outlined,
             )
           else
