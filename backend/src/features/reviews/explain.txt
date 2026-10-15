@@ -20,10 +20,11 @@ PHÂN HỆ: REVIEWS (ĐÁNH GIÁ, BÁO CÁO VI PHẠM & AN TOÀN SOS) - src/feat
    - ../../shared/utils/response.util.js         -> sendSuccess, sendError
 
 4. CÁC API CẦN TRIỂN KHAI TRONG PHÂN HỆ NÀY:
-   Các API dưới đây là dự kiến; routes/service/repository hiện vẫn là scaffold.
-   Thành triển khai feature và mapping dữ liệu, không chỉ bổ sung migration DB.
+   Các API được khai báo trong reviews.routes.js; hợp đồng dưới đây dùng để
+   tích hợp với frontend. Nghiệp vụ và mapping thuộc feature reviews của Thành.
    - POST /api/v1/reviews/member       : Đánh giá thành viên (chỉ được đánh giá người cùng đi tour)
    - POST /api/v1/reviews/trip         : Đánh giá chất lượng chuyến đi
+   - GET /api/v1/reviews/trip/:id?page=1&limit=20: đọc đánh giá lịch trình cộng đồng.
    - POST /api/v1/reviews/report       : Báo cáo tài khoản xấu hoặc hành vi lừa đảo
    - POST /api/v1/reviews/block        : Chặn người dùng khác
    - POST /api/v1/reviews/sos          : Kích hoạt tín hiệu khẩn cấp SOS (lưu tọa độ hiện tại)
@@ -47,6 +48,36 @@ PHÂN HỆ: REVIEWS (ĐÁNH GIÁ, BÁO CÁO VI PHẠM & AN TOÀN SOS) - src/feat
      Lịch sử chỉ đọc; bản đồ mở tọa độ lúc ghi nhận, không lấy GPS hiện tại.
      Không thêm quyền admin/thành viên khác, không tự gửi thông báo, không
      đổi DB/migration. Trạng thái ACTIVE không chứng minh có người tiếp nhận.
+
+   ĐỌC ĐÁNH GIÁ LỊCH TRÌNH CỘNG ĐỒNG:
+   - API GET /api/v1/reviews/trip/:id, yêu cầu đăng nhập như các route reviews.
+     Truyền sourceTripId của lịch trình cộng đồng, không phải itinerary dayId,
+     templateId hay ID bản sao. Chỉ cho trip PUBLIC + COMPLETED; PRIVATE,
+     UPCOMING/ONGOING/CANCELLED và ID không tồn tại đều trả 404. Không yêu cầu
+     người xem phải tham gia. Quyền GỬI đánh giá vẫn như cũ.
+   - page mặc định 1, limit mặc định 20 (1–50); mới nhất trước, cùng thời gian
+     thì id DESC. Tổng và điểm trung bình tính trên toàn bộ đánh giá chuyến đi,
+     không chỉ trang đang tải. Chỉ lấy reviewee_id IS NULL, không trộn đánh giá
+     bạn đồng hành. Giữ cả đánh giá chỉ chấm sao, comment có thể null.
+   - data = { tripId, averageRating, reviewCount, items, pagination }.
+     items[] = { id, tripId, rating, comment, createdAt,
+       reviewer: { id, displayName, avatarUrl } }.
+     pagination = { page, limit, total, totalPages }.
+     Chưa có đánh giá: averageRating=0, reviewCount=0, items=[], totalPages=0.
+     Trang vượt cuối trả items=[] nhưng tổng/điểm trung bình vẫn giữ nguyên.
+     Không trả email, số điện thoại, ngày sinh, vai trò hoặc giấy tờ của tác giả.
+   - FE dùng frontend/lib/features/review/repositories/trip_reviews_repository.dart:
+       final result = await ApiTripReviewsRepository().getTripReviews(sourceTripId);
+       result.items; result.averageRating; result.reviewCount; result.hasMore;
+       result.items.first.reviewer.displayName; result.items.first.comment;
+     Trang kế: getTripReviews(sourceTripId, page: result.page + 1).
+     Dùng cùng limit nếu đã tùy chỉnh. result.items có thể rỗng, không gọi first
+     khi chưa kiểm tra. Khi mở hồ sơ tác giả: PublicProfileScreen.open(context,
+     userId: item.reviewer.id). Dùng createdAt.toLocal() khi hiển thị thời gian.
+   - Chỉ bổ sung trong reviews + test, không sửa DB hoặc code itineraries.
+     Thành viên phụ trách giao diện tự gọi hàm để hiển thị; chưa tự thêm widget
+     vào màn chi tiết lịch trình. Đây là nhận xét đã gửi trong đánh giá chuyến đi,
+     không phải mở bình luận tự do cho người chưa tham gia.
 
 5. HỢP ĐỒNG LƯU TRỮ SAU MIGRATION 004_member_feature_contracts.sql:
    Sau migration 006, findTripContext kiểm tra người đã từng tham gia: giữ cả

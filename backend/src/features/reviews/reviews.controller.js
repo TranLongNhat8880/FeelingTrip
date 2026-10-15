@@ -271,6 +271,17 @@ const updateSosStatus = async (req, res, next) => {
     }
 };
 
+const getTripReviews = async (req, res, next) => {
+    try {
+        const result = await reviewsService.getTripReviews({
+            tripId: req.params.id,
+            page: req.query.page,
+            limit: req.query.limit,
+        });
+        return sendSuccess(res, result, 'Đánh giá lịch trình cộng đồng', HTTP_STATUS.OK);
+    } catch (error) { next(error); }
+};
+
 const getSosHistory = async (req, res, next) => {
     try {
         const result = await reviewsService.getSosHistory({
@@ -292,6 +303,7 @@ const getActiveSos = async (req, res, next) => {
 module.exports = {
     reviewMember,
     reviewTrip,
+    getTripReviews,
     createReport,
     blockUser,
     unblockUser,

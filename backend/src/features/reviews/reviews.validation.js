@@ -215,6 +215,10 @@ const emergencySosSchema = Joi.object({
 });
 
 const activeSosQuerySchema = Joi.object({ tripId: uuidSchema });
+const tripReviewsQuerySchema = Joi.object({
+  page: Joi.number().integer().min(1).max(100000).default(1),
+  limit: Joi.number().integer().min(1).max(50).default(20),
+});
 const sosHistoryQuerySchema = Joi.object({
   limit: Joi.number().integer().min(1).max(50).default(20),
   offset: Joi.number().integer().min(0).max(1000000).default(0),
@@ -248,6 +252,7 @@ const idParamSchema = Joi.object({
 module.exports = {
   reviewMemberSchema,
   reviewTripSchema,
+  tripReviewsQuerySchema,
   reportSchema,
   blockUserSchema,
   createEmergencyContactSchema,
