@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/app_utils.dart';
 import '../../../shared/ui_kit.dart';
+import '../../review/repositories/trip_reviews_repository.dart';
+import '../../review/views/widgets/trip_reviews_section.dart';
 import '../models/itinerary_model.dart';
 import '../repositories/itinerary_repository.dart';
 import '../viewmodels/itinerary_viewmodel.dart';
@@ -14,10 +16,12 @@ class PublicItinerariesScreen extends StatefulWidget {
     super.key,
     this.repository,
     this.initialDestination,
+    this.reviewsRepository,
   });
 
   final ItineraryRepository? repository;
   final String? initialDestination;
+  final TripReviewsRepository? reviewsRepository;
 
   @override
   State<PublicItinerariesScreen> createState() =>
@@ -124,6 +128,7 @@ class _PublicItinerariesScreenState extends State<PublicItinerariesScreen> {
                       builder: (_) => PublicItineraryDetailScreen(
                         summary: plan,
                         repository: widget.repository,
+                        reviewsRepository: widget.reviewsRepository,
                       ),
                     ),
                   ),
@@ -190,10 +195,12 @@ class PublicItineraryDetailScreen extends StatefulWidget {
     super.key,
     required this.summary,
     this.repository,
+    this.reviewsRepository,
   });
 
   final PublicItinerarySummary summary;
   final ItineraryRepository? repository;
+  final TripReviewsRepository? reviewsRepository;
 
   @override
   State<PublicItineraryDetailScreen> createState() =>
@@ -369,6 +376,12 @@ class _PublicItineraryDetailScreenState
                   ),
                   const SizedBox(height: 16),
                 ],
+                const SizedBox(height: 8),
+                TripReviewsSection(
+                  key: ValueKey(widget.summary.sourceTripId),
+                  sourceTripId: widget.summary.sourceTripId,
+                  repository: widget.reviewsRepository,
+                ),
                 const SizedBox(height: 80),
               ],
             ),
