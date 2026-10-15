@@ -131,8 +131,26 @@ const createTrip = (userId, data) => db.transaction(async client => {
 
   if (data.privacyType === 'PUBLIC') {
     const targetMembersCount = Number(data.targetMembersCount) || 3;
-    const postTitle = (data.postTitle || `Tìm bạn đồng hành: ${normalized.name}`).trim().slice(0, 255);
-    const postContent = (data.postContent || data.description || `Cùng tham gia chuyến đi ${normalized.name} nhé!`).trim();
+    if (targetMembersCount < 2) {
+      throw apiError(400, 'targetMembersCount phải từ 2 trở lên khi tạo chuyến đi công khai');
+    }
+
+    const defaultTitle = `Tìm bạn đồng hành: ${normalized.name}`;
+    const postTitle = (data.postTitle?.trim() || defaultTitle).trim().slice(0, 255);
+
+    const defaultContent = `Cùng tham gia chuyến đi ${normalized.name} nhé!`;
+    const candidateContent = data.postContent?.trim()
+      || (data.description?.trim()?.length >= 10 ? data.description.trim() : null)
+      || defaultContent;
+    const postContent = candidateContent.trim();
+
+    if (postTitle.length < 5 || postTitle.length > 255) {
+      throw apiError(400, 'Tiêu đề bài đăng phải từ 5 đến 255 ký tự');
+    }
+    if (postContent.length < 10 || postContent.length > 5000) {
+      throw apiError(400, 'Nội dung bài đăng phải từ 10 đến 5000 ký tự');
+    }
+
     const minAge = data.minAge != null ? Number(data.minAge) : null;
     const maxAge = data.maxAge != null ? Number(data.maxAge) : null;
     const genderPreference = data.genderPreference || 'ANY';
@@ -150,6 +168,9 @@ const createTrip = (userId, data) => db.transaction(async client => {
       genderPreference,
       tags,
     }, client);
+  } else {
+    // Với chuyến đi PRIVATE: tự động sinh mã mời 1 lần đầu tiên để trưởng nhóm có thể mời bạn bè ngay
+    await repo.generateNewInviteCode(client, trip.id);
   }
 
   return tripDetail(trip.id, userId, client);
@@ -195,6 +216,57 @@ const updateTrip = (tripId, userId, data) => db.transaction(async client => {
   if (data.startDate !== undefined || data.endDate !== undefined) {
     await repo.refreshItineraryDates(client, tripId);
   }
+
+  // Khi chuyển từ PRIVATE sang PUBLIC: Nếu chuyến đi chưa từng có bài đăng, tự động tạo bài đăng
+  if (data.privacyType === 'PUBLIC' && trip.privacy_type !== 'PUBLIC') {
+    const existingPostResult = await client.query(
+      'SELECT id FROM companion_posts WHERE trip_id = $1 LIMIT 1',
+      [tripId]
+    );
+    if (existingPostResult.rowCount === 0) {
+      const actualMembersCount = await repo.countMembersByStatus(tripId, 'ACTIVE', client);
+      const targetMembersCount = Math.max(
+        Number(data.targetMembersCount) || (actualMembersCount + 2),
+        actualMembersCount + 1
+      );
+      const defaultTitle = `Tìm bạn đồng hành: ${updated.name}`;
+      const postTitle = (data.postTitle?.trim() || defaultTitle).trim().slice(0, 255);
+
+      const defaultContent = `Cùng tham gia chuyến đi ${updated.name} nhé!`;
+      const candidateContent = data.postContent?.trim()
+        || (data.description?.trim()?.length >= 10 ? data.description.trim() : null)
+        || (updated.description?.trim()?.length >= 10 ? updated.description.trim() : null)
+        || defaultContent;
+      const postContent = candidateContent.trim();
+
+      const minAge = data.minAge != null ? Number(data.minAge) : null;
+      const maxAge = data.maxAge != null ? Number(data.maxAge) : null;
+      const genderPreference = data.genderPreference || 'ANY';
+      const tags = Array.isArray(data.tags) ? data.tags : [];
+
+      await companionsRepo.createCompanionPost({
+        tripId: updated.id,
+        creatorId: userId,
+        title: postTitle,
+        content: postContent,
+        targetMembersCount,
+        currentMembersCount: actualMembersCount,
+        minAge,
+        maxAge,
+        genderPreference,
+        tags,
+      }, client);
+    }
+  }
+
+  // Khi chuyển từ PUBLIC sang PRIVATE: nếu chưa có mã mời ACTIVE, tự động tạo mã mời mới
+  if (data.privacyType === 'PRIVATE' && trip.privacy_type !== 'PRIVATE') {
+    const current = await repo.lockTrip(client, tripId);
+    if (current && current.invite_code_status !== 'ACTIVE') {
+      await repo.generateNewInviteCode(client, tripId);
+    }
+  }
+
   return tripDetail(updated.id, userId, client);
 });
 

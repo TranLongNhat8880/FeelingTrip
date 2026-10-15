@@ -151,10 +151,25 @@ class _ItineraryItemFormScreenState extends State<ItineraryItemFormScreen> {
       _searchError = null;
     });
     try {
-      final result = await _repo.searchPlaces(
+      var result = await _repo.searchPlaces(
         destination: widget.destination,
         keyword: _search.text.trim(),
       );
+      if (result.isEmpty && widget.destination.contains(',')) {
+        final fallbackDest = widget.destination.split(',').last.trim();
+        if (fallbackDest.isNotEmpty && fallbackDest != widget.destination) {
+          result = await _repo.searchPlaces(
+            destination: fallbackDest,
+            keyword: _search.text.trim(),
+          );
+        }
+      }
+      if (result.isEmpty && _search.text.trim().isEmpty) {
+        result = await _repo.searchPlaces(
+          destination: '',
+          keyword: null,
+        );
+      }
       if (!mounted || currentRequestId != _searchRequestId) return;
       setState(() => _places = result);
     } catch (error) {
@@ -171,6 +186,7 @@ class _ItineraryItemFormScreenState extends State<ItineraryItemFormScreen> {
     setState(() {
       _selectedPlace = place;
       _selectedGeoapifyPlace = null;
+      _locationSource = 'CATALOG';
       _name.text = place.name;
       _address.text = place.address ?? place.destination;
       _category = place.category;

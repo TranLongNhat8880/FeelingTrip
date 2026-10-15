@@ -65,6 +65,8 @@ class _TripFormScreenState extends State<TripFormScreen> {
   ];
 
   bool get _editing => widget.trip != null;
+  bool get _isConvertingToPublic =>
+      _isPublic && (!_editing || widget.trip?.isPublic != true);
 
   @override
   void initState() {
@@ -253,6 +255,43 @@ class _TripFormScreenState extends State<TripFormScreen> {
     return null;
   }
 
+  String _resolveDestinationName(PlaceSearchResult result, String currentText) {
+    if (result.name.trim().isNotEmpty) {
+      return result.name.trim();
+    }
+    if (currentText.trim().isNotEmpty) {
+      return currentText.trim();
+    }
+    final city = result.mapAddress.city.trim();
+    final province = result.mapAddress.province.trim();
+    final district = result.mapAddress.district.trim().isNotEmpty
+        ? result.mapAddress.district.trim()
+        : result.mapAddress.county.trim();
+
+    if (city.isNotEmpty) {
+      return city;
+    }
+    if (province.isNotEmpty) {
+      return province;
+    }
+    if (district.isNotEmpty) {
+      return district;
+    }
+    final formatted = result.formattedAddress.trim();
+    if (formatted.isNotEmpty) {
+      var cleaned = formatted;
+      if (cleaned.endsWith(', Việt Nam')) {
+        cleaned = cleaned.substring(0, cleaned.length - ', Việt Nam'.length).trim();
+      } else if (cleaned.endsWith(', Vietnam')) {
+        cleaned = cleaned.substring(0, cleaned.length - ', Vietnam'.length).trim();
+      }
+      if (cleaned.isNotEmpty) {
+        return cleaned;
+      }
+    }
+    return 'Vị trí (${result.latitude.toStringAsFixed(4)}, ${result.longitude.toStringAsFixed(4)})';
+  }
+
   Future<void> _pickDestinationFromMap() async {
     PlaceSearchResult? initial;
     if (_destinationLatitude != null && _destinationLongitude != null) {
@@ -271,8 +310,9 @@ class _TripFormScreenState extends State<TripFormScreen> {
       ),
     );
     if (result == null || !mounted) return;
+    final resolvedName = _resolveDestinationName(result, _destination.text);
     setState(() {
-      _destination.text = result.name;
+      _destination.text = resolvedName;
       _destinationProvider = 'GEOAPIFY';
       _destinationExternalId = result.id;
       _destinationLatitude = result.latitude;
@@ -397,7 +437,7 @@ class _TripFormScreenState extends State<TripFormScreen> {
       );
       return;
     }
-    if (_isPublic && !_editing) {
+    if (_isConvertingToPublic) {
       final minAge = int.tryParse(_minAgeController.text.trim());
       final maxAge = int.tryParse(_maxAgeController.text.trim());
       if (minAge != null && maxAge != null && minAge > maxAge) {
@@ -424,27 +464,26 @@ class _TripFormScreenState extends State<TripFormScreen> {
       destinationExternalId: _destinationExternalId,
       destinationLatitude: _destinationLatitude,
       destinationLongitude: _destinationLongitude,
-      targetMembersCount: _isPublic && !_editing
-          ? _targetMembersCount + 1
+      targetMembersCount: _isConvertingToPublic
+          ? ((widget.trip?.memberCount ?? 1) + _targetMembersCount)
           : null,
-      genderPreference: _isPublic && !_editing ? _genderPreference : null,
-      minAge: _isPublic && !_editing
+      genderPreference: _isConvertingToPublic ? _genderPreference : null,
+      minAge: _isConvertingToPublic
           ? int.tryParse(_minAgeController.text.trim())
           : null,
-      maxAge: _isPublic && !_editing
+      maxAge: _isConvertingToPublic
           ? int.tryParse(_maxAgeController.text.trim())
           : null,
-      tags: _isPublic && !_editing ? _selectedTags.toList() : null,
+      tags: _isConvertingToPublic ? _selectedTags.toList() : null,
       postTitle:
-          _isPublic && !_editing && _postTitleController.text.trim().isNotEmpty
-          ? _postTitleController.text.trim()
-          : null,
+          _isConvertingToPublic && _postTitleController.text.trim().isNotEmpty
+              ? _postTitleController.text.trim()
+              : null,
       postContent:
-          _isPublic &&
-              !_editing &&
-              _postContentController.text.trim().isNotEmpty
-          ? _postContentController.text.trim()
-          : null,
+          _isConvertingToPublic &&
+                  _postContentController.text.trim().isNotEmpty
+              ? _postContentController.text.trim()
+              : null,
     );
     final result = _editing
         ? await _viewModel.updateTrip(widget.trip!, data)
@@ -596,7 +635,7 @@ class _TripFormScreenState extends State<TripFormScreen> {
                   : 'Nhóm riêng tư chỉ nhận thành viên qua mã hoặc lời mời trực tiếp.',
               tone: _isPublic ? AppStatusTone.success : AppStatusTone.info,
             ),
-            if (_isPublic && !_editing) _companionSetupSection(),
+            if (_isConvertingToPublic) _companionSetupSection(),
             const SizedBox(height: 20),
             AppCard(
               outlined: true,
@@ -638,9 +677,11 @@ class _TripFormScreenState extends State<TripFormScreen> {
             ),
             const SizedBox(height: 14),
             AppInlineNotice(
-              message: _isPublic && !_editing
-                  ? 'Chuyến đi và bài đăng tìm bạn đồng hành sẽ được tạo cùng lúc. Lịch trình chi tiết và chi phí có thể bổ sung sau.'
-                  : 'Thành viên, lịch trình và chi phí được thiết lập sau khi chuyến đi được tạo thành công.',
+              message: _isConvertingToPublic
+                  ? 'Chuyến đi và bài đăng tìm bạn đồng hành sẽ được cập nhật cùng lúc. Lịch trình chi tiết và chi phí có thể bổ sung sau.'
+                  : (_editing
+                      ? 'Lịch trình chi tiết và chi phí có thể tiếp tục bổ sung sau khi lưu chuyến đi.'
+                      : 'Thành viên, lịch trình và chi phí được thiết lập sau khi chuyến đi được tạo thành công.'),
             ),
             if (_viewModel.errorMessage != null) ...[
               const SizedBox(height: 12),
@@ -735,7 +776,9 @@ class _TripFormScreenState extends State<TripFormScreen> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'Quy mô: ${_targetMembersCount + 1} người (gồm bạn)',
+                        _editing
+                            ? 'Đoàn hiện có: ${widget.trip?.memberCount ?? 1} người · Tuyển thêm: $_targetMembersCount · Tổng: ${(widget.trip?.memberCount ?? 1) + _targetMembersCount} người'
+                            : 'Quy mô: ${_targetMembersCount + 1} người (gồm bạn)',
                         style: const TextStyle(
                           fontSize: 12,
                           color: AppColors.textSecondary,
