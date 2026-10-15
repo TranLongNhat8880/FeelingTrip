@@ -230,17 +230,65 @@ class MockItineraryRepository implements ItineraryRepository {
     return updated;
   }
 
-  @override
-  Future<List<ItineraryPlaceOption>> searchPlaces({
-    required String destination,
-    String? keyword,
-  }) async => const [
+  static const List<ItineraryPlaceOption> _mockCatalogPlaces = [
+    ItineraryPlaceOption(
+      id: 'place-hanoi-1',
+      name: 'Hồ Hoàn Kiếm',
+      destination: 'Hà Nội',
+      category: 'NATURE',
+      address: 'Phố Đinh Tiên Hoàng, Hàng Trống, Hoàn Kiếm, Hà Nội',
+      latitude: 21.0285,
+      longitude: 105.8542,
+      rating: 4.9,
+    ),
+    ItineraryPlaceOption(
+      id: 'place-hanoi-2',
+      name: 'Văn Miếu - Quốc Tử Giám',
+      destination: 'Hà Nội',
+      category: 'CULTURE',
+      address: '58 Quốc Tử Giám, Văn Miếu, Đống Đa, Hà Nội',
+      latitude: 21.0276,
+      longitude: 105.8355,
+      rating: 4.8,
+    ),
+    ItineraryPlaceOption(
+      id: 'place-hanoi-3',
+      name: 'Hồ Tây',
+      destination: 'Hà Nội',
+      category: 'NATURE',
+      address: 'Đường Thanh Niên, Tây Hồ, Hà Nội',
+      latitude: 21.0581,
+      longitude: 105.8236,
+      rating: 4.7,
+    ),
+    ItineraryPlaceOption(
+      id: 'place-hanoi-4',
+      name: 'Lăng Chủ tịch Hồ Chí Minh',
+      destination: 'Hà Nội',
+      category: 'CULTURE',
+      address: 'Số 2 Hùng Vương, Điện Biên, Ba Đình, Hà Nội',
+      latitude: 21.0368,
+      longitude: 105.8346,
+      rating: 4.9,
+    ),
+    ItineraryPlaceOption(
+      id: 'place-hanoi-5',
+      name: 'Khu du lịch Hàm Lợn',
+      destination: 'Hà Nội',
+      category: 'NATURE',
+      address: 'Xã Nam Sơn, Huyện Sóc Sơn, Hà Nội',
+      latitude: 21.3283,
+      longitude: 105.7958,
+      rating: 4.6,
+    ),
     ItineraryPlaceOption(
       id: 'place-1',
       name: 'Hồ Xuân Hương',
       destination: 'Đà Lạt',
       category: 'NATURE',
-      address: 'Trung tâm Đà Lạt',
+      address: 'Trung tâm Đà Lạt, Lâm Đồng',
+      latitude: 11.9404,
+      longitude: 108.4452,
       rating: 4.8,
     ),
     ItineraryPlaceOption(
@@ -248,10 +296,64 @@ class MockItineraryRepository implements ItineraryRepository {
       name: 'Quảng trường Lâm Viên',
       destination: 'Đà Lạt',
       category: 'ATTRACTION',
-      address: 'Đường Trần Quốc Toản',
+      address: 'Đường Trần Quốc Toản, Phường 10, Đà Lạt',
+      latitude: 11.9360,
+      longitude: 108.4458,
       rating: 4.7,
     ),
+    ItineraryPlaceOption(
+      id: 'place-3',
+      name: 'Thung Lũng Tình Yêu',
+      destination: 'Đà Lạt',
+      category: 'NATURE',
+      address: '3 - 5 - 7 Đường Mai Anh Đào, Phường 8, Đà Lạt',
+      latitude: 11.9792,
+      longitude: 108.4502,
+      rating: 4.6,
+    ),
+    ItineraryPlaceOption(
+      id: 'place-danang-1',
+      name: 'Cầu Rồng',
+      destination: 'Đà Nẵng',
+      category: 'ATTRACTION',
+      address: 'Đường Nguyễn Văn Linh, Phước Ninh, Hải Châu, Đà Nẵng',
+      latitude: 16.0611,
+      longitude: 108.2208,
+      rating: 4.8,
+    ),
   ];
+
+  @override
+  Future<List<ItineraryPlaceOption>> searchPlaces({
+    required String destination,
+    String? keyword,
+  }) async {
+    await _delay();
+    final dest = destination.trim().toLowerCase();
+    final kw = keyword?.trim().toLowerCase();
+
+    var matches = _mockCatalogPlaces.where((p) {
+      if (dest.isEmpty) return true;
+      final pDest = p.destination.toLowerCase();
+      return pDest.contains(dest) ||
+          dest.contains(pDest) ||
+          (p.address?.toLowerCase().contains(dest) ?? false);
+    }).toList();
+
+    if (matches.isEmpty && dest.isNotEmpty) {
+      matches = List.of(_mockCatalogPlaces);
+    }
+
+    if (kw != null && kw.isNotEmpty) {
+      matches = matches.where((p) {
+        return p.name.toLowerCase().contains(kw) ||
+            p.destination.toLowerCase().contains(kw) ||
+            (p.address?.toLowerCase().contains(kw) ?? false);
+      }).toList();
+    }
+
+    return matches;
+  }
 
   @override
   Future<PublicItineraryPage> getPublicPlans({

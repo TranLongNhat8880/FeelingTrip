@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../routes/app_routes.dart';
 import '../../../shared/ui_kit.dart';
 import '../models/trip_model.dart';
 import '../repositories/trip_repository.dart';
@@ -137,37 +136,25 @@ class _TripListScreenState extends State<TripListScreen> {
           ],
         ),
         const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          children: [
-            CustomButton(
-              text: 'Lời mời của tôi',
-              icon: Icons.mail_outline,
-              fullWidth: false,
-              variant: AppButtonVariant.text,
-              onPressed: () async {
-                await Navigator.push<void>(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => TripInvitationsScreen(
-                      repository: _viewModel.repository,
-                    ),
-                  ),
-                );
-                await _viewModel.loadTrips();
-              },
-            ),
-            CustomButton(
-              text: 'Lịch trình cộng đồng',
-              icon: Icons.public_outlined,
-              fullWidth: false,
-              variant: AppButtonVariant.text,
-              onPressed: () => Navigator.pushNamed<void>(
+        Align(
+          alignment: Alignment.centerLeft,
+          child: CustomButton(
+            text: 'Lời mời của tôi',
+            icon: Icons.mail_outline,
+            fullWidth: false,
+            variant: AppButtonVariant.text,
+            onPressed: () async {
+              await Navigator.push<void>(
                 context,
-                AppRoutes.publicItineraries,
-              ),
-            ),
-          ],
+                MaterialPageRoute(
+                  builder: (_) => TripInvitationsScreen(
+                    repository: _viewModel.repository,
+                  ),
+                ),
+              );
+              await _viewModel.loadTrips();
+            },
+          ),
         ),
         const SizedBox(height: 12),
         AppSearchField(

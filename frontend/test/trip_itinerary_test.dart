@@ -489,6 +489,27 @@ void main() {
       expect(reorderedDay.items[2].startTime, '12:30');
       expect(reorderedDay.items[2].endTime, '14:30');
     });
+
+    test('MockItineraryRepository searchPlaces filters places by destination and keyword', () async {
+      final repo = MockItineraryRepository();
+
+      final hanoiPlaces = await repo.searchPlaces(destination: 'Hà Nội');
+      expect(hanoiPlaces.isNotEmpty, isTrue);
+      expect(hanoiPlaces.every((p) => p.destination == 'Hà Nội'), isTrue);
+      expect(hanoiPlaces.any((p) => p.name.contains('Hoàn Kiếm')), isTrue);
+      expect(hanoiPlaces.any((p) => p.name.contains('Hàm Lợn')), isTrue);
+
+      final dalatPlaces = await repo.searchPlaces(destination: 'Đà Lạt');
+      expect(dalatPlaces.isNotEmpty, isTrue);
+      expect(dalatPlaces.every((p) => p.destination == 'Đà Lạt'), isTrue);
+
+      final keywordPlaces = await repo.searchPlaces(
+        destination: 'Hà Nội',
+        keyword: 'Văn Miếu',
+      );
+      expect(keywordPlaces.length, 1);
+      expect(keywordPlaces.first.name, 'Văn Miếu - Quốc Tử Giám');
+    });
   });
 
   group('AppRoutes Navigation & onGenerateRoute Tests', () {

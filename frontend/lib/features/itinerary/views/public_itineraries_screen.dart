@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_sizes.dart';
 import '../../../core/utils/app_utils.dart';
 import '../../../shared/ui_kit.dart';
 import '../models/itinerary_model.dart';
@@ -14,10 +15,16 @@ class PublicItinerariesScreen extends StatefulWidget {
     super.key,
     this.repository,
     this.initialDestination,
+    this.embedded = false,
+    this.onMenuTap,
+    this.onProfileTap,
   });
 
   final ItineraryRepository? repository;
   final String? initialDestination;
+  final bool embedded;
+  final VoidCallback? onMenuTap;
+  final VoidCallback? onProfileTap;
 
   @override
   State<PublicItinerariesScreen> createState() =>
@@ -55,10 +62,8 @@ class _PublicItinerariesScreenState extends State<PublicItinerariesScreen> {
       _viewModel.load(destination: _destination.text, keyword: _keyword.text);
 
   @override
-  Widget build(BuildContext context) => AppScaffold(
-    title: 'Kho lịch trình',
-    padding: EdgeInsets.zero,
-    body: RefreshIndicator(
+  Widget build(BuildContext context) {
+    final content = RefreshIndicator(
       onRefresh: _search,
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 80),
@@ -131,8 +136,77 @@ class _PublicItinerariesScreenState extends State<PublicItinerariesScreen> {
               ),
         ],
       ),
-    ),
-  );
+    );
+
+    if (widget.embedded) {
+      return TravelBackdrop(
+        child: SafeArea(
+          bottom: false,
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: AppSizes.documentMaxWidth,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 6, 16, 8),
+                    child: Row(
+                      children: [
+                        if (widget.onMenuTap != null)
+                          IconButton(
+                            tooltip: 'Mở menu',
+                            onPressed: widget.onMenuTap,
+                            icon: const Icon(
+                              Icons.menu_rounded,
+                              size: 24,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        const SizedBox(width: 4),
+                        const Expanded(
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: TravelBrand(width: 160),
+                          ),
+                        ),
+                        if (widget.onProfileTap != null)
+                          IconButton(
+                            tooltip: 'Mở trang cá nhân',
+                            onPressed: widget.onProfileTap,
+                            icon: const Icon(
+                              Icons.person_outline_rounded,
+                              size: 24,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+                    child: Text(
+                      'Kho lịch trình',
+                      style: Theme.of(context).textTheme.headlineMedium,
+                    ),
+                  ),
+                  Expanded(child: content),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return AppScaffold(
+      title: 'Kho lịch trình',
+      padding: EdgeInsets.zero,
+      body: content,
+    );
+  }
 }
 
 class _PublicPlanCard extends StatelessWidget {
