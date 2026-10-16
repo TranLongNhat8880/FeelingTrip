@@ -2,6 +2,7 @@ class AdminReport {
   AdminReport(Map<String, dynamic> data)
     : id = '${data['id']}',
       reporterName = data['reporterName'] ?? '',
+      reporterId = data['reporterId'],
       targetName =
           data['reportedUserName'] ??
           data['reportedTripName'] ??
@@ -11,13 +12,21 @@ class AdminReport {
       notes = data['adminNotes'],
       image = data['evidenceImageUrl'],
       userId = data['reportedUserId'],
+      userAvatarUrl = data['reportedUserAvatarUrl'],
       tripId = data['reportedTripId'],
       userStatus = data['reportedUserStatus'],
       userRole = data['reportedUserRole'],
       context = Map<String, dynamic>.from(data['context'] ?? {}),
       createdAt = DateTime.tryParse(data['createdAt'] ?? '')?.toLocal();
   final String id, reporterName, targetName, reason, status;
-  final String? notes, image, userId, tripId, userStatus, userRole;
+  final String? notes,
+      image,
+      userId,
+      tripId,
+      userStatus,
+      userRole,
+      reporterId,
+      userAvatarUrl;
   final DateTime? createdAt;
   final Map<String, dynamic> context;
   bool get isTripReport => tripId != null && userId == null;

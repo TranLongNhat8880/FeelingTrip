@@ -211,7 +211,8 @@ const getReports = async ({ page, limit, status, search }) => {
 
   const dataQuery = `
     SELECT r.*, sender.full_name AS reporter_name,
-      target.full_name AS target_name, t.name AS trip_name
+      target.full_name AS target_name, target.avatar_url AS target_avatar_url,
+      t.name AS trip_name
     ${from} ${where}
     ORDER BY r.created_at ASC, r.id ASC
     LIMIT $${params.length + 1} OFFSET $${params.length + 2}
@@ -228,7 +229,8 @@ const getReport = async (id, client = db, lock = false) => {
   const query = `
     SELECT r.*, sender.full_name AS reporter_name, sender.email AS reporter_email,
       target.full_name AS target_name, target.status AS target_status,
-      target.role AS target_role, t.name AS trip_name
+      target.role AS target_role, target.avatar_url AS target_avatar_url,
+      t.name AS trip_name
     FROM user_reports r
     JOIN users sender ON sender.id=r.reporter_id
     LEFT JOIN users target ON target.id=r.reported_user_id
@@ -589,7 +591,8 @@ const getModerationPosts = async ({ page, limit, search }) => {
 
   const dataQuery = `
     SELECT cp.id, cp.trip_id, cp.title, cp.content, cp.status,
-      t.name AS trip_name, t.destination, u.full_name AS creator_name,
+      t.name AS trip_name, t.destination, t.cover_image_url AS trip_cover_image_url,
+      u.full_name AS creator_name,
       (SELECT COUNT(*)::int FROM user_reports r
         WHERE r.reported_trip_id=t.id AND r.status='PENDING') AS report_count
     ${from}

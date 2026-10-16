@@ -6,6 +6,7 @@ import '../../../core/constants/app_sizes.dart';
 import '../../../shared/ui_kit.dart';
 import '../../auth/viewmodels/auth_viewmodel.dart';
 import '../../map/views/admin_place_management_content.dart';
+import '../../profile/views/public_profile_screen.dart';
 import '../viewmodels/admin_viewmodel.dart';
 import 'admin_reports_content.dart';
 import 'admin_templates_content.dart';
@@ -79,7 +80,11 @@ class _AdminScreenState extends State<AdminScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               ListTile(
-                leading: AvatarPlaceholder(name: user.name, radius: 22),
+                leading: AvatarPlaceholder(
+                  name: user.name,
+                  imageUrl: user.avatarUrl,
+                  radius: 22,
+                ),
                 title: Text(user.name),
                 subtitle: Text(
                   '${user.email}\nTrạng thái: ${ban ? 'Hoạt động' : 'Đã khóa'}',
@@ -226,7 +231,11 @@ class _AdminScreenState extends State<AdminScreen> {
                       children: [
                         Row(
                           children: [
-                            AvatarPlaceholder(name: user.name, radius: 26),
+                            AvatarPlaceholder(
+                              name: user.name,
+                              imageUrl: user.avatarUrl,
+                              radius: 26,
+                            ),
                             const SizedBox(width: 14),
                             Expanded(
                               child: Column(
@@ -363,12 +372,25 @@ class _AdminScreenState extends State<AdminScreen> {
 
   Map<int, String> get _tabs => switch (_group) {
     0 => {0: 'Duyệt eKYC', 1: 'Người dùng'},
-    1 => {3: 'Báo cáo vi phạm', 5: 'Bài tuyển'},
+    1 => {3: 'Người dùng', 7: 'Chuyến đi', 5: 'Bài tuyển'},
     _ => {4: 'Lịch trình mẫu', 6: 'Cộng đồng', 2: 'Địa điểm'},
   };
 
   Widget _buildSection() {
-    if (_section == 5) return const AdminModerationScreen(embedded: true);
+    if (_group == 1) {
+      return IndexedStack(
+        index: const [3, 7, 5].indexOf(_section),
+        children: [
+          AdminReportsContent(
+            userAvatars: {
+              for (final user in _vm.users) user.id: user.avatarUrl,
+            },
+          ),
+          const AdminReportsContent(tripReports: true),
+          const AdminModerationScreen(embedded: true),
+        ],
+      );
+    }
     if (_section == 6) return const PlanLibraryScreen(embedded: true);
     if (_section == 3) return const AdminReportsContent();
     if (_section == 4) {
@@ -422,8 +444,10 @@ class _AdminScreenState extends State<AdminScreen> {
           indicatorWeight: 3,
           indicatorSize: TabBarIndicatorSize.label,
           dividerColor: AppColors.border,
-          onTap: (index) =>
-              setState(() => _section = _tabs.keys.elementAt(index)),
+          onTap: (index) {
+            FocusManager.instance.primaryFocus?.unfocus();
+            setState(() => _section = _tabs.keys.elementAt(index));
+          },
           tabs: [for (final title in _tabs.values) Tab(text: title)],
         ),
         bottomNavigationBar: AppBottomNavigation(
@@ -518,12 +542,14 @@ class _AdminScreenState extends State<AdminScreen> {
                           side: const BorderSide(color: AppColors.border),
                         ),
                         child: ListTile(
+                          hoverColor: Colors.transparent,
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 16,
                             vertical: 8,
                           ),
                           leading: AvatarPlaceholder(
                             name: user.name,
+                            imageUrl: user.avatarUrl,
                             radius: 22,
                           ),
                           title: Text(
@@ -634,12 +660,14 @@ class _AdminScreenState extends State<AdminScreen> {
                           side: const BorderSide(color: AppColors.border),
                         ),
                         child: ListTile(
+                          hoverColor: Colors.transparent,
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 16,
                             vertical: 6,
                           ),
                           leading: AvatarPlaceholder(
                             name: user.name,
+                            imageUrl: user.avatarUrl,
                             radius: 20,
                           ),
                           title: Row(
@@ -658,10 +686,13 @@ class _AdminScreenState extends State<AdminScreen> {
                               ),
                               if (user.verification == 'VERIFIED') ...[
                                 const SizedBox(width: 4),
-                                const Icon(
-                                  Icons.verified_rounded,
-                                  size: 14,
-                                  color: AppColors.primary,
+                                const Tooltip(
+                                  message: 'Đã xác minh',
+                                  child: Icon(
+                                    Icons.badge_outlined,
+                                    size: 15,
+                                    color: AppColors.success,
+                                  ),
                                 ),
                               ],
                             ],
@@ -694,6 +725,10 @@ class _AdminScreenState extends State<AdminScreen> {
                                     ),
                               ),
                             ],
+                          ),
+                          onTap: () => PublicProfileScreen.open(
+                            context,
+                            userId: user.id,
                           ),
                           trailing: user.role == 'ADMIN'
                               ? null
