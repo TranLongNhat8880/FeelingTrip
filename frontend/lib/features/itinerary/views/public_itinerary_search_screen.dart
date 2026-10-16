@@ -2,20 +2,28 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../shared/ui_kit.dart';
+import '../../admin/models/admin_content_model.dart';
+import '../../admin/repositories/admin_content_repository.dart';
+import '../../admin/views/plan_library_screen.dart';
 import '../../companion/views/companion_search_screen.dart';
+import '../../review/repositories/trip_reviews_repository.dart';
+import '../models/itinerary_model.dart';
 import '../repositories/itinerary_repository.dart';
-import '../viewmodels/itinerary_viewmodel.dart';
 import 'public_itineraries_screen.dart';
 
 class PublicItinerarySearchScreen extends StatefulWidget {
   const PublicItinerarySearchScreen({
     super.key,
+    this.source = 'COMMUNITY',
     this.repository,
+    this.reviewsRepository,
     this.destinations = const [],
     this.initialQuery,
   });
 
+  final String source;
   final ItineraryRepository? repository;
+  final TripReviewsRepository? reviewsRepository;
   final List<String> destinations;
   final String? initialQuery;
 
@@ -27,7 +35,11 @@ class PublicItinerarySearchScreen extends StatefulWidget {
 class _PublicItinerarySearchScreenState
     extends State<PublicItinerarySearchScreen> {
   final _controller = TextEditingController();
-  late final PublicItineraryViewModel _viewModel;
+  final _adminRepo = AdminContentRepository();
+  late String _currentSource;
+  bool _isLoading = false;
+  String? _errorMessage;
+  List<LibraryPlan> _results = [];
   bool _showResults = false;
   String _submittedQuery = '';
 
@@ -46,9 +58,7 @@ class _PublicItinerarySearchScreenState
   @override
   void initState() {
     super.initState();
-    _viewModel = PublicItineraryViewModel(repository: widget.repository)
-      ..addListener(_onChanged);
-
+    _currentSource = widget.source;
     if (widget.initialQuery != null && widget.initialQuery!.trim().isNotEmpty) {
       _controller.text = widget.initialQuery!.trim();
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -57,19 +67,13 @@ class _PublicItinerarySearchScreenState
     }
   }
 
-  void _onChanged() {
-    if (mounted) setState(() {});
-  }
-
   @override
   void dispose() {
-    _viewModel.removeListener(_onChanged);
-    _viewModel.dispose();
     _controller.dispose();
     super.dispose();
   }
 
-  void _search(String value) {
+  Future<void> _search(String value) async {
     final query = value.trim();
     if (query.isEmpty) return;
     FocusScope.of(context).unfocus();
@@ -80,8 +84,54 @@ class _PublicItinerarySearchScreenState
     setState(() {
       _showResults = true;
       _submittedQuery = query;
+      _isLoading = true;
+      _errorMessage = null;
     });
-    _viewModel.load(keyword: query);
+
+    try {
+      if (_currentSource == 'COMMUNITY') {
+        if (widget.repository != null) {
+          final res = await widget.repository!.getPublicPlans(keyword: query);
+          final items = res.items
+              .map((p) => LibraryPlan({
+                    'id': p.sourceTripId,
+                    'name': p.name,
+                    'destination': p.destination,
+                    'durationDays': p.durationDays,
+                    'coverImageUrl': p.coverImageUrl,
+                    'description': p.description,
+                    'source': 'COMMUNITY',
+                    'usageCount': p.cloneCount,
+                    'averageRating': p.averageRating,
+                    'reviewCount': p.reviewCount,
+                    'isActive': true,
+                  }))
+              .toList();
+          if (mounted) setState(() => _results = items);
+        } else {
+          final list = await _adminRepo.plans(
+            source: 'COMMUNITY',
+            search: query,
+          );
+          if (mounted) setState(() => _results = list);
+        }
+      } else {
+        // SYSTEM
+        final list = await _adminRepo.plans(
+          source: 'SYSTEM',
+          search: query,
+        );
+        if (mounted) setState(() => _results = list);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString().replaceFirst('Exception: ', '');
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -101,7 +151,8 @@ class _PublicItinerarySearchScreenState
           padding: const EdgeInsets.only(right: 12),
           child: TextField(
             controller: _controller,
-            autofocus: widget.initialQuery == null || widget.initialQuery!.isEmpty,
+            autofocus:
+                widget.initialQuery == null || widget.initialQuery!.isEmpty,
             textInputAction: TextInputAction.search,
             onSubmitted: _search,
             onChanged: (_) {
@@ -112,7 +163,9 @@ class _PublicItinerarySearchScreenState
               }
             },
             decoration: InputDecoration(
-              hintText: 'Tìm kiếm lịch trình, điểm đến...',
+              hintText: _currentSource == 'SYSTEM'
+                  ? 'Tìm kiếm mẫu lịch trình hệ thống...'
+                  : 'Tìm kiếm lịch trình cộng đồng...',
               hintStyle: const TextStyle(
                 color: AppColors.textHint,
                 fontSize: 14,
@@ -134,7 +187,8 @@ class _PublicItinerarySearchScreenState
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(28),
-                borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                borderSide:
+                    const BorderSide(color: AppColors.primary, width: 1.5),
               ),
               prefixIcon: const Icon(
                 Icons.search_rounded,
@@ -154,9 +208,79 @@ class _PublicItinerarySearchScreenState
             ),
           ),
         ),
-        bottom: const PreferredSize(
-          preferredSize: Size.fromHeight(1),
-          child: Divider(height: 1, thickness: .5),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(48),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: Row(
+                  children: [
+                    ChoiceChip(
+                      label: const Text('Mẫu hệ thống'),
+                      selected: _currentSource == 'SYSTEM',
+                      onSelected: (_) {
+                        setState(() => _currentSource = 'SYSTEM');
+                        if (_controller.text.trim().isNotEmpty) {
+                          _search(_controller.text.trim());
+                        }
+                      },
+                      backgroundColor: Colors.white,
+                      selectedColor: const Color(0xFFE0F2FE),
+                      labelStyle: TextStyle(
+                        color: _currentSource == 'SYSTEM'
+                            ? const Color(0xFF0369A1)
+                            : const Color(0xFF334155),
+                        fontWeight: _currentSource == 'SYSTEM'
+                            ? FontWeight.w600
+                            : FontWeight.normal,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                        side: BorderSide(
+                          color: _currentSource == 'SYSTEM'
+                              ? const Color(0xFFBAE6FD)
+                              : const Color(0xFFE2E8F0),
+                        ),
+                      ),
+                      showCheckmark: true,
+                    ),
+                    const SizedBox(width: 8),
+                    ChoiceChip(
+                      label: const Text('Cộng đồng'),
+                      selected: _currentSource == 'COMMUNITY',
+                      onSelected: (_) {
+                        setState(() => _currentSource = 'COMMUNITY');
+                        if (_controller.text.trim().isNotEmpty) {
+                          _search(_controller.text.trim());
+                        }
+                      },
+                      backgroundColor: Colors.white,
+                      selectedColor: const Color(0xFFE0F2FE),
+                      labelStyle: TextStyle(
+                        color: _currentSource == 'COMMUNITY'
+                            ? const Color(0xFF0369A1)
+                            : const Color(0xFF334155),
+                        fontWeight: _currentSource == 'COMMUNITY'
+                            ? FontWeight.w600
+                            : FontWeight.normal,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                        side: BorderSide(
+                          color: _currentSource == 'COMMUNITY'
+                              ? const Color(0xFFBAE6FD)
+                              : const Color(0xFFE2E8F0),
+                        ),
+                      ),
+                      showCheckmark: true,
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1, thickness: .5),
+            ],
+          ),
         ),
       ),
       body: _showResults ? _buildResults() : _buildSuggestions(suggestions),
@@ -224,13 +348,21 @@ class _PublicItinerarySearchScreenState
                 color: AppColors.primarySurface,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.search_rounded, color: AppColors.primary, size: 20),
+              child: const Icon(
+                Icons.search_rounded,
+                color: AppColors.primary,
+                size: 20,
+              ),
             ),
             title: Text(
               'Tìm “$text”',
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
-            subtitle: const Text('Tìm theo tên lịch trình hoặc điểm đến'),
+            subtitle: Text(
+              _currentSource == 'SYSTEM'
+                  ? 'Tìm theo tên mẫu lịch trình hoặc điểm đến'
+                  : 'Tìm theo tên lịch trình hoặc điểm đến',
+            ),
             onTap: () => _search(text),
           ),
           const Divider(height: 1),
@@ -254,20 +386,24 @@ class _PublicItinerarySearchScreenState
   }
 
   Widget _buildResults() {
-    if (_viewModel.isLoading) {
-      return const Center(
-        child: LoadingIndicator(message: 'Đang tìm kiếm lịch trình...'),
+    if (_isLoading) {
+      return Center(
+        child: LoadingIndicator(
+          message: _currentSource == 'SYSTEM'
+              ? 'Đang tìm kiếm mẫu hệ thống...'
+              : 'Đang tìm kiếm lịch trình cộng đồng...',
+        ),
       );
     }
 
-    if (_viewModel.errorMessage != null) {
+    if (_errorMessage != null) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(_viewModel.errorMessage!, textAlign: TextAlign.center),
+              Text(_errorMessage!, textAlign: TextAlign.center),
               const SizedBox(height: 12),
               CustomButton(
                 text: 'Thử lại',
@@ -280,7 +416,7 @@ class _PublicItinerarySearchScreenState
       );
     }
 
-    if (_viewModel.plans.isEmpty) {
+    if (_results.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -288,17 +424,17 @@ class _PublicItinerarySearchScreenState
             icon: Icons.search_off_rounded,
             title: 'Chưa có lịch trình phù hợp',
             message:
-                'Không tìm thấy lịch trình nào cho "$_submittedQuery". Hãy thử tìm kiếm với tên địa danh khác.',
+                'Không tìm thấy ${_currentSource == 'SYSTEM' ? 'mẫu hệ thống' : 'lịch trình cộng đồng'} nào cho "$_submittedQuery". Hãy thử tìm kiếm với tên địa danh khác.',
           ),
         ),
       );
     }
 
     return RefreshIndicator(
-      onRefresh: () => _viewModel.load(keyword: _submittedQuery),
+      onRefresh: () => _search(_submittedQuery),
       child: ListView.builder(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 40),
-        itemCount: _viewModel.plans.length + 1,
+        itemCount: _results.length + 1,
         itemBuilder: (context, index) {
           if (index == 0) {
             return Padding(
@@ -307,7 +443,7 @@ class _PublicItinerarySearchScreenState
                 children: [
                   Expanded(
                     child: Text(
-                      '${_viewModel.plans.length} kết quả cho “$_submittedQuery”',
+                      '${_results.length} kết quả cho “$_submittedQuery”',
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
                         color: AppColors.textSecondary,
                         fontWeight: FontWeight.w600,
@@ -321,27 +457,62 @@ class _PublicItinerarySearchScreenState
                     ),
                     icon: const Icon(Icons.check_rounded, size: 16),
                     label: const Text('Chọn lọc này'),
-                    onPressed: () => Navigator.pop(context, _submittedQuery),
+                    onPressed: () => Navigator.pop(
+                      context,
+                      (query: _submittedQuery, source: _currentSource),
+                    ),
                   ),
                 ],
               ),
             );
           }
 
-          final plan = _viewModel.plans[index - 1];
+          final plan = _results[index - 1];
           return Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: PublicPlanCard(
-              plan: plan,
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => PublicItineraryDetailScreen(
-                    summary: plan,
-                    repository: widget.repository,
-                  ),
-                ),
+              plan: PublicItinerarySummary(
+                sourceTripId: plan.id,
+                name: plan.name,
+                destination: plan.destination,
+                durationDays: plan.durationDays,
+                coverImageUrl: plan.cover,
+                description: plan.description,
+                averageRating: plan.rating,
+                reviewCount: plan.reviews,
+                cloneCount: plan.usage,
               ),
+              onTap: () {
+                if (plan.community) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => PublicItineraryDetailScreen(
+                        summary: PublicItinerarySummary(
+                          sourceTripId: plan.id,
+                          name: plan.name,
+                          destination: plan.destination,
+                          durationDays: plan.durationDays,
+                          coverImageUrl: plan.cover,
+                          description: plan.description,
+                          averageRating: plan.rating,
+                          reviewCount: plan.reviews,
+                          cloneCount: plan.usage,
+                        ),
+                        repository: widget.repository,
+                        reviewsRepository: widget.reviewsRepository,
+                      ),
+                    ),
+                  );
+                } else {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => PlanDetailScreen(plan: plan),
+                    ),
+                  );
+                }
+              },
             ),
           );
         },
@@ -349,4 +520,3 @@ class _PublicItinerarySearchScreenState
     );
   }
 }
-

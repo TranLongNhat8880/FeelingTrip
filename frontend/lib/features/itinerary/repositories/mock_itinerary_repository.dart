@@ -321,6 +321,56 @@ class MockItineraryRepository implements ItineraryRepository {
       longitude: 108.2208,
       rating: 4.8,
     ),
+    ItineraryPlaceOption(
+      id: 'place-qn-1',
+      name: 'Vịnh Hạ Long',
+      destination: 'Quảng Ninh',
+      category: 'NATURE',
+      address: 'Thành phố Hạ Long, Quảng Ninh',
+      latitude: 20.9101,
+      longitude: 107.1839,
+      rating: 5.0,
+    ),
+    ItineraryPlaceOption(
+      id: 'place-qn-2',
+      name: 'Bảo tàng Quảng Ninh',
+      destination: 'Quảng Ninh',
+      category: 'CULTURE',
+      address: 'Trần Quốc Nghiễn, Hồng Gai, Hạ Long, Quảng Ninh',
+      latitude: 20.9503,
+      longitude: 107.0945,
+      rating: 4.8,
+    ),
+    ItineraryPlaceOption(
+      id: 'place-qn-3',
+      name: 'Bãi tắm Bãi Cháy',
+      destination: 'Quảng Ninh',
+      category: 'NATURE',
+      address: 'Bãi Cháy, Thành phố Hạ Long, Quảng Ninh',
+      latitude: 20.9582,
+      longitude: 107.0378,
+      rating: 4.7,
+    ),
+    ItineraryPlaceOption(
+      id: 'place-qn-4',
+      name: 'Đảo Tuần Châu',
+      destination: 'Quảng Ninh',
+      category: 'ATTRACTION',
+      address: 'Đảo Tuần Châu, Thành phố Hạ Long, Quảng Ninh',
+      latitude: 20.9300,
+      longitude: 106.9900,
+      rating: 4.6,
+    ),
+    ItineraryPlaceOption(
+      id: 'place-qn-5',
+      name: 'Sun World Hạ Long Complex',
+      destination: 'Quảng Ninh',
+      category: 'ENTERTAINMENT',
+      address: 'Đường Hạ Long, Bãi Cháy, Hạ Long, Quảng Ninh',
+      latitude: 20.9535,
+      longitude: 107.0505,
+      rating: 4.8,
+    ),
   ];
 
   @override
@@ -339,10 +389,6 @@ class MockItineraryRepository implements ItineraryRepository {
           dest.contains(pDest) ||
           (p.address?.toLowerCase().contains(dest) ?? false);
     }).toList();
-
-    if (matches.isEmpty && dest.isNotEmpty) {
-      matches = List.of(_mockCatalogPlaces);
-    }
 
     if (kw != null && kw.isNotEmpty) {
       matches = matches.where((p) {

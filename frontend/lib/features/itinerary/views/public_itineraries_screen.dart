@@ -5,12 +5,14 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_sizes.dart';
 import '../../../core/utils/app_utils.dart';
 import '../../../shared/ui_kit.dart';
+import '../../admin/models/admin_content_model.dart';
+import '../../admin/repositories/admin_content_repository.dart';
+import '../../admin/views/plan_library_screen.dart';
 import '../../review/repositories/trip_reviews_repository.dart';
 import '../../review/views/widgets/trip_reviews_section.dart';
 import '../models/itinerary_model.dart';
 import '../repositories/itinerary_repository.dart';
 import '../viewmodels/itinerary_viewmodel.dart';
-import '../../admin/views/plan_library_screen.dart';
 import 'itinerary_screen.dart';
 import 'public_itinerary_search_screen.dart';
 
@@ -38,173 +40,534 @@ class PublicItinerariesScreen extends StatefulWidget {
 }
 
 class _PublicItinerariesScreenState extends State<PublicItinerariesScreen> {
-  late final PublicItineraryViewModel _viewModel;
-  String? _activeFilter;
+  final _adminRepo = AdminContentRepository();
+  final _searchController = TextEditingController();
+  String _source = 'COMMUNITY'; // 'SYSTEM' hoặc 'COMMUNITY'
+  String _sort = 'newest';
+  List<LibraryPlan> _plans = [];
+  bool _loading = false;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
-    _activeFilter = widget.initialDestination;
-    _viewModel = PublicItineraryViewModel(repository: widget.repository)
-      ..addListener(_onChanged)
-      ..load(destination: _activeFilter);
-  }
-
-  void _onChanged() {
-    if (mounted) setState(() {});
+    if (widget.initialDestination != null &&
+        widget.initialDestination!.isNotEmpty) {
+      _searchController.text = widget.initialDestination!;
+    }
+    _load();
   }
 
   @override
   void dispose() {
-    _viewModel.removeListener(_onChanged);
-    _viewModel.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
-  Future<void> _refresh() => _viewModel.load(destination: _activeFilter);
-
-  void _clearFilter() {
-    setState(() => _activeFilter = null);
-    _viewModel.load();
-  }
-
-  Future<void> _openSearch() async {
-    final query = await Navigator.push<String?>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => PublicItinerarySearchScreen(
-          repository: widget.repository,
-          destinations: _viewModel.plans
-              .map((p) => p.destination)
-              .where((d) => d.isNotEmpty)
-              .toSet()
-              .toList(),
-          initialQuery: _activeFilter,
-        ),
-      ),
-    );
-    if (query != null && query.trim().isNotEmpty && mounted) {
-      setState(() => _activeFilter = query.trim());
-      _viewModel.load(keyword: query.trim());
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final search = _searchController.text.trim();
+      if (widget.repository != null && _source == 'COMMUNITY') {
+        final res = await widget.repository!.getPublicPlans(
+          keyword: search.isEmpty ? null : search,
+        );
+        var items = res.items
+            .map((p) => LibraryPlan({
+                  'id': p.sourceTripId,
+                  'name': p.name,
+                  'destination': p.destination,
+                  'durationDays': p.durationDays,
+                  'coverImageUrl': p.coverImageUrl,
+                  'description': p.description,
+                  'source': 'COMMUNITY',
+                  'usageCount': p.cloneCount,
+                  'averageRating': p.averageRating,
+                  'reviewCount': p.reviewCount,
+                  'isActive': true,
+                }))
+            .toList();
+        if (_sort == 'usage') {
+          items.sort((a, b) => b.usage.compareTo(a.usage));
+        } else if (_sort == 'rating') {
+          items.sort((a, b) => b.rating.compareTo(a.rating));
+        }
+        if (mounted) setState(() => _plans = items);
+      } else {
+        final list = await _adminRepo.plans(
+          source: _source,
+          search: search,
+          sort: _sort,
+        );
+        if (mounted) setState(() => _plans = list);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final hasActiveFilter =
-        _activeFilter != null && _activeFilter!.trim().isNotEmpty;
-    final content = RefreshIndicator(
-      onRefresh: _refresh,
+  Future<void> _openDetail(LibraryPlan row) async {
+    if (row.community) {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PublicItineraryDetailScreen(
+            summary: PublicItinerarySummary(
+              sourceTripId: row.id,
+              name: row.name,
+              destination: row.destination,
+              durationDays: row.durationDays,
+              coverImageUrl: row.cover,
+              description: row.description,
+              averageRating: row.rating,
+              reviewCount: row.reviews,
+              cloneCount: row.usage,
+            ),
+            repository: widget.repository,
+            reviewsRepository: widget.reviewsRepository,
+          ),
+        ),
+      );
+    } else {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PlanDetailScreen(plan: row),
+        ),
+      );
+    }
+    if (mounted) await _load();
+  }
+
+  Future<void> _openSearch() async {
+    final result = await Navigator.push<dynamic>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PublicItinerarySearchScreen(
+          source: _source,
+          repository: widget.repository,
+          reviewsRepository: widget.reviewsRepository,
+          initialQuery: _searchController.text.trim().isNotEmpty
+              ? _searchController.text.trim()
+              : null,
+        ),
+      ),
+    );
+    if (result != null && mounted) {
+      if (result is String) {
+        setState(() {
+          _searchController.text = result;
+        });
+      } else if (result is ({String query, String source})) {
+        setState(() {
+          _searchController.text = result.query;
+          _source = result.source;
+        });
+      }
+      await _load();
+    }
+  }
+
+  Widget _dropdownSelectedRow(String title, IconData icon) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 16, color: const Color(0xFF0284C7)),
+        const SizedBox(width: 6),
+        Text(
+          title,
+          style: const TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 14,
+            color: Color(0xFF0F172A),
+          ),
+        ),
+      ],
+    );
+  }
+
+  DropdownMenuItem<String> _buildSortMenuItem(
+    String val,
+    String title,
+    IconData icon,
+  ) {
+    final isSelected = _sort == val;
+    return DropdownMenuItem<String>(
+      value: val,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? const Color(0xFFE0F2FE)
+                    : const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                icon,
+                size: 16,
+                color: isSelected
+                    ? const Color(0xFF0284C7)
+                    : const Color(0xFF64748B),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              title,
+              style: TextStyle(
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                fontSize: 14,
+                color: isSelected
+                    ? const Color(0xFF0284C7)
+                    : const Color(0xFF1E293B),
+              ),
+            ),
+            const SizedBox(width: 12),
+            if (isSelected)
+              const Icon(
+                Icons.check_rounded,
+                size: 18,
+                color: Color(0xFF0284C7),
+              )
+            else
+              const SizedBox(width: 18),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _content(BuildContext context) {
+    return RefreshIndicator(
+      onRefresh: _load,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 80),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         children: [
-          Semantics(
-            button: true,
-            label: 'Tìm kiếm lịch trình cộng đồng',
-            child: Material(
-              color: AppColors.inputSurface,
-              borderRadius: BorderRadius.circular(28),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(28),
-                onTap: _openSearch,
+          // ─── TAB FILTER PILLS: [ Mẫu hệ thống ] [ ✓ Cộng đồng ] ───
+          Wrap(
+            spacing: 8,
+            children: [
+              ChoiceChip(
+                label: const Text('Mẫu hệ thống'),
+                selected: _source == 'SYSTEM',
+                onSelected: (_) {
+                  setState(() => _source = 'SYSTEM');
+                  _load();
+                },
+                backgroundColor: Colors.white,
+                selectedColor: const Color(0xFFE0F2FE),
+                labelStyle: TextStyle(
+                  color: _source == 'SYSTEM'
+                      ? const Color(0xFF0369A1)
+                      : const Color(0xFF334155),
+                  fontWeight:
+                      _source == 'SYSTEM' ? FontWeight.w600 : FontWeight.normal,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  side: BorderSide(
+                    color: _source == 'SYSTEM'
+                        ? const Color(0xFFBAE6FD)
+                        : const Color(0xFFE2E8F0),
+                  ),
+                ),
+                showCheckmark: true,
+              ),
+              ChoiceChip(
+                label: const Text('Cộng đồng'),
+                selected: _source == 'COMMUNITY',
+                onSelected: (_) {
+                  setState(() => _source = 'COMMUNITY');
+                  _load();
+                },
+                backgroundColor: Colors.white,
+                selectedColor: const Color(0xFFE0F2FE),
+                labelStyle: TextStyle(
+                  color: _source == 'COMMUNITY'
+                      ? const Color(0xFF0369A1)
+                      : const Color(0xFF334155),
+                  fontWeight:
+                      _source == 'COMMUNITY' ? FontWeight.w600 : FontWeight.normal,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  side: BorderSide(
+                    color: _source == 'COMMUNITY'
+                        ? const Color(0xFFBAE6FD)
+                        : const Color(0xFFE2E8F0),
+                  ),
+                ),
+                showCheckmark: true,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // ─── SEARCH BAR ───
+          Row(
+            children: [
+              Expanded(
                 child: Container(
-                  constraints: const BoxConstraints(minHeight: 48),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(28),
-                    border: Border.all(color: AppColors.border),
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
                   ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.search_rounded,
-                        color: AppColors.textHint,
-                        size: 20,
+                  child: TextField(
+                    controller: _searchController,
+                    readOnly: true,
+                    onTap: _openSearch,
+                    decoration: InputDecoration(
+                      hintText: 'Tên lịch trình hoặc điểm đến',
+                      hintStyle: const TextStyle(
+                        color: Color(0xFF94A3B8),
+                        fontSize: 14,
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          hasActiveFilter
-                              ? _activeFilter!
-                              : 'Tìm kiếm lịch trình, điểm đến...',
-                          style: TextStyle(
-                            color: hasActiveFilter
-                                ? AppColors.textPrimary
-                                : AppColors.textHint,
-                            fontSize: 14,
-                            fontWeight: hasActiveFilter
-                                ? FontWeight.w500
-                                : FontWeight.normal,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                      prefixIcon: const Icon(
+                        Icons.search,
+                        color: Color(0xFF94A3B8),
                       ),
-                      if (hasActiveFilter)
-                        GestureDetector(
-                          onTap: _clearFilter,
-                          child: const Padding(
-                            padding: EdgeInsets.only(left: 8),
-                            child: Icon(
-                              Icons.cancel_rounded,
-                              color: AppColors.textSecondary,
-                              size: 20,
-                            ),
-                          ),
-                        ),
-                    ],
+                      suffixIcon: _searchController.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(
+                                Icons.close_rounded,
+                                size: 18,
+                                color: Color(0xFF94A3B8),
+                              ),
+                              tooltip: 'Xóa bộ lọc tìm kiếm',
+                              onPressed: () {
+                                setState(() => _searchController.clear());
+                                _load();
+                              },
+                            )
+                          : null,
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                    ),
                   ),
                 ),
               ),
+              IconButton(
+                tooltip: 'Tìm lịch trình',
+                onPressed: _openSearch,
+                icon: const Icon(
+                  Icons.search,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+            ],
+          ),
+          if (_searchController.text.trim().isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.filter_alt_outlined,
+                        size: 14,
+                        color: Color(0xFF475569),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Đang lọc: ${_searchController.text.trim()}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF334155),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      GestureDetector(
+                        onTap: () {
+                          setState(() => _searchController.clear());
+                          _load();
+                        },
+                        child: const Icon(
+                          Icons.cancel,
+                          size: 14,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
+          ],
+          const SizedBox(height: 8),
+
+          // ─── SORT DROPDOWN ───
+          Row(
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFCBD5E1)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _sort,
+                    borderRadius: BorderRadius.circular(16),
+                    dropdownColor: Colors.white,
+                    elevation: 6,
+                    icon: const Padding(
+                      padding: EdgeInsets.only(left: 8),
+                      child: Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        size: 20,
+                        color: Color(0xFF0284C7),
+                      ),
+                    ),
+                    isDense: true,
+                    selectedItemBuilder: (context) {
+                      return [
+                        _dropdownSelectedRow('Mới nhất', Icons.schedule_rounded),
+                        _dropdownSelectedRow('Được sử dụng nhiều', Icons.trending_up_rounded),
+                        _dropdownSelectedRow('Đánh giá cao', Icons.star_rounded),
+                      ];
+                    },
+                    items: [
+                      _buildSortMenuItem('newest', 'Mới nhất', Icons.schedule_rounded),
+                      _buildSortMenuItem('usage', 'Được sử dụng nhiều', Icons.trending_up_rounded),
+                      _buildSortMenuItem('rating', 'Đánh giá cao', Icons.star_rounded),
+                    ],
+                    onChanged: (v) {
+                      if (v != null) {
+                        setState(() => _sort = v);
+                        _load();
+                      }
+                    },
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 12),
-          CustomButton(
-            text: 'Xem lịch trình mẫu hệ thống',
-            icon: Icons.route_outlined,
-            variant: AppButtonVariant.secondary,
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const PlanLibraryScreen()),
-            ),
-          ),
-          const SizedBox(height: 16),
-          SectionHeader(
-            title: 'Lịch trình cộng đồng',
-            subtitle: hasActiveFilter
-                ? '${_viewModel.plans.length} kết quả cho “$_activeFilter”'
-                : '${_viewModel.plans.length} kết quả phù hợp',
-          ),
-          const SizedBox(height: 12),
-          if (_viewModel.isLoading && _viewModel.plans.isEmpty)
-            const LoadingIndicator(message: 'Đang tải lịch trình...')
-          else if (_viewModel.errorMessage != null && _viewModel.plans.isEmpty)
-            ErrorState(message: _viewModel.errorMessage!, onRetry: _refresh)
-          else if (_viewModel.plans.isEmpty)
-            EmptyStateWidget(
-              icon: Icons.search_off_rounded,
-              title: 'Chưa có lịch trình phù hợp',
-              message: hasActiveFilter
-                  ? 'Không tìm thấy lịch trình cho “$_activeFilter”. Thử thay đổi từ khóa.'
-                  : 'Hiện chưa có lịch trình công khai nào.',
+          const SizedBox(height: 6),
+
+          // ─── CARD LIST ───
+          if (_loading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 40),
+              child: Center(
+                child: LoadingIndicator(message: 'Đang tải lịch trình...'),
+              ),
+            )
+          else if (_error != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: ErrorState(message: _error!, onRetry: _load),
+            )
+          else if (_plans.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 32),
+              child: EmptyStateWidget(
+                title: 'Chưa có lịch trình phù hợp',
+                message: 'Thử đổi từ khóa tìm kiếm hoặc chuyển tab.',
+                icon: Icons.route_outlined,
+              ),
             )
           else
-            for (final plan in _viewModel.plans)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: PublicPlanCard(
-                  plan: plan,
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => PublicItineraryDetailScreen(
-                        summary: plan,
-                        repository: widget.repository,
-                        reviewsRepository: widget.reviewsRepository,
-                      ),
+            for (final row in _plans)
+              Card(
+                elevation: 0,
+                margin: const EdgeInsets.only(bottom: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: const BorderSide(color: Color(0xFFF1F5F9)),
+                ),
+                color: Colors.white,
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: () => _openDetail(row),
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (row.cover != null && row.cover!.trim().isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(10),
+                              child: Image.network(
+                                row.cover!,
+                                height: 150,
+                                width: double.infinity,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, _, _) =>
+                                    const SizedBox.shrink(),
+                              ),
+                            ),
+                          ),
+                        Text(
+                          row.name,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF0F172A),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${row.destination} · ${row.durationDays} ngày',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF334155),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${row.community ? 'Cộng đồng' : 'Mẫu hệ thống'} · ${row.usage} lượt sử dụng',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF334155),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          row.reviews == 0
+                              ? 'Chưa có đánh giá'
+                              : '★ ${row.rating.toStringAsFixed(1)} (${row.reviews} đánh giá)',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF334155),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -212,17 +575,22 @@ class _PublicItinerariesScreenState extends State<PublicItinerariesScreen> {
         ],
       ),
     );
+  }
 
+  @override
+  Widget build(BuildContext context) {
     if (widget.embedded) {
-      return TravelBackdrop(
-        child: SafeArea(
-          bottom: false,
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(
-                maxWidth: AppSizes.documentMaxWidth,
-              ),
+      return Material(
+        type: MaterialType.transparency,
+        child: TravelBackdrop(
+          child: SafeArea(
+            bottom: false,
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: AppSizes.documentMaxWidth,
+                ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -260,26 +628,20 @@ class _PublicItinerariesScreenState extends State<PublicItinerariesScreen> {
                       ],
                     ),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
-                    child: Text(
-                      'Kho lịch trình',
-                      style: Theme.of(context).textTheme.headlineMedium,
-                    ),
-                  ),
-                  Expanded(child: content),
+                  Expanded(child: _content(context)),
                 ],
               ),
             ),
           ),
         ),
-      );
-    }
+      ),
+    );
+  }
 
     return AppScaffold(
-      title: 'Kho lịch trình',
+      title: 'Lịch trình du lịch',
       padding: EdgeInsets.zero,
-      body: content,
+      body: _content(context),
     );
   }
 }
@@ -496,7 +858,7 @@ class _PublicItineraryDetailScreenState
             ),
             const SizedBox(height: 18),
             CustomButton(
-              text: 'Tạo bản sao',
+              text: 'Sao chép chuyến đi',
               onPressed: () {
                 final trimmedName = name.text.trim();
                 if (trimmedName.length < 2) {

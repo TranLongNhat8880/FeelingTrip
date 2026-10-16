@@ -64,7 +64,7 @@ void main() {
   });
 
   group('PublicItinerariesScreen Widget Tests', () {
-    testWidgets('cleans up notice & destination input, retains system templates button', (tester) async {
+    testWidgets('renders filter pills, search input, sort dropdown and cards', (tester) async {
       final repo = MockItineraryRepository();
       await tester.pumpWidget(
         MaterialApp(
@@ -76,23 +76,21 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Verify blue info notice is removed
-      expect(find.textContaining('Chỉ hiển thị chuyến đi công khai đã hoàn thành'), findsNothing);
+      // Verify filter pills
+      expect(find.widgetWithText(ChoiceChip, 'Mẫu hệ thống'), findsOneWidget);
+      expect(find.widgetWithText(ChoiceChip, 'Cộng đồng'), findsOneWidget);
 
-      // Verify "Xem lịch trình mẫu hệ thống" button is present
-      expect(find.text('Xem lịch trình mẫu hệ thống'), findsOneWidget);
+      // Verify search input
+      expect(find.text('Tên lịch trình hoặc điểm đến'), findsOneWidget);
 
-      // Verify "Điểm đến" input field is removed
-      expect(find.widgetWithText(TextField, 'Điểm đến'), findsNothing);
+      // Verify sort dropdown
+      expect(find.text('Mới nhất'), findsOneWidget);
 
-      // Verify new search bar is present
-      expect(find.text('Tìm kiếm lịch trình, điểm đến...'), findsOneWidget);
-
-      // Verify section header "Lịch trình cộng đồng" is present
-      expect(find.text('Lịch trình cộng đồng'), findsOneWidget);
+      // Verify cards loaded
+      expect(find.byType(InkWell), findsWidgets);
     });
 
-    testWidgets('opening PlanLibraryScreen does not contain Cộng đồng section', (tester) async {
+    testWidgets('switching between Mẫu hệ thống and Cộng đồng chips', (tester) async {
       final repo = MockItineraryRepository();
       await tester.pumpWidget(
         MaterialApp(
@@ -104,16 +102,14 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Xem lịch trình mẫu hệ thống'));
+      await tester.tap(find.widgetWithText(ChoiceChip, 'Mẫu hệ thống'));
       await tester.pumpAndSettle();
 
-      // Screen title should be Lịch trình mẫu hệ thống
-      expect(find.text('Lịch trình mẫu hệ thống'), findsOneWidget);
-      // There should NOT be a "Cộng đồng" chip inside PlanLibraryScreen
-      expect(find.widgetWithText(ChoiceChip, 'Cộng đồng'), findsNothing);
+      final ChoiceChip systemChip = tester.widget(find.widgetWithText(ChoiceChip, 'Mẫu hệ thống'));
+      expect(systemChip.selected, isTrue);
     });
 
-    testWidgets('tapping search bar navigates to PublicItinerarySearchScreen', (tester) async {
+    testWidgets('tapping search bar navigates to PublicItinerarySearchScreen and applies filter', (tester) async {
       final repo = MockItineraryRepository();
       await tester.pumpWidget(
         MaterialApp(
@@ -125,17 +121,28 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final searchBar = find.text('Tìm kiếm lịch trình, điểm đến...');
-      expect(searchBar, findsOneWidget);
-
-      await tester.tap(searchBar);
+      await tester.tap(find.byType(TextField));
       await tester.pumpAndSettle();
 
-      // Verified navigated to PublicItinerarySearchScreen
+      // Verify opened PublicItinerarySearchScreen with suggestions
       expect(find.byType(PublicItinerarySearchScreen), findsOneWidget);
       expect(find.text('Gợi ý điểm đến phổ biến'), findsOneWidget);
       expect(find.text('Hà Nội'), findsWidgets);
-      expect(find.text('Đà Lạt'), findsWidgets);
+
+      // Tap popular destination chip 'Hà Nội'
+      await tester.tap(find.widgetWithText(ActionChip, 'Hà Nội'));
+      await tester.pumpAndSettle();
+
+      // Verify results appear
+      expect(find.textContaining('kết quả cho “Hà Nội”'), findsOneWidget);
+
+      // Tap 'Chọn lọc này' to return to PublicItinerariesScreen
+      await tester.tap(find.text('Chọn lọc này'));
+      await tester.pumpAndSettle();
+
+      // Verify returned to PublicItinerariesScreen with filter active
+      expect(find.byType(PublicItinerariesScreen), findsOneWidget);
+      expect(find.text('Đang lọc: Hà Nội'), findsOneWidget);
     });
   });
 
@@ -164,6 +171,56 @@ void main() {
       // Check search results appear
       expect(find.textContaining('kết quả cho “Hà Nội”'), findsOneWidget);
       expect(find.byType(PublicPlanCard), findsWidgets);
+    });
+
+    testWidgets('source: SYSTEM searches system templates only', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: PublicItinerarySearchScreen(
+            source: 'SYSTEM',
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final chip = tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Mẫu hệ thống'));
+      expect(chip.selected, isTrue);
+
+      final input = find.byType(TextField);
+      await tester.enterText(input, 'Hà Nội');
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await tester.pumpAndSettle();
+
+      // Should find the system template for Hanoi
+      expect(find.textContaining('Khám phá Hà Nội'), findsOneWidget);
+      // Should NOT find community trekking
+      expect(find.text('Trekking'), findsNothing);
+    });
+
+    testWidgets('source: COMMUNITY searches community plans only', (tester) async {
+      final repo = MockItineraryRepository();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: PublicItinerarySearchScreen(
+            source: 'COMMUNITY',
+            repository: repo,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final chip = tester.widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Cộng đồng'));
+      expect(chip.selected, isTrue);
+
+      final input = find.byType(TextField);
+      await tester.enterText(input, 'Hà Nội');
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await tester.pumpAndSettle();
+
+      // Should find the community plan for Hanoi
+      expect(find.textContaining('Chuyến đi Hà Nội'), findsOneWidget);
+      // Should NOT find system template
+      expect(find.text('Khám phá Hà Nội 2 ngày 1 đêm'), findsNothing);
     });
   });
 }

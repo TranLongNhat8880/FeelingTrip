@@ -265,18 +265,63 @@ class _TripFormScreenState extends State<TripFormScreen> {
   }
 
   String _resolveDestinationName(PlaceSearchResult result, String currentText) {
-    if (result.name.trim().isNotEmpty) {
-      return result.name.trim();
-    }
-    if (currentText.trim().isNotEmpty) {
-      return currentText.trim();
-    }
+    final name = result.name.trim();
     final city = result.mapAddress.city.trim();
     final province = result.mapAddress.province.trim();
     final district = result.mapAddress.district.trim().isNotEmpty
         ? result.mapAddress.district.trim()
         : result.mapAddress.county.trim();
 
+    bool isOverlap(String a, String b) {
+      final cleanA = a.toLowerCase().trim();
+      final cleanB = b.toLowerCase().trim();
+      if (cleanA.isEmpty || cleanB.isEmpty) return false;
+      return cleanA == cleanB || cleanA.contains(cleanB) || cleanB.contains(cleanA);
+    }
+
+    if (name.isNotEmpty) {
+      final parts = <String>[name];
+      if (city.isNotEmpty && !isOverlap(name, city)) {
+        parts.add(city);
+      }
+      if (province.isNotEmpty &&
+          !isOverlap(name, province) &&
+          (parts.length == 1 || !isOverlap(parts[1], province))) {
+        parts.add(province);
+      }
+
+      // Fallback: nếu city và province đều trống, thử tìm tên tỉnh/thành từ formattedAddress
+      if (parts.length == 1 && result.formattedAddress.trim().isNotEmpty) {
+        var cleaned = result.formattedAddress.trim();
+        if (cleaned.endsWith(', Việt Nam')) {
+          cleaned = cleaned.substring(0, cleaned.length - ', Việt Nam'.length).trim();
+        } else if (cleaned.endsWith(', Vietnam')) {
+          cleaned = cleaned.substring(0, cleaned.length - ', Vietnam'.length).trim();
+        }
+        final segments = cleaned
+            .split(',')
+            .map((s) => s.trim())
+            .where((s) => s.isNotEmpty)
+            .toList();
+        for (int i = segments.length - 1; i >= 0; i--) {
+          final seg = segments[i];
+          if (!RegExp(r'^\d+$').hasMatch(seg) && !isOverlap(name, seg)) {
+            parts.add(seg);
+            break;
+          }
+        }
+      }
+
+      return parts.join(', ');
+    }
+
+    if (currentText.trim().isNotEmpty) {
+      return currentText.trim();
+    }
+
+    if (city.isNotEmpty && province.isNotEmpty && !isOverlap(city, province)) {
+      return '$city, $province';
+    }
     if (city.isNotEmpty) {
       return city;
     }
