@@ -150,17 +150,20 @@ class AppDropdownField<T> extends StatelessWidget {
     required this.onChanged,
     this.value,
     this.enabled = true,
+    this.isDense = true,
   });
   final String label;
   final T? value;
   final List<DropdownMenuItem<T>> items;
   final ValueChanged<T?>? onChanged;
   final bool enabled;
+  final bool isDense;
 
   @override
   Widget build(BuildContext context) => DropdownButtonFormField<T>(
     initialValue: value,
     isExpanded: true,
+    isDense: isDense,
     items: items,
     onChanged: enabled ? onChanged : null,
     decoration: InputDecoration(labelText: label, enabled: enabled),

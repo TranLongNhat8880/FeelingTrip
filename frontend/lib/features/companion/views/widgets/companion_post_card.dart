@@ -40,9 +40,7 @@ class CompanionPostCard extends StatelessWidget {
         : AppColors.successSurface;
     final statusText = post.isClosed
         ? 'Đã đóng'
-        : post.isFull
-        ? 'Đã đủ người'
-        : 'Còn ${post.slotsLeft} chỗ';
+        : '${post.currentMembersCount}/${post.targetMembersCount} thành viên';
 
     return Container(
       color: Colors.white,

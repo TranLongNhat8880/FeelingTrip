@@ -28,24 +28,25 @@ const createCompanionPostSchema = Joi.object({
     'string.max': 'Tiêu đề không được vượt quá 255 ký tự',
     'any.required': 'Tiêu đề bài đăng là bắt buộc',
   }),
-  content: Joi.string().trim().min(10).max(5000).required().messages({
+  content: Joi.string().trim().min(3).max(5000).required().messages({
     'string.empty': 'Nội dung bài đăng không được để trống',
-    'string.min': 'Nội dung bài đăng phải có ít nhất 10 ký tự',
+    'string.min': 'Nội dung bài đăng phải có ít nhất 3 ký tự',
     'string.max': 'Nội dung không được vượt quá 5000 ký tự',
     'any.required': 'Nội dung bài đăng là bắt buộc',
   }),
-  targetMembersCount: Joi.number().integer().min(1).max(50).required().messages({
+  targetMembersCount: Joi.number().integer().min(1).max(50).messages({
     'number.min': 'Số lượng bạn đồng hành cần tuyển tối thiểu là 1',
     'number.max': 'Số lượng bạn đồng hành tối đa là 50',
     'any.required': 'Số lượng tuyển là bắt buộc',
   }),
+  recruitmentCount: Joi.number().integer().min(1).max(49),
   minAge: Joi.number().integer().min(16).max(100).allow(null),
   maxAge: Joi.number().integer().min(16).max(100).allow(null),
   genderPreference: Joi.string().valid('ANY', 'MALE', 'FEMALE').default('ANY').messages({
     'any.only': 'Yêu cầu giới tính phải là ANY, MALE hoặc FEMALE',
   }),
   tags: Joi.array().items(Joi.string().trim().max(30)).max(10).allow(null),
-})
+}).xor('targetMembersCount', 'recruitmentCount');
 
 /**
  * Cập nhật bài viết tìm bạn đồng hành
@@ -53,13 +54,14 @@ const createCompanionPostSchema = Joi.object({
 const updateCompanionPostSchema = Joi.object({
   newCreatorId: Joi.string().guid({ version: ['uuidv4', 'uuidv5'] }).optional(),
   title: Joi.string().trim().min(5).max(255).optional(),
-  content: Joi.string().trim().min(10).max(5000).optional(),
+  content: Joi.string().trim().min(3).max(5000).optional(),
   targetMembersCount: Joi.number().integer().min(1).max(50).optional(),
+  recruitmentCount: Joi.number().integer().min(0).max(49).optional(),
   minAge: Joi.number().integer().min(16).max(100).optional().allow(null),
   maxAge: Joi.number().integer().min(16).max(100).optional().allow(null),
   genderPreference: Joi.string().valid('ANY', 'MALE', 'FEMALE').optional(),
-  tags: Joi.array().items(Joi.string().trim().max(30)).max(10).optional(),
-}).min(1).messages({
+  tags: Joi.array().items(Joi.string().trim().max(30)).max(10).optional().allow(null),
+}).oxor('targetMembersCount', 'recruitmentCount').min(1).messages({
   'object.min': 'Vui lòng cung cấp ít nhất một thông tin cần cập nhật',
 });
 const postIdParamSchema = Joi.object({

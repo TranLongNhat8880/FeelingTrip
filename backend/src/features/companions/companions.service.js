@@ -17,6 +17,7 @@ const createCompanionPost = async ({
     title,
     content,
     targetMembersCount,
+    recruitmentCount,
     minAge = null,
     maxAge = null,
     genderPreference = 'ANY',
@@ -60,7 +61,13 @@ const createCompanionPost = async ({
             throw apiError(400, 'Chuyến đi phải có ít nhất 1 thành viên');
         }
 
-        if (targetMembersCount <= currentMembersCount) {
+        const effectiveTarget = recruitmentCount !== undefined
+            ? currentMembersCount + recruitmentCount
+            : targetMembersCount;
+        if (!Number.isInteger(effectiveTarget) || effectiveTarget > 50) {
+            throw apiError(400, 'Tổng số thành viên không được vượt quá 50 người');
+        }
+        if (effectiveTarget <= currentMembersCount) {
             throw apiError(400, 'Số lượng thành viên mục tiêu phải lớn hơn số thành viên hiện tại trong đoàn');
         }
 
@@ -70,7 +77,7 @@ const createCompanionPost = async ({
                 creatorId: userId,
                 title,
                 content,
-                targetMembersCount,
+                targetMembersCount: effectiveTarget,
                 currentMembersCount,
                 minAge,
                 maxAge,
@@ -93,6 +100,7 @@ const updateCompanionPost = async ({
     title,
     content,
     targetMembersCount,
+    recruitmentCount,
     minAge,
     maxAge,
     genderPreference,
@@ -137,7 +145,12 @@ const updateCompanionPost = async ({
         }
 
         const actualMembersCount = await companionsRepository.getTripMembersCount(post.trip_id, client);
-        const effectiveTarget = targetMembersCount !== undefined ? targetMembersCount : post.target_members_count;
+        const effectiveTarget = recruitmentCount !== undefined
+            ? actualMembersCount + recruitmentCount
+            : targetMembersCount !== undefined ? targetMembersCount : post.target_members_count;
+        if (!Number.isInteger(effectiveTarget) || effectiveTarget > 50) {
+            throw apiError(400, 'Tổng số thành viên không được vượt quá 50 người');
+        }
         if (effectiveTarget < actualMembersCount) {
             throw apiError(400, 'Số lượng thành viên mục tiêu không được nhỏ hơn số thành viên hiện có trong đoàn');
         }
@@ -149,7 +162,7 @@ const updateCompanionPost = async ({
             newCreatorId,
             title,
             content,
-            targetMembersCount,
+            targetMembersCount: effectiveTarget,
             currentMembersCount: actualMembersCount,
             status: newStatus,
             minAge,
