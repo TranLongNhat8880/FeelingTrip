@@ -358,7 +358,7 @@ void main() {
       expect(find.byType(TripReviewsSection), findsOneWidget);
       await press(tester, 'Sử dụng lịch trình này');
       expect(find.text('Tên chuyến đi mới'), findsOneWidget);
-      expect(find.text('Tạo bản sao'), findsOneWidget);
+      expect(find.text('Sao chép chuyến đi'), findsOneWidget);
       await tester.tap(find.byTooltip('Đóng'));
       await tester.pumpAndSettle();
       expect(plans.clonedSources, isEmpty);
