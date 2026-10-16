@@ -65,7 +65,8 @@ class ApiCompanionRepository implements CompanionRepository {
     required String tripId,
     required String title,
     String? content,
-    required int targetMembersCount,
+    int? targetMembersCount,
+    int? recruitmentCount,
     int? minAge,
     int? maxAge,
     String genderPreference = 'ANY',
@@ -76,11 +77,14 @@ class ApiCompanionRepository implements CompanionRepository {
       'tripId': tripId,
       'title': title,
       'content': ?content,
-      'targetMembersCount': targetMembersCount,
+      if (recruitmentCount != null)
+        'recruitmentCount': recruitmentCount
+      else
+        'targetMembersCount': targetMembersCount,
       'minAge': ?minAge,
       'maxAge': ?maxAge,
       'genderPreference': genderPreference,
-      'tags': tags,
+      'tags': tags.isEmpty ? null : tags,
     };
 
     final response = await ApiClient.post(endpoint, body: body);

@@ -21,6 +21,19 @@ class CompanionTripRepository {
     return response['data']['privacyType'] == 'PUBLIC';
   }
 
+  Future<Map<String, String>> getTrip(String tripId) async {
+    if (ApiEndpoints.useMockData) {
+      return {'privacyType': 'PUBLIC', 'memberCount': '1'};
+    }
+    final response = await ApiClient.get('${ApiEndpoints.trips}/$tripId');
+    final trip = response['data'];
+    return {
+      'privacyType': trip['privacyType'] ?? 'PRIVATE',
+      'memberCount': '${trip['memberCount']}',
+      'image': trip['coverImageUrl'] ?? '',
+    };
+  }
+
   Future<void> makePublic(String tripId) async {
     if (ApiEndpoints.useMockData) return;
     final response = await ApiClient.get('${ApiEndpoints.trips}/$tripId');
@@ -62,6 +75,7 @@ class CompanionTripRepository {
               '${DateFormat('dd/MM/yyyy').format(DateTime.parse(trip['startDate']).toLocal())} – ${DateFormat('dd/MM/yyyy').format(DateTime.parse(trip['endDate']).toLocal())}',
           'status': trip['status'] ?? '',
           'image': trip['coverImageUrl'] ?? '',
+          'memberCount': '${trip['memberCount']}',
         });
       }
       if (page >= ((data['pagination']['totalPages'] as num?) ?? 1)) break;

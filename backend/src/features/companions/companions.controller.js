@@ -4,7 +4,7 @@ const HTTP_STATUS = require('../../shared/constants/httpStatus');
 
 const createCompanionPost = async (req, res, next) => {
   try {
-    const { tripId, title, content, targetMembersCount, minAge, maxAge, genderPreference, tags } = req.body;
+    const { tripId, title, content, targetMembersCount, recruitmentCount, minAge, maxAge, genderPreference, tags } = req.body;
     const userId = req.user.id;
     const newCompanionPost = await companionsService.createCompanionPost({
         tripId,
@@ -12,6 +12,7 @@ const createCompanionPost = async (req, res, next) => {
         title,
         content,
         targetMembersCount,
+        recruitmentCount,
         minAge,
         maxAge,
         genderPreference,
@@ -28,7 +29,7 @@ const updateCompanionPost = async (req, res, next) => {
   try {
     const {postId} = req.params;
     const userId = req.user.id;
-    const {newCreatorId, title, content, targetMembersCount, minAge, maxAge, genderPreference, tags } = req.body;
+    const {newCreatorId, title, content, targetMembersCount, recruitmentCount, minAge, maxAge, genderPreference, tags } = req.body;
 
     const updatedCompanionPost = await companionsService.updateCompanionPost({
         postId,
@@ -37,6 +38,7 @@ const updateCompanionPost = async (req, res, next) => {
         title,
         content,
         targetMembersCount,
+        recruitmentCount,
         minAge,
         maxAge,
         genderPreference,
