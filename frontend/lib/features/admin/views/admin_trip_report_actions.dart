@@ -127,17 +127,11 @@ class _AdminTripReportActionsState extends State<AdminTripReportActions> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SectionHeader(
-          title: 'Biện pháp xử lý',
-          subtitle:
-              'Không tự quy trách nhiệm cho trưởng nhóm. Chọn đúng đối tượng theo bằng chứng.',
-        ),
+        const SectionHeader(title: 'Biện pháp xử lý'),
         if (!widget.report.supportsTripProcessing) ...[
           const SizedBox(height: 12),
           const AppInlineNotice(
-            message:
-                'BE chưa hỗ trợ luồng xử lý chuyến đi mới. '
-                'Cần tích hợp code bàn giao cho Tùng trước khi dùng các hành động này.',
+            message: 'Chưa thể áp dụng biện pháp xử lý. Vui lòng thử lại sau.',
             tone: AppStatusTone.warning,
           ),
         ],
@@ -188,7 +182,7 @@ class _AdminTripReportActionsState extends State<AdminTripReportActions> {
             decoration: const InputDecoration(
               labelText: 'Tài khoản chịu trách nhiệm',
             ),
-            hint: const Text('Chọn tài khoản, không tự chọn trưởng nhóm'),
+            hint: const Text('Chọn tài khoản'),
             items: users
                 .map(
                   (user) => DropdownMenuItem<String>(
@@ -211,24 +205,15 @@ class _AdminTripReportActionsState extends State<AdminTripReportActions> {
         const SizedBox(height: 12),
         CustomTextField(
           label: 'Nội dung thông báo cho đối tượng bị xử lý',
-          hint:
-              'Không ghi thông tin nội bộ hoặc thông tin riêng của người gửi báo cáo.',
+          hint: 'Nhập nội dung gửi đến người bị xử lý…',
           controller: reason,
           enabled: enabled,
           maxLines: 3,
-          helperText:
-              'Nội dung này sẽ gửi đến tài khoản bị xử lý/người đăng bài bị ẩn (3–500 ký tự).',
         ),
         if (error != null) ...[
           const SizedBox(height: 12),
           AppInlineNotice(message: error!, tone: AppStatusTone.error),
         ],
-        const SizedBox(height: 12),
-        const AppInlineNotice(
-          message:
-              'Chỉ ẩn nội dung công khai, không xóa chuyến đi, '
-              'lịch trình hay công nợ. Hành động và kết luận sẽ được lưu cùng nhau.',
-        ),
         const SizedBox(height: 12),
         CustomButton(
           text: 'Áp dụng hành động và kết luận',

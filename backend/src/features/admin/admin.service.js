@@ -237,6 +237,7 @@ const mapReport = (row) => ({
   reporterName: row.reporter_name,
   reportedUserId: row.reported_user_id,
   reportedUserName: row.target_name,
+  reportedUserAvatarUrl: row.target_avatar_url,
   reportedUserStatus: row.target_status,
   reportedUserRole: row.target_role,
   reportedTripId: row.reported_trip_id,

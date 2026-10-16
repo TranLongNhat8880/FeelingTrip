@@ -207,7 +207,7 @@ void main() {
         {'type': 'HIDE_POST', 'targetId': 'post-one'},
         {'type': 'WARN_USER', 'targetId': 'member'},
       ]);
-      expect(find.text('Trạng thái: Đã xử lý'), findsOneWidget);
+      expect(find.text('Đã xử lý'), findsOneWidget);
       expect(find.text('Áp dụng hành động và kết luận'), findsNothing);
       expect(
         field(tester, 'Ghi chú kết luận (nội bộ)').controller!.text,
@@ -226,7 +226,7 @@ void main() {
       await tap(tester, 'Áp dụng hành động và kết luận');
       await tester.tap(find.text('Áp dụng và kết luận'));
       await tester.pumpAndSettle();
-      expect(find.text('Trạng thái: Chờ xử lý'), findsOneWidget);
+      expect(find.text('Chờ xử lý'), findsOneWidget);
       expect(find.text('BE từ chối, không áp dụng hành động'), findsOneWidget);
       expect(repo.processed, 1);
       expect(repo.legacyResolved, 0);
@@ -238,7 +238,10 @@ void main() {
     (tester) async {
       final repo = FakeRepository(supported: false);
       await mount(tester, repo);
-      expect(find.textContaining('BE chưa hỗ trợ'), findsOneWidget);
+      expect(
+        find.textContaining('Chưa thể áp dụng biện pháp xử lý'),
+        findsOneWidget,
+      );
       final button = tester.widget<CustomButton>(
         find.widgetWithText(CustomButton, 'Áp dụng hành động và kết luận'),
       );

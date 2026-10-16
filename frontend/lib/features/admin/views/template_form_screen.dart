@@ -1,7 +1,9 @@
 import 'dart:typed_data';
+import 'dart:ui' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../shared/ui_kit.dart';
+import '../../../shared/inputs/time_input_formatter.dart';
 import '../../../core/constants/app_colors.dart';
 import '../models/admin_content_model.dart';
 import '../repositories/admin_content_repository.dart';
@@ -73,6 +75,8 @@ class _TemplateFormScreenState extends State<TemplateFormScreen> {
   int selectedTab = 0;
   int expandedItem = 0;
   final scroll = ScrollController();
+  final dayScroll = ScrollController();
+  final dayKeys = List.generate(31, (_) => GlobalKey());
   bool saving = false;
   String? error;
   Uint8List? cover;
@@ -91,6 +95,7 @@ class _TemplateFormScreenState extends State<TemplateFormScreen> {
   @override
   void dispose() {
     scroll.dispose();
+    dayScroll.dispose();
     name.dispose();
     destination.dispose();
     budget.dispose();
@@ -185,6 +190,7 @@ class _TemplateFormScreenState extends State<TemplateFormScreen> {
         selectedTab = 0;
         error = 'Kiểm tra tên mẫu, điểm đến, ngân sách và mô tả.';
       });
+      revealSelectedDay();
       return;
     }
     for (var d = 0; d < days.length; d++) {
@@ -213,6 +219,7 @@ class _TemplateFormScreenState extends State<TemplateFormScreen> {
             error = 'Ngày ${d + 1} · Hoạt động ${i + 1}: $message';
           });
           if (scroll.hasClients) scroll.jumpTo(0);
+          revealSelectedDay();
           return;
         }
       }
@@ -278,36 +285,148 @@ class _TemplateFormScreenState extends State<TemplateFormScreen> {
       expandedItem = 0;
     });
     if (scroll.hasClients) scroll.jumpTo(0);
+    revealSelectedDay();
   }
 
-  @override
-  Widget build(BuildContext context) => AppScaffold(
-    title: widget.plan == null ? 'Thêm lịch trình mẫu' : 'Sửa lịch trình mẫu',
-    padding: EdgeInsets.zero,
-    bottomAction: CustomButton(
-      text: 'Lưu mẫu',
-      isLoading: saving,
-      onPressed: saving ? null : save,
-    ),
-    body: AbsorbPointer(
-      absorbing: saving,
-      child: Form(
-        key: form,
-        child: Column(
-          children: [
-            Container(
-              width: double.infinity,
-              color: Colors.white,
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
+  void revealSelectedDay() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final target = dayKeys[selectedTab].currentContext;
+      if (target != null) {
+        Scrollable.ensureVisible(
+          target,
+          alignment: .5,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  void addDay() {
+    if (saving || days.length >= 30) return;
+    setState(() => days.add(_DayForm()));
+    selectTab(days.length);
+  }
+
+  Future<void> showDays() async {
+    FocusScope.of(context).unfocus();
+    final selected = await showModalBottomSheet<int>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      backgroundColor: Colors.white,
+      builder: (sheetContext) => SafeArea(
+        child: SizedBox(
+          height: MediaQuery.sizeOf(sheetContext).height * .72,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 8, 8),
                 child: Row(
                   children: [
-                    for (var index = 0; index <= days.length; index++)
-                      InkWell(
+                    Expanded(
+                      child: Text(
+                        'Các ngày · ${days.length}',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Đóng danh sách ngày',
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(sheetContext),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: days.length + 1,
+                  itemBuilder: (_, index) => ListTile(
+                    key: ValueKey('day-list-$index'),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 4,
+                    ),
+                    selected: index == selectedTab,
+                    selectedTileColor: AppColors.primarySurface,
+                    leading: index == 0
+                        ? const Icon(Icons.description_outlined)
+                        : null,
+                    title: Text(index == 0 ? 'Thông tin chung' : 'Ngày $index'),
+                    subtitle: index == 0
+                        ? null
+                        : Text(
+                            days[index - 1].items.isEmpty
+                                ? 'Chưa có hoạt động'
+                                : '${days[index - 1].items.length} hoạt động',
+                          ),
+                    trailing: index == selectedTab
+                        ? const Icon(Icons.check, color: AppColors.primary)
+                        : const Icon(Icons.chevron_right),
+                    onTap: () => Navigator.pop(sheetContext, index),
+                  ),
+                ),
+              ),
+              const Divider(height: 1),
+              TextButton.icon(
+                onPressed: days.length >= 30
+                    ? null
+                    : () => Navigator.pop(sheetContext, -1),
+                icon: const Icon(Icons.add),
+                label: const Text('Thêm ngày'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (!mounted || selected == null) return;
+    if (selected == -1) {
+      addDay();
+    } else {
+      selectTab(selected);
+    }
+  }
+
+  Widget dayNavigation() => Material(
+    color: Colors.white,
+    child: Row(
+      children: [
+        IconButton(
+          tooltip: 'Danh sách ngày',
+          icon: const Icon(Icons.format_list_bulleted),
+          onPressed: saving ? null : showDays,
+        ),
+        Expanded(
+          child: ScrollConfiguration(
+            behavior: ScrollConfiguration.of(context).copyWith(
+              dragDevices: {
+                PointerDeviceKind.touch,
+                PointerDeviceKind.mouse,
+                PointerDeviceKind.stylus,
+                PointerDeviceKind.invertedStylus,
+                PointerDeviceKind.trackpad,
+              },
+            ),
+            child: SingleChildScrollView(
+              key: const ValueKey('template-day-strip'),
+              controller: dayScroll,
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (var index = 0; index <= days.length; index++)
+                    Semantics(
+                      selected: selectedTab == index,
+                      button: true,
+                      child: InkWell(
+                        key: dayKeys[index],
                         onTap: () => selectTab(index),
+                        hoverColor: Colors.transparent,
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 18,
+                            horizontal: 16,
                             vertical: 14,
                           ),
                           decoration: BoxDecoration(
@@ -334,24 +453,37 @@ class _TemplateFormScreenState extends State<TemplateFormScreen> {
                           ),
                         ),
                       ),
-                    IconButton(
-                      tooltip: 'Thêm ngày',
-                      icon: const Icon(Icons.add),
-                      onPressed: days.length >= 30
-                          ? null
-                          : () {
-                              setState(() {
-                                days.add(_DayForm());
-                                selectedTab = days.length;
-                                expandedItem = 0;
-                              });
-                              if (scroll.hasClients) scroll.jumpTo(0);
-                            },
                     ),
-                  ],
-                ),
+                ],
               ),
             ),
+          ),
+        ),
+        IconButton(
+          tooltip: 'Thêm ngày',
+          icon: const Icon(Icons.add, color: AppColors.primary),
+          onPressed: saving || days.length >= 30 ? null : addDay,
+        ),
+      ],
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) => AppScaffold(
+    title: widget.plan == null ? 'Thêm lịch trình mẫu' : 'Sửa lịch trình mẫu',
+    padding: EdgeInsets.zero,
+    bottomAction: CustomButton(
+      text: 'Lưu mẫu',
+      isLoading: saving,
+      onPressed: saving ? null : save,
+    ),
+    body: AbsorbPointer(
+      absorbing: saving,
+      child: Form(
+        key: form,
+        child: Column(
+          children: [
+            dayNavigation(),
             if (error != null)
               Padding(
                 padding: const EdgeInsets.all(12),
@@ -463,7 +595,11 @@ class _TemplateFormScreenState extends State<TemplateFormScreen> {
             if (days.length > 1)
               IconButton(
                 tooltip: 'Xóa ngày',
-                icon: const Icon(Icons.delete_outline),
+                icon: const Icon(Icons.delete_outline, color: AppColors.error),
+                style: IconButton.styleFrom(
+                  foregroundColor: AppColors.error,
+                  backgroundColor: AppColors.errorSurface,
+                ),
                 onPressed: () async {
                   final yes = await AppConfirmDialog.show(
                     context,
@@ -471,6 +607,7 @@ class _TemplateFormScreenState extends State<TemplateFormScreen> {
                     message:
                         'Các hoạt động trong ngày này sẽ bị xóa khỏi bản đang soạn.',
                     confirmLabel: 'Xóa ngày',
+                    destructive: true,
                   );
                   if (yes && mounted) {
                     setState(() {
@@ -480,6 +617,7 @@ class _TemplateFormScreenState extends State<TemplateFormScreen> {
                           : selectedTab;
                       expandedItem = 0;
                     });
+                    revealSelectedDay();
                   }
                 },
               ),
@@ -509,8 +647,10 @@ class _TemplateFormScreenState extends State<TemplateFormScreen> {
                 }),
         ),
         const SizedBox(height: 16),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          spacing: 8,
+          runSpacing: 8,
           children: [
             TextButton.icon(
               style: TextButton.styleFrom(
@@ -740,17 +880,18 @@ class _TemplateFormScreenState extends State<TemplateFormScreen> {
     return TextFormField(
       key: ValueKey('${identityHashCode(item)}-$start-$value'),
       initialValue: value,
-      keyboardType: TextInputType.datetime,
+      keyboardType: TextInputType.number,
+      inputFormatters: const [TimeInputFormatter()],
       decoration: InputDecoration(
         labelText: start ? 'Bắt đầu' : 'Kết thúc',
-        hintText: 'HH:mm',
+        hintText: '00:00',
         suffixIcon: IconButton(
           tooltip: 'Chọn giờ',
           icon: const Icon(Icons.schedule, size: 20),
           onPressed: () => pickTime(item, start),
         ),
       ),
-      validator: (v) => validTime(v ?? '') ? null : 'Nhập giờ HH:mm',
+      validator: (v) => validTime(v ?? '') ? null : 'Giờ từ 00:00 đến 23:59',
       onChanged: (v) {
         if (start) {
           item.start = v;

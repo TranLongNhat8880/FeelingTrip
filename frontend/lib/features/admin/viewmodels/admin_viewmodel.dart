@@ -7,6 +7,7 @@ class AdminUser {
     required this.id,
     required this.name,
     required this.email,
+    this.avatarUrl,
     this.role = 'USER',
     this.status = 'ACTIVE',
     this.verification = 'UNVERIFIED',
@@ -20,6 +21,7 @@ class AdminUser {
   final String id;
   final String name;
   final String email;
+  final String? avatarUrl;
   final String role;
   String status;
   String verification;
@@ -35,6 +37,7 @@ class AdminUser {
     id: json['id'].toString(),
     name: json['fullName'] ?? '',
     email: json['email'] ?? '',
+    avatarUrl: json['avatarUrl'],
     role: json['role'] ?? 'USER',
     status: json['status'] ?? 'ACTIVE',
     verification: json['verificationStatus'] ?? 'UNVERIFIED',
@@ -69,7 +72,10 @@ class ApiAdminRepository implements AdminRepository {
           final previous = users[row['id']];
           final user = AdminUser.fromJson({
             ...row as Map<String, dynamic>,
-            if (endpoint != 'users' && previous != null) 'role': previous.role,
+            if (endpoint != 'users' && previous != null) ...{
+              'role': previous.role,
+              'avatarUrl': row['avatarUrl'] ?? previous.avatarUrl,
+            },
           });
           if (endpoint != 'users') {
             final previous = users[user.id];
