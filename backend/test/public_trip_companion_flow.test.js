@@ -6,6 +6,7 @@ const tripsService = require('../src/features/trips/trips.service');
 const tripsRepo = require('../src/features/trips/trips.repository');
 const companionsService = require('../src/features/companions/companions.service');
 const companionsRepo = require('../src/features/companions/companions.repository');
+const itineraryRepo = require('../src/features/itineraries/itineraries.repository');
 const usersRepo = require('../src/features/users/users.repository');
 const db = require('../src/config/database');
 
@@ -245,6 +246,9 @@ describe('Privacy Visibility & Access Restrictions for Companion Posts', () => {
     }));
     t.mock.method(companionsRepo, 'isTripMember', async (tId, uId) => uId === memberId);
     t.mock.method(companionsRepo, 'getExistingRequest', async () => null);
+    t.mock.method(tripsRepo, 'findSafeMembers', async () => []);
+    t.mock.method(itineraryRepo, 'findDays', async () => []);
+    t.mock.method(itineraryRepo, 'findItemsForDays', async () => []);
 
     const result = await companionsService.getCompanionPostDetail({ postId, userId: memberId });
     assert.equal(result.id, postId);
