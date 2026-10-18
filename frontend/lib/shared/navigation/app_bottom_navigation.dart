@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../widgets/app_status_badge.dart';
+import '../mascot/koharu_controller.dart';
 
 class AppNavigationItem {
   const AppNavigationItem({
     required this.label,
     required this.icon,
     this.unreadCount = 0,
+    this.guideId,
   });
   final String label;
   final IconData icon;
   final int unreadCount;
+  final String? guideId;
 }
 
 class AppBottomNavigation extends StatelessWidget {
@@ -41,7 +44,10 @@ class AppBottomNavigation extends StatelessWidget {
               _Destination(
                 item: items[i],
                 selected: i == selectedIndex,
-                onTap: () => onSelected(i),
+                onTap: () {
+                  KoharuScope.maybeOf(context)?.tapped(items[i].guideId);
+                  onSelected(i);
+                },
               ),
           ];
           return largeText || constraints.maxWidth < items.length * 64
@@ -75,33 +81,36 @@ class _Destination extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = selected ? AppColors.primary : AppColors.textSecondary;
-    return Semantics(
-      selected: selected,
-      button: true,
-      child: Material(
-        color: selected ? AppColors.primarySurface : Colors.transparent,
-        borderRadius: BorderRadius.circular(18),
-        child: InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                UnreadBadge(
-                  count: item.unreadCount,
-                  child: Icon(item.icon, size: 22, color: color),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  item.label,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: color,
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+    return KoharuTarget(
+      id: item.guideId,
+      child: Semantics(
+        selected: selected,
+        button: true,
+        child: Material(
+          color: selected ? AppColors.primarySurface : Colors.transparent,
+          borderRadius: BorderRadius.circular(18),
+          child: InkWell(
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  UnreadBadge(
+                    count: item.unreadCount,
+                    child: Icon(item.icon, size: 22, color: color),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 5),
+                  Text(
+                    item.label,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: color,
+                      fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

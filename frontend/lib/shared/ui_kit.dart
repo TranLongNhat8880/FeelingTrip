@@ -24,3 +24,4 @@ export 'widgets/error_state.dart';
 export 'widgets/pagination_footer.dart';
 export 'inputs/app_otp_field.dart';
 export 'layout/travel_decoration.dart';
+export 'mascot/koharu_controller.dart';

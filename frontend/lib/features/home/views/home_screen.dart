@@ -221,6 +221,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               const SizedBox(width: 4),
                               CustomButton(
                                 text: 'Quản lý',
+                                guideId: 'home.manage',
                                 onPressed: () => Navigator.pushNamed(
                                   context,
                                   AppRoutes.tripList,
@@ -266,6 +267,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   const SizedBox(height: 12),
                                   CustomButton(
                                     text: 'Quản lý & Tạo chuyến đi',
+                                    guideId: 'home.manage',
                                     variant: AppButtonVariant.primary,
                                     icon: Icons.luggage_outlined,
                                     onPressed: () => Navigator.pushNamed(
@@ -397,10 +399,12 @@ class _HomeScreenState extends State<HomeScreen> {
         onSelected: _select,
         items: [
           const AppNavigationItem(
+            guideId: 'home.feed',
             label: 'Trang chủ',
             icon: Icons.home_outlined,
           ),
           const AppNavigationItem(
+            guideId: 'home.trips',
             label: 'Chuyến đi',
             icon: Icons.luggage_outlined,
           ),
@@ -413,7 +417,7 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: Icons.notifications_none_rounded,
             unreadCount: _notifications.unreadCount,
           ),
-          const AppNavigationItem(label: 'Cá nhân', icon: Icons.person_outline),
+          const AppNavigationItem(label: 'Cá nhân', icon: Icons.person_outline, guideId: 'home.profile'),
         ],
       ),
       body: IndexedStack(

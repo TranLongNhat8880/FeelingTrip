@@ -35,9 +35,9 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
   @override
   void initState() {
     super.initState();
-    _viewModel = ItineraryViewModel(repository: widget.repository)
-      ..addListener(_onChanged)
-      ..load(widget.tripId);
+    _viewModel = ItineraryViewModel(repository: widget.repository);
+    _viewModel.addListener(_onChanged);
+    _viewModel.load(widget.tripId);
   }
 
   void _onChanged() {
@@ -55,6 +55,7 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
   }
 
   Future<void> _openItemForm(ItineraryDay day, {ItineraryItem? item}) async {
+    if (item == null) KoharuScope.maybeOf(context)?.tapped('itinerary.add');
     final result = await Navigator.push<ItineraryItemDraft>(
       context,
       MaterialPageRoute(
@@ -75,6 +76,7 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
         ? await _viewModel.addItem(day, result)
         : await _viewModel.updateItem(item, result);
     if (!mounted) return;
+    if (success && item == null) KoharuScope.maybeOf(context)?.complete('itinerary.save');
     AppFeedback.show(
       context,
       success
@@ -345,6 +347,12 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
     return AppScaffold(
       title: 'Lịch trình chuyến đi',
       actions: [
+        if (plan != null && plan.trip.canEdit && plan.days.isNotEmpty)
+          IconButton(
+            tooltip: 'Thêm điểm dừng',
+            icon: const Icon(Icons.add_location_alt_outlined),
+            onPressed: _viewModel.isSubmitting ? null : () => _openItemForm(plan.days[_selectedDay]),
+          ).koharu('itinerary.add', enabled: !_viewModel.isSubmitting),
         IconButton(
           tooltip: 'Kho lịch trình mẫu',
           icon: const Icon(Icons.auto_awesome_rounded),

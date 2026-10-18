@@ -39,7 +39,10 @@ class PersonalContent extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
               children: [
                 AppCard(
-                  onTap: () => Navigator.pushNamed(context, AppRoutes.profile),
+                  onTap: () {
+                    KoharuScope.maybeOf(context)?.tapped('profile.open');
+                    Navigator.pushNamed(context, AppRoutes.profile);
+                  },
                   child: Row(
                     children: [
                       AvatarPlaceholder(
@@ -98,7 +101,7 @@ class PersonalContent extends StatelessWidget {
                       ),
                     ],
                   ),
-                ),
+                ).koharu('profile.open'),
                 const SizedBox(height: 16),
                 AppCard(
                   padding: const EdgeInsets.symmetric(

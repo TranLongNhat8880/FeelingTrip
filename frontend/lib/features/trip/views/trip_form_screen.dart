@@ -544,6 +544,7 @@ class _TripFormScreenState extends State<TripFormScreen> {
         : await _viewModel.createTrip(data);
     if (!mounted) return;
     if (result != null) {
+      if (!_editing) KoharuScope.maybeOf(context)?.complete('trip.save');
       Navigator.pop(context, result);
     } else {
       AppFeedback.show(
@@ -559,6 +560,7 @@ class _TripFormScreenState extends State<TripFormScreen> {
     title: _editing ? 'Chỉnh sửa chuyến đi' : 'Tạo chuyến đi',
     scrollable: true,
     bottomAction: CustomButton(
+      guideId: _editing ? null : 'trip.save',
       text: _editing
           ? (_isConvertingToPublic
               ? 'Lưu & Đăng tuyển bạn'
@@ -609,6 +611,7 @@ class _TripFormScreenState extends State<TripFormScreen> {
             const SizedBox(height: 14),
             CustomTextField(
               label: 'Điểm đến',
+              guideId: _editing ? null : 'trip.destination',
               hint: 'Ví dụ: Đà Lạt, Phú Quốc, Hội An',
               controller: _destination,
               prefixIcon: Icons.location_on_outlined,
@@ -639,6 +642,7 @@ class _TripFormScreenState extends State<TripFormScreen> {
                 Expanded(
                   child: CustomTextField(
                     label: 'Ngày đi',
+                    guideId: _editing ? null : 'trip.dates',
                     controller: _startLabel,
                     readOnly: true,
                     onTap: () => _pickDate(start: true),
@@ -670,7 +674,7 @@ class _TripFormScreenState extends State<TripFormScreen> {
                   : 'Mặc định chuyến đi mới được bảo mật riêng tư.',
             ),
             const SizedBox(height: 10),
-            _privacySection(),
+            _privacySection().koharu(_editing ? null : 'trip.privacy'),
             const SizedBox(height: 20),
             AppCard(
               outlined: true,
@@ -814,7 +818,10 @@ class _TripFormScreenState extends State<TripFormScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       Text(
                         'Chế độ: Nhóm riêng tư',
@@ -822,7 +829,6 @@ class _TripFormScreenState extends State<TripFormScreen> {
                               fontWeight: FontWeight.bold,
                             ),
                       ),
-                      const SizedBox(width: 8),
                       const AppStatusBadge(
                         label: 'Mặc định',
                         tone: AppStatusTone.info,

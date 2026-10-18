@@ -153,8 +153,70 @@ const createExpense = async (input, currentUserId) => {
       await repo.requireMember(tripId, userId, client);
     }
 
-    return repo.createExpenseWithSplits(expense, shares, client);
+    const createdExpense = await repo.createExpenseWithSplits(expense, shares, client);
+
+    // Auto-calculate Min Cash Flow settlements immediately upon adding expense
+    await recalculateSettlements(tripId, client);
+
+    return createdExpense;
   });
+};
+
+/**
+ * Internal helper to recalculate Min Cash Flow settlements for a trip.
+ * Automatically preserves existing QRs if transactions are unchanged,
+ * and skips recalculation if there are REPORTED settlements waiting for confirmation.
+ */
+const recalculateSettlements = async (tripId, client) => {
+  const pendingSettlements = await repo.openSettlements(tripId, client);
+  if (pendingSettlements.some((s) => s.status === 'REPORTED')) {
+    return { skipped: true, settlements: pendingSettlements };
+  }
+
+  const members = await repo.calculateTripNetBalances(tripId, client);
+  const peopleMap = Object.fromEntries(members.map((m) => [m.userId, m]));
+  const netBalances = Object.fromEntries(members.map((m) => [m.userId, m.netBalance]));
+  const optimalTransactions = simplifyDebts(netBalances);
+
+  // If transactions match current open set, reuse existing QRs to preserve payment links
+  if (computeSignature(pendingSettlements) === computeSignature(optimalTransactions)) {
+    return {
+      settlements: pendingSettlements.map((s) => formatSettlement(s, peopleMap)),
+      peopleMap,
+    };
+  }
+
+  const newSettlements = optimalTransactions.map((tx) => {
+    const recipient = peopleMap[tx.toUserId];
+    const settlementId = crypto.randomUUID();
+    const bankBin = recipient.bankBin || null;
+    const bankAccountNumber = recipient.bankAccountNumber || null;
+
+    const vietqrUrl =
+      bankBin && bankAccountNumber
+        ? generateVietQRUrl({
+            bankBin,
+            accountNumber: bankAccountNumber,
+            amount: tx.amount,
+            description: 'FT ' + settlementId.replaceAll('-', '').toUpperCase(),
+          })
+        : null;
+
+    return {
+      ...tx,
+      id: settlementId,
+      bankBin,
+      bankAccountNumber,
+      bankAccountName: recipient.bankAccountName || null,
+      vietqrUrl,
+    };
+  });
+
+  const saved = await repo.saveSettlements(tripId, newSettlements, client);
+  return {
+    settlements: saved.map((s) => formatSettlement(s, peopleMap)),
+    peopleMap,
+  };
 };
 
 /**
@@ -187,50 +249,13 @@ const settleTripDebts = (tripId, userId) =>
     await repo.lockTrip(client, tripId);
     await repo.requireMember(tripId, userId, client);
 
-    const members = await repo.calculateTripNetBalances(tripId, client);
-    const peopleMap = Object.fromEntries(members.map((m) => [m.userId, m]));
     const pendingSettlements = await repo.openSettlements(tripId, client);
-
     if (pendingSettlements.some((s) => s.status === 'REPORTED')) {
       throw apiError(409, 'Cần xác nhận các khoản đã báo chuyển trước khi tính lại');
     }
 
-    const netBalances = Object.fromEntries(members.map((m) => [m.userId, m.netBalance]));
-    const optimalTransactions = simplifyDebts(netBalances);
-
-    // If transactions match current open set, reuse existing QRs to preserve payment links
-    if (computeSignature(pendingSettlements) === computeSignature(optimalTransactions)) {
-      return pendingSettlements.map((s) => formatSettlement(s, peopleMap));
-    }
-
-    const newSettlements = optimalTransactions.map((tx) => {
-      const recipient = peopleMap[tx.toUserId];
-      const settlementId = crypto.randomUUID();
-      const bankBin = recipient.bankBin || null;
-      const bankAccountNumber = recipient.bankAccountNumber || null;
-
-      const vietqrUrl =
-        bankBin && bankAccountNumber
-          ? generateVietQRUrl({
-              bankBin,
-              accountNumber: bankAccountNumber,
-              amount: tx.amount,
-              description: 'FT ' + settlementId.replaceAll('-', '').toUpperCase(),
-            })
-          : null;
-
-      return {
-        ...tx,
-        id: settlementId,
-        bankBin,
-        bankAccountNumber,
-        bankAccountName: recipient.bankAccountName || null,
-        vietqrUrl,
-      };
-    });
-
-    const saved = await repo.saveSettlements(tripId, newSettlements, client);
-    return saved.map((s) => formatSettlement(s, peopleMap));
+    const { settlements } = await recalculateSettlements(tripId, client);
+    return settlements;
   });
 
 /**

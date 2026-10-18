@@ -403,6 +403,7 @@ class _PlaceLocationPickerScreenState extends State<PlaceLocationPickerScreen> {
   Widget build(BuildContext context) {
     if (_configurationError != null) {
       return AppScaffold(
+        showKoharu: false,
         title: 'Chọn vị trí địa điểm',
         body: ErrorState(
           message: _configurationError!,
@@ -412,12 +413,14 @@ class _PlaceLocationPickerScreenState extends State<PlaceLocationPickerScreen> {
     }
     if (_configured == null) {
       return const AppScaffold(
+        showKoharu: false,
         title: 'Chọn vị trí địa điểm',
         body: LoadingIndicator(message: 'Đang kết nối bản đồ...'),
       );
     }
     if (!_configured!) {
       return AppScaffold(
+        showKoharu: false,
         title: 'Chọn vị trí địa điểm',
         body: ErrorState(
           message:
@@ -431,6 +434,7 @@ class _PlaceLocationPickerScreenState extends State<PlaceLocationPickerScreen> {
     final selected = _selected;
 
     return AppScaffold(
+      showKoharu: false,
       title: 'Chọn vị trí địa điểm',
       padding: const EdgeInsets.all(12),
       bottomAction: CustomButton(

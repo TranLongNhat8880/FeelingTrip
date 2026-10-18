@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'core/theme/app_theme.dart';
 import 'routes/app_routes.dart';
 import 'features/auth/viewmodels/auth_viewmodel.dart';
+import 'shared/mascot/koharu_controller.dart';
+import 'shared/mascot/koharu_host.dart';
 
 class FeelingTripApp extends StatefulWidget {
   const FeelingTripApp({super.key, this.auth});
@@ -13,6 +15,9 @@ class FeelingTripApp extends StatefulWidget {
 
 class _FeelingTripAppState extends State<FeelingTripApp> {
   late final AuthViewModel _auth;
+  final _navigatorKey = GlobalKey<NavigatorState>();
+  final _koharu = KoharuController();
+  late final _koharuObserver = KoharuNavigatorObserver(_koharu);
   @override
   void initState() {
     super.initState();
@@ -22,6 +27,7 @@ class _FeelingTripAppState extends State<FeelingTripApp> {
 
   @override
   void dispose() {
+    _koharu.dispose();
     if (widget.auth == null) _auth.dispose();
     super.dispose();
   }
@@ -31,6 +37,17 @@ class _FeelingTripAppState extends State<FeelingTripApp> {
     return AuthScope(
       auth: _auth,
       child: MaterialApp(
+        navigatorKey: _navigatorKey,
+        navigatorObservers: [_koharuObserver],
+        builder: (context, child) => KoharuScope(
+          controller: _koharu,
+          child: KoharuHost(
+            controller: _koharu,
+            auth: _auth,
+            navigatorKey: _navigatorKey,
+            child: child ?? const SizedBox.shrink(),
+          ),
+        ),
         title: 'FeelingTrip',
         debugShowCheckedModeBanner: false,
 

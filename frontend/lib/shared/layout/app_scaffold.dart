@@ -2,6 +2,7 @@ import 'travel_decoration.dart';
 import '../../core/constants/app_sizes.dart';
 import '../../core/constants/app_colors.dart';
 import 'package:flutter/material.dart';
+import '../mascot/koharu_controller.dart';
 
 class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
   const AppTopBar({
@@ -76,6 +77,7 @@ class AppScaffold extends StatelessWidget {
     this.scaffoldKey,
     this.drawer,
     this.floatingActionButton,
+    this.showKoharu = true,
   });
   final Widget body;
   final String? title;
@@ -91,37 +93,48 @@ class AppScaffold extends StatelessWidget {
   final GlobalKey<ScaffoldState>? scaffoldKey;
   final Widget? drawer;
   final Widget? floatingActionButton;
+  final bool showKoharu;
   @override
-  Widget build(BuildContext context) => Scaffold(
-    key: scaffoldKey,
-    drawer: drawer,
-    floatingActionButton: floatingActionButton,
-    appBar: title == null
-        ? null
-        : AppTopBar(
-            title: title!,
-            titleWidget: titleWidget,
-            subtitle: subtitle,
-            bottom: appBarBottom,
-            showBack: showBack,
-            actions: actions,
-          ),
-    body: TravelBackdrop(
-      child: SafeArea(
-        child: scrollable
-            ? SingleChildScrollView(padding: padding, child: body)
-            : Padding(padding: padding, child: body),
+  Widget build(BuildContext context) => KoharuSurface(
+    enabled: showKoharu,
+    child: Scaffold(
+      key: scaffoldKey,
+      onDrawerChanged: (open) {
+        final guide = KoharuScope.maybeOf(context);
+        if (guide != null) {
+          guide.drawerOpen = open;
+          guide.changed();
+        }
+      },
+      drawer: drawer,
+      floatingActionButton: floatingActionButton,
+      appBar: title == null
+          ? null
+          : AppTopBar(
+              title: title!,
+              titleWidget: titleWidget,
+              subtitle: subtitle,
+              bottom: appBarBottom,
+              showBack: showBack,
+              actions: actions,
+            ),
+      body: TravelBackdrop(
+        child: SafeArea(
+          child: scrollable
+              ? SingleChildScrollView(padding: padding, child: body)
+              : Padding(padding: padding, child: body),
+        ),
       ),
+      bottomNavigationBar: bottomAction == null
+          ? bottomNavigationBar
+          : Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AppActionBar(child: bottomAction!),
+                ?bottomNavigationBar,
+              ],
+            ),
     ),
-    bottomNavigationBar: bottomAction == null
-        ? bottomNavigationBar
-        : Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              AppActionBar(child: bottomAction!),
-              ?bottomNavigationBar,
-            ],
-          ),
   );
 }
 

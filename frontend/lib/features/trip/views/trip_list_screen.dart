@@ -58,6 +58,7 @@ class _TripListScreenState extends State<TripListScreen> {
   }
 
   Future<void> _create() async {
+    KoharuScope.maybeOf(context)?.tapped('trip.create');
     final result = await Navigator.push<TripModel>(
       context,
       MaterialPageRoute(
@@ -119,6 +120,7 @@ class _TripListScreenState extends State<TripListScreen> {
             Expanded(
               child: CustomButton(
                 text: 'Tạo chuyến đi',
+                guideId: 'trip.create',
                 icon: Icons.add_rounded,
                 onPressed: _create,
               ),
@@ -217,8 +219,11 @@ class _TripListScreenState extends State<TripListScreen> {
         separatorBuilder: (_, _) => const SizedBox(height: 14),
         itemBuilder: (_, index) => TripCard(
           trip: _visible[index],
-          onTap: () => _open(_visible[index]),
-        ),
+          onTap: () {
+            KoharuScope.maybeOf(context)?.tapped('trip.open');
+            _open(_visible[index]);
+          },
+        ).koharu(index == 0 ? 'trip.open' : null),
       ),
     );
   }

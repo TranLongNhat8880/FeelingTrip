@@ -121,6 +121,7 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
   }
 
   Future<void> _create({PlannedCost? plannedCost}) async {
+    KoharuScope.maybeOf(context)?.tapped('expense.add');
     final vm = _vm!;
     final saved = await Navigator.push<bool>(
       context,
@@ -136,7 +137,7 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
       vm.notice ??
           (vm.error != null
               ? 'Đã lưu khoản chi. Hãy tải lại để xem công nợ.'
-              : 'Đã chia tiền. Phương án trả nợ tối ưu nằm bên dưới.'),
+              : 'Đã thêm khoản chi & tự động tính toán lại phương án trả nợ tối ưu!'),
       tone: vm.notice != null || vm.error != null
           ? AppStatusTone.warning
           : AppStatusTone.success,
@@ -212,6 +213,7 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
       bottomAction: vm?.data != null && vm?.trip != null
           ? CustomButton(
               text: 'Thêm khoản chi',
+              guideId: 'expense.add',
               icon: Icons.add_rounded,
               isLoading: vm!.saving,
               onPressed: vm.saving || vm.loading ? null : _create,
@@ -445,10 +447,14 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Header: Nhãn & Nút sửa ngân sách
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 8,
             children: [
               Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
                     padding: const EdgeInsets.all(6),
@@ -1123,12 +1129,40 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
                 ),
               ),
               const SizedBox(width: 8),
-              const Text(
-                'Phương án trả nợ tối ưu (Min Cash Flow)',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
+              Expanded(
+                child: const Text(
+                  'Phương án trả nợ tối ưu (Min Cash Flow)',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                ).koharu('expense.result'),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppColors.successSurface,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.check_circle_rounded,
+                      size: 12,
+                      color: AppColors.success,
+                    ),
+                    SizedBox(width: 4),
+                    Text(
+                      'Tự động tối ưu',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.success,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -1144,26 +1178,31 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
           ),
           const SizedBox(height: 6),
           const Text(
-            'Thuật toán rút gọn nợ chéo thành số lượng giao dịch tối thiểu. Người nhận có thể khác người trả hóa đơn.',
+            'Thuật toán tự động rút gọn nợ chéo thành số lượng giao dịch tối thiểu ngay khi thêm khoản chi. Người nhận có thể khác người trả hóa đơn.',
             style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
           ),
-          const SizedBox(height: 14),
-          CustomButton(
-            text: 'Tính lại phương án trả nợ',
-            icon: Icons.refresh_rounded,
-            variant: AppButtonVariant.secondary,
-            onPressed: vm.saving
-                ? null
-                : () async {
-                    final confirmed = await AppConfirmDialog.show(
-                      context,
-                      title: 'Tính lại công nợ?',
-                      message:
-                          'Nếu công nợ thay đổi, QR cũ sẽ hết hiệu lực. Hãy báo các thành viên ngừng dùng QR cũ trước khi tính lại.',
-                      confirmLabel: 'Tính lại',
-                    );
-                    if (confirmed) await vm.optimize();
-                  },
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              icon: const Icon(Icons.refresh_rounded, size: 16),
+              label: const Text(
+                'Tính lại thủ công',
+                style: TextStyle(fontSize: 12),
+              ),
+              onPressed: vm.saving
+                  ? null
+                  : () async {
+                      final confirmed = await AppConfirmDialog.show(
+                        context,
+                        title: 'Tính lại công nợ?',
+                        message:
+                            'Công nợ đã được hệ thống tự động tối ưu hóa. Nếu tính lại, các mã QR cũ chưa thanh toán sẽ được làm mới.',
+                        confirmLabel: 'Tính lại',
+                      );
+                      if (confirmed) await vm.optimize();
+                    },
+            ),
           ),
         ],
       ),
@@ -1176,11 +1215,11 @@ class _SplitBillScreenState extends State<SplitBillScreen> {
       ),
     for (final item in vm.open) _settlementCard(vm, item),
     const SizedBox(height: 12),
-    Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
+    Material(
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        side: const BorderSide(color: Color(0xFFE2E8F0)),
       ),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),

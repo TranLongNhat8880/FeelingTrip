@@ -263,7 +263,9 @@ class _CompanionFeedScreenState extends State<CompanionFeedScreen> {
           final post = _vm.posts[index];
           return CompanionPostCard(
             post: post,
+            guideId: index == 0 ? 'companion.open' : null,
             onTap: () async {
+              KoharuScope.maybeOf(context)?.tapped('companion.open');
               await Navigator.push<void>(
                 context,
                 MaterialPageRoute(

@@ -330,7 +330,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 : 'Thực hiện',
             tone: _verificationTone(profile),
           ),
-        ),
+        ).koharu('profile.ekyc'),
         const SizedBox(height: 12),
 
         _buildFeatureTile(

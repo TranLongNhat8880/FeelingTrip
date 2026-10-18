@@ -430,6 +430,7 @@ class _ItineraryItemFormScreenState extends State<ItineraryItemFormScreen> {
         : 'Thêm điểm dừng mới',
     scrollable: true,
     bottomAction: CustomButton(
+      guideId: _editing ? null : 'itinerary.save',
       text: _editing ? 'Lưu thay đổi' : 'Thêm vào lịch trình',
       icon: Icons.check_circle_rounded,
       onPressed: _submit,
@@ -475,7 +476,7 @@ class _ItineraryItemFormScreenState extends State<ItineraryItemFormScreen> {
           const SizedBox(height: 16),
 
           // ─── SOURCE SELECTOR (3 TABS) ──────────────────────────────────
-          _buildSourceSelector(),
+          _buildSourceSelector().koharu(_editing ? null : 'itinerary.form'),
           const SizedBox(height: 16),
 
           // ─── CATALOG SECTION ───────────────────────────────────────────
