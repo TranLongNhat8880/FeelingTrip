@@ -65,7 +65,8 @@ class ApiCompanionRepository implements CompanionRepository {
     required String tripId,
     required String title,
     String? content,
-    required int targetMembersCount,
+    int? targetMembersCount,
+    int? recruitmentCount,
     int? minAge,
     int? maxAge,
     String genderPreference = 'ANY',
@@ -76,11 +77,14 @@ class ApiCompanionRepository implements CompanionRepository {
       'tripId': tripId,
       'title': title,
       'content': ?content,
-      'targetMembersCount': targetMembersCount,
+      if (recruitmentCount != null)
+        'recruitmentCount': recruitmentCount
+      else
+        'targetMembersCount': targetMembersCount,
       'minAge': ?minAge,
       'maxAge': ?maxAge,
       'genderPreference': genderPreference,
-      'tags': tags,
+      'tags': tags.isEmpty ? null : tags,
     };
 
     final response = await ApiClient.post(endpoint, body: body);
@@ -148,6 +152,18 @@ class ApiCompanionRepository implements CompanionRepository {
       '${ApiEndpoints.companions}/posts/$postId',
       body: data,
     );
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getPublicPosts({
+    required String userId,
+    int page = 1,
+  }) async {
+    final response = await ApiClient.get(
+      '${ApiEndpoints.companions}/users/${Uri.encodeComponent(userId)}/posts?page=$page&limit=20',
+    );
+    final rows = response['data']['posts'] as List;
+    return rows.map((r) => Map<String, dynamic>.from(r)).toList();
   }
 
   @override

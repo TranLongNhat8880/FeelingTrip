@@ -117,6 +117,51 @@ const ensureEditable = trip => {
   }
 };
 
+/**
+ * Tính lại start_time/end_time tuần tự cho danh sách hoạt động đã sắp xếp lại.
+ * Giữ nguyên duration (khoảng thời gian) của từng item, xếp nối tiếp nhau
+ * bắt đầu từ start_time của item đầu tiên trong thứ tự mới.
+ * @param {Array} orderedItems - danh sách item theo thứ tự mới (từ DB row)
+ * @returns {Array<{id, startTime, endTime}>} chỉ trả về item có thay đổi
+ */
+const recalculateSequentialTimes = orderedItems => {
+  if (!orderedItems.length) return [];
+  const firstStart = asTime(orderedItems[0]?.start_time);
+  if (!firstStart) return [];
+  const updates = [];
+  // Lấy start_time của item đầu tiên trong thứ tự mới làm mốc
+  let cursor = firstStart;
+  for (const item of orderedItems) {
+    const oldStart = asTime(item.start_time);
+    const oldEnd = asTime(item.end_time);
+    if (!oldStart || !oldEnd) continue;
+    // Tính duration bằng phút
+    const durationMinutes = timeToMinutes(oldEnd) - timeToMinutes(oldStart);
+    if (durationMinutes <= 0) continue; // bỏ qua item có thời gian không hợp lệ
+    const newStart = cursor;
+    const newEnd = minutesToTime(timeToMinutes(newStart) + durationMinutes);
+    if (newStart !== oldStart || newEnd !== oldEnd) {
+      updates.push({ id: item.id, startTime: newStart, endTime: newEnd });
+    }
+    cursor = newEnd;
+  }
+  return updates;
+};
+
+/** Chuyển "HH:MM" thành tổng số phút. */
+const timeToMinutes = time => {
+  const [h, m] = time.split(':').map(Number);
+  return h * 60 + m;
+};
+
+/** Chuyển tổng số phút thành "HH:MM". */
+const minutesToTime = minutes => {
+  const clamped = Math.min(minutes, 23 * 60 + 59);
+  const h = String(Math.floor(clamped / 60)).padStart(2, '0');
+  const m = String(clamped % 60).padStart(2, '0');
+  return `${h}:${m}`;
+};
+
 const buildInternalItinerary = async (client, tripId, userId) => {
   const trip = await repo.findTripForMember(client, tripId, userId);
   if (!trip) throw apiError(404, 'Không tìm thấy lịch trình');
@@ -335,6 +380,16 @@ const reorderItems = (dayId, userId, data) => db.transaction(async client => {
   }
 
   await repo.reorderItems(client, dayId, data.orderedItemIds);
+
+  // Phương án A: tự động tính lại start_time/end_time theo thứ tự mới,
+  // giữ nguyên duration (khoảng thời gian) của từng hoạt động.
+  const itemMap = new Map(currentItems.map(item => [item.id, item]));
+  const orderedItems = data.orderedItemIds.map(id => itemMap.get(id));
+  const timeUpdates = recalculateSequentialTimes(orderedItems);
+  if (timeUpdates.length > 0) {
+    await repo.bulkUpdateItemTimes(client, timeUpdates);
+  }
+
   const updatedDay = await repo.touchDayVersion(client, dayId, data.expectedVersion);
   if (!updatedDay) throw apiError(409, 'Ngày đã được cập nhật');
   await repo.notifyTripMembers(
@@ -515,5 +570,5 @@ const clonePlan = (sourceTripId, userId, data) => db.transaction(async client =>
 module.exports = {
   getItineraries, createDay, getDay, updateDay, getItem, addItem, updateItem,
   deleteItem, setCompletion, reorderItems, getSwapCandidates, applySmartSwap,
-  listPublic, getPublic, clonePlan, resolveItemInput,
+  listPublic, getPublic, clonePlan, resolveItemInput, recalculateSequentialTimes,
 };

@@ -1,23 +1,32 @@
 import 'package:flutter/material.dart';
 import '../../../shared/ui_kit.dart';
+import '../../../core/constants/app_colors.dart';
+import 'admin_search_toolbar.dart';
 import '../repositories/admin_content_repository.dart';
 
 class AdminModerationScreen extends StatefulWidget {
-  const AdminModerationScreen({super.key});
+  const AdminModerationScreen({
+    super.key,
+    this.embedded = false,
+    this.repository,
+  });
+  final AdminContentRepository? repository;
+  final bool embedded;
   @override
   State<AdminModerationScreen> createState() => _AdminModerationScreenState();
 }
 
 class _AdminModerationScreenState extends State<AdminModerationScreen> {
-  final repo = AdminContentRepository();
+  late final AdminContentRepository repo;
   final search = TextEditingController();
   List<Map<String, dynamic>> rows = [];
-  bool loading = false, hasMore = false;
+  bool loading = false, hasMore = false, searching = false;
   int page = 1, request = 0;
   String? error;
   @override
   void initState() {
     super.initState();
+    repo = widget.repository ?? AdminContentRepository();
     load();
   }
 
@@ -57,63 +66,153 @@ class _AdminModerationScreenState extends State<AdminModerationScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => AppScaffold(
-    title: 'Kiểm duyệt bài tuyển',
-    padding: EdgeInsets.zero,
-    body: RefreshIndicator(
-      onRefresh: () => load(),
-      child: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          TextField(
-            controller: search,
-            decoration: InputDecoration(
-              hintText: 'Tên bài, chuyến đi hoặc điểm đến',
-              suffixIcon: IconButton(
-                icon: const Icon(Icons.search),
-                onPressed: () => load(),
+  Widget build(BuildContext context) => widget.embedded
+      ? _content(context)
+      : AppScaffold(
+          title: 'Kiểm duyệt bài tuyển',
+          padding: EdgeInsets.zero,
+          body: _content(context),
+        );
+
+  Widget _postTile(BuildContext context, Map<String, dynamic> row) {
+    final cover = (row['trip_cover_image_url'] as String?)?.trim();
+    final count = num.tryParse('${row['report_count']}')?.toInt() ?? 0;
+    final metadata = [
+      row['creator_name'],
+      row['destination'],
+    ].where((value) => value != null && '$value'.trim().isNotEmpty).join(' · ');
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(vertical: 10),
+      hoverColor: Colors.transparent,
+      minLeadingWidth: 0,
+      leading: cover == null || cover.isEmpty
+          ? null
+          : ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: Image.network(
+                cover,
+                width: 48,
+                height: 48,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => const SizedBox.shrink(),
               ),
             ),
-            onSubmitted: (_) => load(),
-          ),
-          const SizedBox(height: 12),
-          const Text('Bài có báo cáo đang chờ xử lý được ưu tiên hiển thị.'),
-          if (error != null) ErrorState(message: error!, onRetry: () => load()),
-          for (final row in rows)
-            Card(
-              child: ListTile(
-                title: Text(row['title'] ?? 'Bài tuyển'),
-                subtitle: Text(
-                  '${row['creator_name']} · ${row['destination'] ?? ''}\n${row['report_count'] ?? 0} báo cáo chờ xử lý',
-                ),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () async {
-                  await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          AdminModerationDetailScreen(id: row['id']),
-                    ),
-                  );
-                  if (mounted) await load();
-                },
-              ),
-            ),
-          if (loading)
-            const LoadingIndicator()
-          else if (rows.isEmpty && error == null)
-            const EmptyStateWidget(
-              title: 'Không có bài tuyển',
-              message: 'Các bài đang tuyển thành viên sẽ xuất hiện tại đây.',
-              icon: Icons.policy_outlined,
-            ),
-          if (!loading && hasMore)
-            TextButton(
-              onPressed: () => load(more: true),
-              child: const Text('Tải thêm'),
-            ),
-        ],
+      title: Text(
+        row['title'] ?? 'Bài tuyển',
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(
+          context,
+        ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
       ),
+      subtitle: Padding(
+        padding: const EdgeInsets.only(top: 4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (metadata.isNotEmpty)
+              Text(
+                metadata,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
+              ),
+            if (count > 0) ...[
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.warningSurface,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  '$count báo cáo',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: AppColors.warning,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+      trailing: const Icon(
+        Icons.chevron_right,
+        size: 20,
+        color: AppColors.textHint,
+      ),
+      onTap: () async {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => AdminModerationDetailScreen(id: row['id']),
+          ),
+        );
+        if (mounted) await load();
+      },
+    );
+  }
+
+  Widget _content(BuildContext context) => Material(
+    color: Colors.white,
+    child: Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: AdminSearchToolbar(
+            searching: searching,
+            controller: search,
+            hint: 'Tên bài, chuyến đi hoặc điểm đến',
+            filter: const Text(
+              'Bài đang tuyển',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
+            onOpen: () => setState(() => searching = true),
+            onClose: () {
+              FocusManager.instance.primaryFocus?.unfocus();
+              search.clear();
+              setState(() => searching = false);
+              load();
+            },
+            onSubmit: () => load(),
+          ),
+        ),
+        const Divider(height: 1, color: AppColors.divider),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: () => load(),
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              children: [
+                if (error != null)
+                  ErrorState(message: error!, onRetry: () => load()),
+                for (final row in rows) ...[
+                  _postTile(context, row),
+                  const Divider(height: 1, color: AppColors.divider),
+                ],
+                if (loading)
+                  const LoadingIndicator()
+                else if (rows.isEmpty && error == null)
+                  const EmptyStateWidget(
+                    title: 'Không có bài tuyển',
+                    message:
+                        'Các bài đang tuyển thành viên sẽ xuất hiện tại đây.',
+                    icon: Icons.policy_outlined,
+                  ),
+                if (!loading && hasMore)
+                  TextButton(
+                    onPressed: () => load(more: true),
+                    child: const Text('Tải thêm'),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ],
     ),
   );
 }

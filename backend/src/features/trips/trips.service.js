@@ -1,6 +1,8 @@
 const db = require('../../config/database');
 const apiError = require('../../shared/utils/apiError.util');
 const repo = require('./trips.repository');
+const companionsRepo = require('../companions/companions.repository');
+const itineraryRepo = require('../itineraries/itineraries.repository');
 
 const asNumber = value => value == null ? 0 : Number(value);
 
@@ -126,6 +128,51 @@ const createTrip = (userId, data) => db.transaction(async client => {
     name: data.name || `Chuyến đi ${data.destination}`.slice(0, 255),
   };
   const trip = await repo.createTrip(client, userId, normalized);
+
+  if (data.privacyType === 'PUBLIC') {
+    const targetMembersCount = Number(data.targetMembersCount) || 3;
+    if (targetMembersCount < 2) {
+      throw apiError(400, 'targetMembersCount phải từ 2 trở lên khi tạo chuyến đi công khai');
+    }
+
+    const defaultTitle = `Tìm bạn đồng hành: ${normalized.name}`;
+    const postTitle = (data.postTitle?.trim() || defaultTitle).trim().slice(0, 255);
+
+    const defaultContent = `Cùng tham gia chuyến đi ${normalized.name} nhé!`;
+    const candidateContent = data.postContent?.trim()
+      || (data.description?.trim()?.length >= 10 ? data.description.trim() : null)
+      || defaultContent;
+    const postContent = candidateContent.trim();
+
+    if (postTitle.length < 5 || postTitle.length > 255) {
+      throw apiError(400, 'Tiêu đề bài đăng phải từ 5 đến 255 ký tự');
+    }
+    if (postContent.length < 10 || postContent.length > 5000) {
+      throw apiError(400, 'Nội dung bài đăng phải từ 10 đến 5000 ký tự');
+    }
+
+    const minAge = data.minAge != null ? Number(data.minAge) : null;
+    const maxAge = data.maxAge != null ? Number(data.maxAge) : null;
+    const genderPreference = data.genderPreference || 'ANY';
+    const tags = Array.isArray(data.tags) ? data.tags : [];
+
+    await companionsRepo.createCompanionPost({
+      tripId: trip.id,
+      creatorId: userId,
+      title: postTitle,
+      content: postContent,
+      targetMembersCount,
+      currentMembersCount: 1,
+      minAge,
+      maxAge,
+      genderPreference,
+      tags,
+    }, client);
+  } else {
+    // Với chuyến đi PRIVATE: tự động sinh mã mời 1 lần đầu tiên để trưởng nhóm có thể mời bạn bè ngay
+    await repo.generateNewInviteCode(client, trip.id);
+  }
+
   return tripDetail(trip.id, userId, client);
 });
 
@@ -169,8 +216,134 @@ const updateTrip = (tripId, userId, data) => db.transaction(async client => {
   if (data.startDate !== undefined || data.endDate !== undefined) {
     await repo.refreshItineraryDates(client, tripId);
   }
+
+  // Khi chuyển từ PRIVATE sang PUBLIC: Nếu chuyến đi chưa từng có bài đăng, tự động tạo bài đăng
+  if (data.privacyType === 'PUBLIC' && trip.privacy_type !== 'PUBLIC') {
+    const existingPostResult = await client.query(
+      'SELECT id FROM companion_posts WHERE trip_id = $1 LIMIT 1',
+      [tripId]
+    );
+    if (existingPostResult.rowCount === 0) {
+      const actualMembersCount = await repo.countMembersByStatus(tripId, 'ACTIVE', client);
+      const targetMembersCount = Math.max(
+        Number(data.targetMembersCount) || (actualMembersCount + 2),
+        actualMembersCount + 1
+      );
+      const defaultTitle = `Tìm bạn đồng hành: ${updated.name}`;
+      const postTitle = (data.postTitle?.trim() || defaultTitle).trim().slice(0, 255);
+
+      const defaultContent = `Cùng tham gia chuyến đi ${updated.name} nhé!`;
+      const candidateContent = data.postContent?.trim()
+        || (data.description?.trim()?.length >= 10 ? data.description.trim() : null)
+        || (updated.description?.trim()?.length >= 10 ? updated.description.trim() : null)
+        || defaultContent;
+      const postContent = candidateContent.trim();
+
+      const minAge = data.minAge != null ? Number(data.minAge) : null;
+      const maxAge = data.maxAge != null ? Number(data.maxAge) : null;
+      const genderPreference = data.genderPreference || 'ANY';
+      const tags = Array.isArray(data.tags) ? data.tags : [];
+
+      await companionsRepo.createCompanionPost({
+        tripId: updated.id,
+        creatorId: userId,
+        title: postTitle,
+        content: postContent,
+        targetMembersCount,
+        currentMembersCount: actualMembersCount,
+        minAge,
+        maxAge,
+        genderPreference,
+        tags,
+      }, client);
+    }
+  }
+
+  // Khi chuyển từ PUBLIC sang PRIVATE: nếu chưa có mã mời ACTIVE, tự động tạo mã mời mới
+  if (data.privacyType === 'PRIVATE' && trip.privacy_type !== 'PRIVATE') {
+    const current = await repo.lockTrip(client, tripId);
+    if (current && current.invite_code_status !== 'ACTIVE') {
+      await repo.generateNewInviteCode(client, tripId);
+    }
+  }
+
   return tripDetail(updated.id, userId, client);
 });
+
+/**
+ * Phương án C: Kiểm tra tính nhất quán của lịch trình trước khi bắt đầu chuyến đi.
+ * - Mỗi ngày có hoạt động phải có thứ tự thời gian hợp lệ (start_time < end_time)
+ * - Không được có chồng lấn thời gian giữa các hoạt động trong cùng ngày
+ * - Thời gian phải đúng thứ tự tuần tự (item sau không bắt đầu trước item trước kết thúc)
+ */
+const validateItineraryBeforeStart = async (client, tripId) => {
+  const days = await itineraryRepo.findDays(client, tripId);
+  if (!days || !days.length) {
+    throw apiError(422, 'Chuyến đi chưa có lịch trình. Vui lòng tạo lịch trình trước khi bắt đầu.');
+  }
+
+  const dayIds = days.filter(d => d.id).map(d => d.id);
+  if (!dayIds.length) {
+    throw apiError(422, 'Chuyến đi chưa có lịch trình. Vui lòng tạo lịch trình trước khi bắt đầu.');
+  }
+
+  const allItems = await itineraryRepo.findItemsForDays(client, dayIds);
+  if (!allItems || !allItems.length) {
+    throw apiError(422, 'Lịch trình chưa có điểm đến nào. Vui lòng thêm ít nhất một điểm đến trước khi bắt đầu.');
+  }
+
+  // Nhóm item theo ngày
+  const grouped = new Map();
+  for (const item of allItems) {
+    if (!grouped.has(item.itinerary_id)) grouped.set(item.itinerary_id, []);
+    grouped.get(item.itinerary_id).push(item);
+  }
+
+  const dayMap = new Map(days.map(d => [d.id, d]));
+  const errors = [];
+
+  for (const [dayId, items] of grouped) {
+    const day = dayMap.get(dayId);
+    const dayLabel = day ? `Ngày ${day.day_number}` : `Ngày (${dayId})`;
+    // Items đã được sắp xếp theo order_index, start_time, id từ repo
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      const start = asTimeStr(item.start_time);
+      const end = asTimeStr(item.end_time);
+
+      if (!start || !end) {
+        errors.push(`${dayLabel}: "${item.custom_name}" chưa có thời gian bắt đầu hoặc kết thúc`);
+        continue;
+      }
+
+      // Kiểm tra start_time < end_time
+      if (start >= end) {
+        errors.push(`${dayLabel}: "${item.custom_name}" có thời gian không hợp lệ (${start} >= ${end})`);
+        continue;
+      }
+
+      // Kiểm tra chồng lấn với item tiếp theo
+      if (i < items.length - 1) {
+        const next = items[i + 1];
+        const nextStart = asTimeStr(next.start_time);
+        if (nextStart && end > nextStart) {
+          errors.push(
+            `${dayLabel}: "${item.custom_name}" (kết thúc ${end}) chồng lấn với "${next.custom_name}" (bắt đầu ${nextStart})`,
+          );
+        }
+      }
+    }
+  }
+
+  if (errors.length > 0) {
+    const err = apiError(422, 'Lịch trình chưa hợp lệ để bắt đầu chuyến đi: ' + errors[0]);
+    err.data = errors;
+    throw err;
+  }
+};
+
+/** Chuẩn hóa giá trị time thành "HH:MM". */
+const asTimeStr = value => typeof value === 'string' ? value.slice(0, 5) : value;
 
 const transitionStatus = (tripId, userId, data) => db.transaction(async client => {
   const trip = await repo.lockTrip(client, tripId);
@@ -184,6 +357,12 @@ const transitionStatus = (tripId, userId, data) => db.transaction(async client =
   if (!(allowed[trip.status] || []).includes(data.status)) {
     throw apiError(409, 'Chuyển trạng thái chuyến đi không hợp lệ');
   }
+
+  // Phương án C: kiểm tra tính nhất quán lịch trình trước khi cho phép bắt đầu chuyến đi
+  if (data.status === 'ONGOING') {
+    await validateItineraryBeforeStart(client, tripId);
+  }
+
   await repo.setTripStatus(client, tripId, data.status);
   if (data.status === 'COMPLETED') {
     await repo.notifyActiveMembers(
@@ -434,4 +613,5 @@ module.exports = {
   generateInviteCode, revokeInviteCode, sendInvitation, listTripInvitations,
   listMyInvitations, acceptInvitation: (id, userId) => actOnInvitation(id, userId, 'ACCEPTED'),
   rejectInvitation: (id, userId) => actOnInvitation(id, userId, 'REJECTED'), revokeInvitation,
+  validateItineraryBeforeStart,
 };

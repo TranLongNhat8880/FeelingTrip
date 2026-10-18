@@ -4,7 +4,10 @@ import '../models/admin_content_model.dart';
 import '../repositories/admin_content_repository.dart';
 
 class AdminContentViewModel extends ChangeNotifier {
-  final repository = AdminContentRepository();
+  AdminContentViewModel({AdminContentRepository? repository})
+    : repository = repository ?? AdminContentRepository();
+
+  final AdminContentRepository repository;
   List<AdminReport> reports = [];
   List<LibraryPlan> plans = [];
   bool loading = false, updating = false;

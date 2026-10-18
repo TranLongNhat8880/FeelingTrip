@@ -6,6 +6,7 @@ import '../../../core/constants/app_sizes.dart';
 import '../../../shared/ui_kit.dart';
 import '../../auth/viewmodels/auth_viewmodel.dart';
 import '../../map/views/admin_place_management_content.dart';
+import '../../profile/views/public_profile_screen.dart';
 import '../viewmodels/admin_viewmodel.dart';
 import 'admin_reports_content.dart';
 import 'admin_templates_content.dart';
@@ -21,7 +22,7 @@ class AdminScreen extends StatefulWidget {
 class _AdminScreenState extends State<AdminScreen> {
   final _vm = AdminViewModel();
   int _section = 0;
-  int _templateRefresh = 0;
+  int _group = 0;
   final _searchController = TextEditingController();
   @override
   void initState() {
@@ -79,7 +80,11 @@ class _AdminScreenState extends State<AdminScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               ListTile(
-                leading: AvatarPlaceholder(name: user.name, radius: 22),
+                leading: AvatarPlaceholder(
+                  name: user.name,
+                  imageUrl: user.avatarUrl,
+                  radius: 22,
+                ),
                 title: Text(user.name),
                 subtitle: Text(
                   '${user.email}\nTrạng thái: ${ban ? 'Hoạt động' : 'Đã khóa'}',
@@ -226,7 +231,11 @@ class _AdminScreenState extends State<AdminScreen> {
                       children: [
                         Row(
                           children: [
-                            AvatarPlaceholder(name: user.name, radius: 26),
+                            AvatarPlaceholder(
+                              name: user.name,
+                              imageUrl: user.avatarUrl,
+                              radius: 26,
+                            ),
                             const SizedBox(width: 14),
                             Expanded(
                               child: Column(
@@ -361,21 +370,31 @@ class _AdminScreenState extends State<AdminScreen> {
     );
   }
 
-  String get _sectionTitle {
-    return switch (_section) {
-      0 => 'Hồ sơ chờ duyệt',
-      1 => 'Người dùng',
-      2 => 'Quản lý địa điểm',
-      3 => 'Báo cáo vi phạm',
-      4 => 'Lịch trình mẫu',
-      _ => 'Quản trị',
-    };
-  }
+  Map<int, String> get _tabs => switch (_group) {
+    0 => {0: 'Duyệt eKYC', 1: 'Người dùng'},
+    1 => {3: 'Người dùng', 7: 'Chuyến đi', 5: 'Bài tuyển'},
+    _ => {4: 'Lịch trình mẫu', 6: 'Cộng đồng', 2: 'Địa điểm'},
+  };
 
   Widget _buildSection() {
+    if (_group == 1) {
+      return IndexedStack(
+        index: const [3, 7, 5].indexOf(_section),
+        children: [
+          AdminReportsContent(
+            userAvatars: {
+              for (final user in _vm.users) user.id: user.avatarUrl,
+            },
+          ),
+          const AdminReportsContent(tripReports: true),
+          const AdminModerationScreen(embedded: true),
+        ],
+      );
+    }
+    if (_section == 6) return const PlanLibraryScreen(embedded: true);
     if (_section == 3) return const AdminReportsContent();
     if (_section == 4) {
-      return AdminTemplatesContent(key: ValueKey(_templateRefresh));
+      return const AdminTemplatesContent();
     }
     if (_section == 2) {
       return const Padding(
@@ -399,57 +418,51 @@ class _AdminScreenState extends State<AdminScreen> {
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: _vm,
-    builder: (context, _) => AppScaffold(
-      padding: EdgeInsets.zero,
-      title: _sectionTitle,
-      showBack: false,
-      actions: [
-        IconButton(
-          tooltip: 'Kiểm duyệt bài tuyển',
-          icon: const Icon(Icons.policy_outlined),
-          onPressed: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const AdminModerationScreen()),
+    builder: (context, _) => DefaultTabController(
+      key: ValueKey(_group),
+      length: _tabs.length,
+      initialIndex: _tabs.keys.toList().indexOf(_section),
+      child: AppScaffold(
+        padding: EdgeInsets.zero,
+        title: ['Tài khoản', 'Kiểm duyệt', 'Thư viện'][_group],
+        showBack: false,
+        actions: [
+          IconButton(
+            tooltip: 'Đăng xuất',
+            icon: const Icon(Icons.logout),
+            onPressed: _logout,
           ),
-        ),
-        IconButton(
-          tooltip: 'Kho lịch trình',
-          icon: const Icon(Icons.explore_outlined),
-          onPressed: () async {
-            await Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const PlanLibraryScreen()),
-            );
-            if (mounted) {
-              setState(() {
-                _templateRefresh++;
-                _section = 4;
-              });
-            }
-          },
-        ),
-        IconButton(
-          tooltip: 'Đăng xuất',
-          icon: const Icon(Icons.logout),
-          onPressed: _logout,
-        ),
-      ],
-      bottomNavigationBar: AppBottomNavigation(
-        selectedIndex: _section,
-        onSelected: (value) => setState(() => _section = value),
-        items: const [
-          AppNavigationItem(
-            label: 'Duyệt eKYC',
-            icon: Icons.fact_check_outlined,
-          ),
-          AppNavigationItem(label: 'Người dùng', icon: Icons.people_outline),
-          AppNavigationItem(label: 'Địa điểm', icon: Icons.place_outlined),
-          AppNavigationItem(label: 'Báo cáo', icon: Icons.report_outlined),
-          AppNavigationItem(label: 'Mẫu', icon: Icons.route_outlined),
         ],
-      ),
-      body: SafeArea(
-        child: Center(
+        appBarBottom: TabBar(
+          labelPadding: const EdgeInsets.symmetric(horizontal: 8),
+          labelColor: AppColors.primary,
+          unselectedLabelColor: AppColors.textSecondary,
+          labelStyle: Theme.of(
+            context,
+          ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+          indicatorColor: AppColors.primary,
+          indicatorWeight: 3,
+          indicatorSize: TabBarIndicatorSize.label,
+          dividerColor: AppColors.border,
+          onTap: (index) {
+            FocusManager.instance.primaryFocus?.unfocus();
+            setState(() => _section = _tabs.keys.elementAt(index));
+          },
+          tabs: [for (final title in _tabs.values) Tab(text: title)],
+        ),
+        bottomNavigationBar: AppBottomNavigation(
+          selectedIndex: _group,
+          onSelected: (value) => setState(() {
+            _group = value;
+            _section = _tabs.keys.first;
+          }),
+          items: const [
+            AppNavigationItem(label: 'Tài khoản', icon: Icons.people_outline),
+            AppNavigationItem(label: 'Kiểm duyệt', icon: Icons.policy_outlined),
+            AppNavigationItem(label: 'Thư viện', icon: Icons.route_outlined),
+          ],
+        ),
+        body: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(
               maxWidth: AppSizes.documentMaxWidth,
@@ -529,12 +542,14 @@ class _AdminScreenState extends State<AdminScreen> {
                           side: const BorderSide(color: AppColors.border),
                         ),
                         child: ListTile(
+                          hoverColor: Colors.transparent,
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 16,
                             vertical: 8,
                           ),
                           leading: AvatarPlaceholder(
                             name: user.name,
+                            imageUrl: user.avatarUrl,
                             radius: 22,
                           ),
                           title: Text(
@@ -645,12 +660,14 @@ class _AdminScreenState extends State<AdminScreen> {
                           side: const BorderSide(color: AppColors.border),
                         ),
                         child: ListTile(
+                          hoverColor: Colors.transparent,
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 16,
                             vertical: 6,
                           ),
                           leading: AvatarPlaceholder(
                             name: user.name,
+                            imageUrl: user.avatarUrl,
                             radius: 20,
                           ),
                           title: Row(
@@ -669,10 +686,13 @@ class _AdminScreenState extends State<AdminScreen> {
                               ),
                               if (user.verification == 'VERIFIED') ...[
                                 const SizedBox(width: 4),
-                                const Icon(
-                                  Icons.verified_rounded,
-                                  size: 14,
-                                  color: AppColors.primary,
+                                const Tooltip(
+                                  message: 'Đã xác minh',
+                                  child: Icon(
+                                    Icons.badge_outlined,
+                                    size: 15,
+                                    color: AppColors.success,
+                                  ),
                                 ),
                               ],
                             ],
@@ -705,6 +725,10 @@ class _AdminScreenState extends State<AdminScreen> {
                                     ),
                               ),
                             ],
+                          ),
+                          onTap: () => PublicProfileScreen.open(
+                            context,
+                            userId: user.id,
                           ),
                           trailing: user.role == 'ADMIN'
                               ? null

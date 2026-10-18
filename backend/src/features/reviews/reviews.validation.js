@@ -1,7 +1,7 @@
 const Joi = require('joi');
 
 // ============================================================================
-// VALIDATION: Reviews, Reports, Blocks, Emergency Contacts & SOS
+// VALIDATION: Reviews, Reports, Blocks
 // ============================================================================
 
 const uuidSchema = Joi.string().guid({
@@ -103,134 +103,13 @@ const blockUserSchema = Joi.object({
   }),
 });
 
-/**
- * Tạo người liên hệ khẩn cấp.
- */
-const createEmergencyContactSchema = Joi.object({
-  fullName: Joi.string()
-    .trim()
-    .min(2)
-    .max(100)
-    .required()
-    .messages({
-      'string.empty': 'Tên người liên hệ không được để trống',
-      'string.min': 'Tên người liên hệ phải có ít nhất 2 ký tự',
-      'string.max': 'Tên người liên hệ không được vượt quá 100 ký tự',
-      'any.required': 'Tên người liên hệ là bắt buộc',
-    }),
-
-  phone: Joi.string()
-    .trim()
-    .pattern(/^\+?[0-9]{9,15}$/)
-    .required()
-    .messages({
-      'string.empty': 'Số điện thoại không được để trống',
-      'string.pattern.base':
-        'Số điện thoại phải gồm 9 đến 15 chữ số và có thể bắt đầu bằng dấu +',
-      'any.required': 'Số điện thoại là bắt buộc',
-    }),
-
-  relationship: Joi.string()
-    .trim()
-    .max(100)
-    .allow(null, '')
-    .messages({
-      'string.max': 'Mối quan hệ không được vượt quá 100 ký tự',
-    }),
+const tripReviewsQuerySchema = Joi.object({
+  page: Joi.number().integer().min(1).max(100000).default(1),
+  limit: Joi.number().integer().min(1).max(50).default(20),
 });
 
 /**
- * Cập nhật người liên hệ khẩn cấp.
- */
-const updateEmergencyContactSchema = Joi.object({
-  fullName: Joi.string()
-    .trim()
-    .min(2)
-    .max(100)
-    .messages({
-      'string.empty': 'Tên người liên hệ không được để trống',
-      'string.min': 'Tên người liên hệ phải có ít nhất 2 ký tự',
-      'string.max': 'Tên người liên hệ không được vượt quá 100 ký tự',
-    }),
-
-  phone: Joi.string()
-    .trim()
-    .pattern(/^\+?[0-9]{9,15}$/)
-    .messages({
-      'string.empty': 'Số điện thoại không được để trống',
-      'string.pattern.base':
-        'Số điện thoại phải gồm 9 đến 15 chữ số và có thể bắt đầu bằng dấu +',
-    }),
-
-  relationship: Joi.string()
-    .trim()
-    .max(100)
-    .allow(null, '')
-    .messages({
-      'string.max': 'Mối quan hệ không được vượt quá 100 ký tự',
-    }),
-})
-  .min(1)
-  .messages({
-    'object.min': 'Phải cung cấp ít nhất một thông tin cần cập nhật',
-  });
-
-/**
- * Kích hoạt tín hiệu SOS.
- */
-const emergencySosSchema = Joi.object({
-  tripId: uuidSchema.allow(null).messages({
-    'string.guid': 'Mã chuyến đi phải là UUID hợp lệ',
-  }),
-
-  latitude: Joi.number()
-    .min(-90)
-    .max(90)
-    .required()
-    .messages({
-      'number.base': 'Vĩ độ phải là số',
-      'number.min': 'Vĩ độ không được nhỏ hơn -90',
-      'number.max': 'Vĩ độ không được lớn hơn 90',
-      'any.required': 'Vĩ độ hiện tại là bắt buộc',
-    }),
-
-  longitude: Joi.number()
-    .min(-180)
-    .max(180)
-    .required()
-    .messages({
-      'number.base': 'Kinh độ phải là số',
-      'number.min': 'Kinh độ không được nhỏ hơn -180',
-      'number.max': 'Kinh độ không được lớn hơn 180',
-      'any.required': 'Kinh độ hiện tại là bắt buộc',
-    }),
-
-  message: Joi.string()
-    .trim()
-    .max(500)
-    .allow(null, '')
-    .messages({
-      'string.max': 'Tin nhắn khẩn cấp không được vượt quá 500 ký tự',
-    }),
-});
-
-/**
- * Kết thúc cảnh báo SOS.
- *
- * Không cho client tự chuyển về ACTIVE.
- */
-const updateSosStatusSchema = Joi.object({
-  status: Joi.string()
-    .valid('RESOLVED', 'FALSE_ALARM')
-    .required()
-    .messages({
-      'any.only': 'Trạng thái SOS phải là RESOLVED hoặc FALSE_ALARM',
-      'any.required': 'Trạng thái SOS là bắt buộc',
-    }),
-});
-
-/**
- * Param UUID chung cho contactId, SOS ID và user ID cần bỏ chặn.
+ * Param UUID chung cho tripId và user ID cần bỏ chặn.
  */
 const idParamSchema = Joi.object({
   id: uuidSchema.required().messages({
@@ -242,11 +121,8 @@ const idParamSchema = Joi.object({
 module.exports = {
   reviewMemberSchema,
   reviewTripSchema,
+  tripReviewsQuerySchema,
   reportSchema,
   blockUserSchema,
-  createEmergencyContactSchema,
-  updateEmergencyContactSchema,
-  emergencySosSchema,
-  updateSosStatusSchema,
   idParamSchema,
 };

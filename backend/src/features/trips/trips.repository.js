@@ -55,8 +55,7 @@ const createTrip = async (client, userId, data) => {
  */
 const findMyTrips = async (userId, { status, page, limit, includeHistory }) => {
   const params = [userId];
-  const filters = ['tm.user_id = $1'];
-  if (!includeHistory) filters.push("tm.membership_status = 'ACTIVE'");
+  const filters = ['tm.user_id = $1', "tm.membership_status = 'ACTIVE'"];
   if (status) { params.push(status); filters.push(`t.status = $${params.length}`); }
   const where = filters.join(' AND ');
   const { rows: [{ total }] } = await db.query(

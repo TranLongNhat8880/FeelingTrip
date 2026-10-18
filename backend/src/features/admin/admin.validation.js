@@ -157,7 +157,28 @@ const warnReportSchema = Joi.object({
   reason: Joi.string().trim().min(3).max(980).required(),
 });
 
+// Hành động xử lý báo cáo chuyến đi
+const processTripReportSchema = Joi.object({
+  adminNotes: Joi.string().trim().min(3).max(1000).required(),
+  reason: Joi.string().trim().min(3).max(500).required(),
+  actions: Joi.array().min(1).max(10).items(Joi.object({
+    type: Joi.string().valid('HIDE_POST', 'WARN_USER', 'BAN_USER').required(),
+    targetId: Joi.string().lowercase().guid({ version: ['uuidv4', 'uuidv5'] }).required(),
+  })).required(),
+}).custom((value, helpers) => {
+  const seen = new Set();
+  for (const action of value.actions) {
+    const key = `${action.type === 'HIDE_POST' ? 'post' : 'user'}:${action.targetId}`;
+    if (seen.has(key)) {
+      return helpers.message({ custom: 'Không chọn trùng đối tượng hoặc vừa cảnh cáo vừa khóa cùng tài khoản' });
+    }
+    seen.add(key);
+  }
+  return value;
+});
+
 module.exports = {
+  processTripReportSchema,
   moderationQuerySchema,
   moderatePostSchema,
   warnReportSchema,

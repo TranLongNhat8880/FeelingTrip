@@ -29,7 +29,7 @@ void main() {
     await tester.tap(find.text('Gửi và kết luận'));
     await tester.pumpAndSettle();
     expect(find.byType(AlertDialog), findsNothing);
-    expect(find.text('Trạng thái: Đã xử lý'), findsOneWidget);
+    expect(find.text('Đã xử lý'), findsOneWidget);
     final field = tester.widget<TextFormField>(find.byType(TextFormField));
     expect(
       field.controller!.text,

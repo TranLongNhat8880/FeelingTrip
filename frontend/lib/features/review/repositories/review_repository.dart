@@ -27,21 +27,4 @@ abstract class ReviewRepository {
   Future<void> unblockUser(String userId);
 
   Future<List<BlockedUserModel>> getBlockedUsers();
-
-  Future<List<EmergencyContactModel>> getEmergencyContacts();
-
-  Future<EmergencyContactModel> createEmergencyContact({
-    required String fullName,
-    required String phone,
-    String? relationship,
-  });
-
-  Future<EmergencyContactModel> updateEmergencyContact({
-    required String contactId,
-    required String fullName,
-    required String phone,
-    String? relationship,
-  });
-
-  Future<void> deleteEmergencyContact(String contactId);
 }

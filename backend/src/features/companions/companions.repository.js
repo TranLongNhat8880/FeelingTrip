@@ -164,7 +164,11 @@ const getCompanionFeed = async ({
   maxAge,
   status = 'OPEN',
 }) => {
-  const conditions = ["cp.status <> 'CLOSED'", "t.status IN ('UPCOMING', 'ONGOING')"];
+  const conditions = [
+    "cp.status <> 'CLOSED'",
+    "t.status IN ('UPCOMING', 'ONGOING')",
+    "t.privacy_type = 'PUBLIC'",
+  ];
   const params = [];
 
   if (status) {
@@ -328,7 +332,7 @@ const getCompanionPostDetail = async (postId) => {
       cp.gender_preference,
       cp.tags,
       CASE
-        WHEN cp.status = 'CLOSED' THEN 'CLOSED'
+        WHEN cp.status = 'CLOSED' OR t.status IN ('COMPLETED', 'CANCELLED') THEN 'CLOSED'
         WHEN members.current_members_count >= cp.target_members_count THEN 'FULL'
         ELSE 'OPEN'
       END AS status,
@@ -342,6 +346,7 @@ const getCompanionPostDetail = async (postId) => {
       t.estimated_budget AS trip_estimated_budget,
       t.cover_image_url AS trip_cover_image_url,
       t.status AS trip_status,
+      t.privacy_type AS trip_privacy_type,
       u.full_name AS creator_name,
       u.nickname AS creator_nickname,
       u.avatar_url AS creator_avatar_url,
@@ -577,8 +582,10 @@ const getPostedTripIds = async (userId) => {
     SELECT DISTINCT cp.trip_id
     FROM companion_posts cp
     JOIN trip_members tm ON tm.trip_id = cp.trip_id
+    JOIN trips t ON t.id = cp.trip_id
     WHERE tm.user_id = $1 AND tm.role = 'LEADER'
       AND tm.membership_status = 'ACTIVE' AND cp.status IN ('OPEN', 'FULL')
+      AND t.privacy_type = 'PUBLIC'
   `, [userId]);
   return rows.map(row => row.trip_id);
 };
@@ -623,14 +630,68 @@ const getMySentRequests = async ({ userId, status, limit, offset }) => {
   return { rows, total };
 };
 
+// Bài tuyển công khai do người dùng đăng, gồm cả chuyến đã kết thúc.
+// CLOSED cũng được dùng khi kiểm duyệt ẩn bài nên không đưa lên hồ sơ.
+const getPublicPostsByUser = async ({ userId, limit = 20, offset = 0 }) => {
+  const countQuery = `
+    SELECT COUNT(*)::int AS total
+    FROM companion_posts cp
+    JOIN trips t ON t.id = cp.trip_id
+    WHERE cp.creator_id = $1
+      AND cp.status IN ('OPEN', 'FULL')
+      AND t.privacy_type = 'PUBLIC'
+  `;
+  const { rows: countRows } = await db.query(countQuery, [userId]);
+
+  const dataQuery = `
+    SELECT
+      cp.id,
+      cp.trip_id,
+      cp.title,
+      cp.created_at,
+      CASE
+        WHEN t.status IN ('COMPLETED', 'CANCELLED') THEN 'CLOSED'
+        WHEN members.current_members_count >= cp.target_members_count THEN 'FULL'
+        ELSE 'OPEN'
+      END AS status,
+      t.name AS trip_name,
+      t.destination,
+      t.status AS trip_status,
+      t.cover_image_url AS trip_cover_image_url
+    FROM companion_posts cp
+    JOIN trips t ON t.id = cp.trip_id
+    JOIN LATERAL (
+      SELECT COUNT(*)::int AS current_members_count
+      FROM trip_members tm
+      WHERE tm.trip_id = cp.trip_id AND tm.membership_status = 'ACTIVE'
+    ) members ON true
+    WHERE cp.creator_id = $1
+      AND cp.status IN ('OPEN', 'FULL')
+      AND t.privacy_type = 'PUBLIC'
+    ORDER BY cp.created_at DESC, cp.id DESC
+    LIMIT $2 OFFSET $3
+  `;
+  const { rows } = await db.query(dataQuery, [userId, limit, offset]);
+  return { rows, total: countRows[0]?.total || 0 };
+};
+
 // Bài tuyển đang hoạt động của chuyến đi mà người dùng là trưởng nhóm
 const getMyPosts = async (userId, page, limit) => {
   const query = `
-    SELECT cp.id, cp.title, CASE
-        WHEN cp.status = 'CLOSED' THEN 'CLOSED'
+    SELECT
+      cp.id,
+      cp.trip_id,
+      cp.title,
+      cp.created_at,
+      CASE
+        WHEN cp.status = 'CLOSED' OR t.status IN ('COMPLETED', 'CANCELLED') THEN 'CLOSED'
         WHEN members.current_members_count >= cp.target_members_count THEN 'FULL'
         ELSE 'OPEN'
-      END AS status, t.name AS trip_name, t.destination
+      END AS status,
+      t.name AS trip_name,
+      t.destination,
+      t.status AS trip_status,
+      t.cover_image_url AS trip_cover_image_url
     FROM companion_posts cp
     JOIN LATERAL (
       SELECT COUNT(*)::int AS current_members_count
@@ -661,6 +722,7 @@ const resendJoinRequest = async (requestId, introduction, client) => {
 };
 
 module.exports = {
+    getPublicPostsByUser,
     resendJoinRequest,
     getMyPosts,
     getMySentRequests,

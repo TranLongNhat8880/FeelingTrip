@@ -257,7 +257,17 @@ const warnReportedUser = async (req, res, next) => {
   }
 };
 
+const processTripReport = async (req, res, next) => {
+  try {
+    const result = await adminService.processTripReport(req.params.id, req.body, req.user.id);
+    return sendSuccess(res, result, 'Đã áp dụng hành động và kết luận báo cáo', HTTP_STATUS.OK);
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
+  processTripReport,
   getModerationPosts,
   getModerationPost,
   moderatePost,

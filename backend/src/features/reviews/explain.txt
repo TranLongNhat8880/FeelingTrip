@@ -1,32 +1,60 @@
 ﻿================================================================================
-PHÂN HỆ: REVIEWS (ĐÁNH GIÁ, BÁO CÁO VI PHẠM & AN TOÀN SOS) - src/features/reviews/
+PHÂN HỆ: REVIEWS (ĐÁNH GIÁ, BÁO CÁO VI PHẠM & CHẶN NGƯỜI DÙNG) - src/features/reviews/
 ================================================================================
 
 1. TÁC DỤNG CỦA PHÂN HỆ:
    - Đánh giá thành viên và chuyến đi sau khi kết thúc (chấm sao và viết nhận xét).
    - Báo cáo tài khoản xấu hoặc chuyến đi vi phạm để gửi lên Admin.
    - Chặn người dùng gây phiền phức.
-   - Lưu thông tin liên hệ khẩn cấp và kích hoạt tín hiệu SOS.
 
 2. CẤU TRÚC 4 TẦNG (Controller - Service - Repository):
    - reviews.routes.js: Định nghĩa các endpoints đánh giá và an toàn.
    - reviews.controller.js: Tiếp nhận request.
    - reviews.service.js: Nghiệp vụ lưu đánh giá, tính điểm tín nhiệm trung bình, lưu báo cáo.
    - reviews.repository.js: Thao tác trực tiếp với Database (trip_reviews, user_reports,
-     user_blocks, emergency_contacts, sos_alerts).
+     user_blocks).
 
 3. CÁC FILE DÙNG CHUNG CẦN GỌI (SHARED):
    - ../../shared/middlewares/auth.middleware.js -> authenticate
    - ../../shared/utils/response.util.js         -> sendSuccess, sendError
 
 4. CÁC API CẦN TRIỂN KHAI TRONG PHÂN HỆ NÀY:
-   Các API dưới đây là dự kiến; routes/service/repository hiện vẫn là scaffold.
-   Thành triển khai feature và mapping dữ liệu, không chỉ bổ sung migration DB.
+   Các API được khai báo trong reviews.routes.js; hợp đồng dưới đây dùng để
+   tích hợp với frontend. Nghiệp vụ và mapping thuộc feature reviews của Thành.
    - POST /api/v1/reviews/member       : Đánh giá thành viên (chỉ được đánh giá người cùng đi tour)
    - POST /api/v1/reviews/trip         : Đánh giá chất lượng chuyến đi
+   - GET /api/v1/reviews/trip/:id?page=1&limit=20: đọc đánh giá lịch trình cộng đồng.
    - POST /api/v1/reviews/report       : Báo cáo tài khoản xấu hoặc hành vi lừa đảo
    - POST /api/v1/reviews/block        : Chặn người dùng khác
-   - POST /api/v1/reviews/sos          : Kích hoạt tín hiệu khẩn cấp SOS (lưu tọa độ hiện tại)
+   ĐỌC ĐÁNH GIÁ LỊCH TRÌNH CỘNG ĐỒNG:
+   - API GET /api/v1/reviews/trip/:id, yêu cầu đăng nhập như các route reviews.
+     Truyền sourceTripId của lịch trình cộng đồng, không phải itinerary dayId,
+     templateId hay ID bản sao. Chỉ cho trip PUBLIC + COMPLETED; PRIVATE,
+     UPCOMING/ONGOING/CANCELLED và ID không tồn tại đều trả 404. Không yêu cầu
+     người xem phải tham gia. Quyền GỬI đánh giá vẫn như cũ.
+   - page mặc định 1, limit mặc định 20 (1–50); mới nhất trước, cùng thời gian
+     thì id DESC. Tổng và điểm trung bình tính trên toàn bộ đánh giá chuyến đi,
+     không chỉ trang đang tải. Chỉ lấy reviewee_id IS NULL, không trộn đánh giá
+     bạn đồng hành. Giữ cả đánh giá chỉ chấm sao, comment có thể null.
+   - data = { tripId, averageRating, reviewCount, items, pagination }.
+     items[] = { id, tripId, rating, comment, createdAt,
+       reviewer: { id, displayName, avatarUrl } }.
+     pagination = { page, limit, total, totalPages }.
+     Chưa có đánh giá: averageRating=0, reviewCount=0, items=[], totalPages=0.
+     Trang vượt cuối trả items=[] nhưng tổng/điểm trung bình vẫn giữ nguyên.
+     Không trả email, số điện thoại, ngày sinh, vai trò hoặc giấy tờ của tác giả.
+   - FE dùng frontend/lib/features/review/repositories/trip_reviews_repository.dart:
+       final result = await ApiTripReviewsRepository().getTripReviews(sourceTripId);
+       result.items; result.averageRating; result.reviewCount; result.hasMore;
+       result.items.first.reviewer.displayName; result.items.first.comment;
+     Trang kế: getTripReviews(sourceTripId, page: result.page + 1).
+     Dùng cùng limit nếu đã tùy chỉnh. result.items có thể rỗng, không gọi first
+     khi chưa kiểm tra. Khi mở hồ sơ tác giả: PublicProfileScreen.open(context,
+     userId: item.reviewer.id). Dùng createdAt.toLocal() khi hiển thị thời gian.
+   - Không sửa DB hoặc backend/src/features/itineraries; API nằm trong reviews.
+     FE đã gắn TripReviewsSection vào chi tiết lịch trình cộng đồng, có tải lại,
+     xem thêm và mở hồ sơ tác giả. Đây là nhận xét đã gửi trong đánh giá chuyến đi,
+     không phải mở bình luận tự do cho người chưa tham gia.
 
 5. HỢP ĐỒNG LƯU TRỮ SAU MIGRATION 004_member_feature_contracts.sql:
    Sau migration 006, findTripContext kiểm tra người đã từng tham gia: giữ cả
@@ -48,13 +76,12 @@ PHÂN HỆ: REVIEWS (ĐÁNH GIÁ, BÁO CÁO VI PHẠM & AN TOÀN SOS) - src/feat
    - user_reports.evidence_image_url: TEXT, cho phép NULL. API dự kiến nhận
      evidenceImageUrl (URL hợp lệ hoặc không có ảnh); Thành bổ sung validation,
      mapping và SQL. Ảnh bằng chứng không bắt buộc cho mọi báo cáo.
-   - sos_alerts.message: VARCHAR(500), cho phép NULL; API nhận message tối đa
-     500 ký tự. Validation đã có trường này, cần đưa xuống repository khi lưu.
-   - Trạng thái SOS tại DB: ACTIVE (đang cần giúp), RESOLVED (đã an toàn),
-     FALSE_ALARM (báo nhầm). Feature triển khai luồng cập nhật và kiểm tra quyền;
-     việc DB chấp nhận trạng thái chưa đồng nghĩa API báo nhầm đã hoạt động.
-   - Các bảng user_blocks và emergency_contacts đã có từ migration 001; route,
-     service, repository và kiểm tra quyền vẫn thuộc phần reviews của Thành.
+   - Chức năng SOS đã được gỡ khỏi ứng dụng và API. Bảng sos_alerts và các
+     migration đã phát hành được giữ nguyên để bảo toàn dữ liệu cũ; không còn
+     luồng chạy ghi/đọc SOS trong feature reviews. Không tự DROP bảng/xóa dữ liệu.
+   - Bảng user_blocks đã có từ migration 001. Bảng emergency_contacts được giữ
+     nguyên trong database để bảo toàn dữ liệu cũ, nhưng không còn route, service
+     hay repository chạy trong feature reviews. Không tự DROP bảng/xóa dữ liệu.
 
 6. UPLOAD ẢNH VÀ KIỂM TRA:
    - Ảnh bằng chứng: feature dùng ../../shared/middlewares/upload.middleware.js
@@ -64,4 +91,20 @@ PHÂN HỆ: REVIEWS (ĐÁNH GIÁ, BÁO CÁO VI PHẠM & AN TOÀN SOS) - src/feat
      test dùng chung hiện có nếu chưa thống nhất. Runner tự lấy các file .test.js.
    - Test DB dùng chung shared-contracts.test.js kiểm tra hợp đồng 004; feature
      vẫn cần test API về quyền, dữ liệu không hợp lệ và đánh giá trùng.
+
+7. QUYỀN GỬI BÁO CÁO (khác quyền đánh giá):
+   - Không yêu cầu chuyến đi COMPLETED. Quyền đánh giá vẫn giữ nguyên.
+   - reportedTripId, không có reportedUserId: người đăng nhập được báo cáo
+     chuyến PUBLIC hoặc chuyến có bài tuyển OPEN/FULL mà không cần tham gia.
+     Bài CLOSED không cấp thêm quyền truy cập cho chuyến PRIVATE.
+   - Chuyến PRIVATE chưa có bài tuyển công khai: chỉ người đang/từng tham gia
+     mới được gửi báo cáo chuyến đi.
+   - Có cả reportedTripId và reportedUserId: cả người gửi và người bị báo cáo
+     phải đang/từng tham gia đúng chuyến đi đó, kể cả khi chuyến PUBLIC.
+   - Lịch sử ACTIVE/LEFT/REMOVED được giữ quyền báo cáo; creator được tính
+     cho dữ liệu cũ thiếu membership. Không dùng quyền này để cấp quyền sửa trip.
+   - Chỉ reportedUserId (không gắn chuyến đi): giữ API báo cáo tài khoản độc lập
+     hiện có, không áp quy tắc thành viên chuyến đi cho bối cảnh này.
+   - API kiểm tra quyền ở service/repository; không dựa vào nút hiển thị ở FE.
+     Không đổi DB, luồng admin xử lý báo cáo, hoặc tự cảnh cáo/khóa khi nhận đơn.
 ================================================================================

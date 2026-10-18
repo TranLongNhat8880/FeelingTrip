@@ -2,7 +2,6 @@ import 'travel_decoration.dart';
 import '../../core/constants/app_sizes.dart';
 import '../../core/constants/app_colors.dart';
 import 'package:flutter/material.dart';
-import '../buttons/app_icon_button.dart';
 
 class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
   const AppTopBar({
@@ -11,12 +10,14 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
     this.showBack = true,
     this.actions = const [],
     this.subtitle,
+    this.titleWidget,
     this.bottom,
   });
   final String title;
   final bool showBack;
   final List<Widget> actions;
   final String? subtitle;
+  final Widget? titleWidget;
   final PreferredSizeWidget? bottom;
   @override
   Size get preferredSize => Size.fromHeight(
@@ -24,19 +25,21 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
   );
   @override
   Widget build(BuildContext context) => AppBar(
-    title: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(title),
-        if (subtitle != null)
-          Text(
-            subtitle!,
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
-          ),
-      ],
-    ),
+    title:
+        titleWidget ??
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(title),
+            if (subtitle != null)
+              Text(
+                subtitle!,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
+              ),
+          ],
+        ),
     bottom: bottom,
     toolbarHeight: AppSizes.toolbarHeight,
     automaticallyImplyLeading: false,
@@ -44,10 +47,11 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
     leading: showBack && Navigator.canPop(context)
         ? Padding(
             padding: const EdgeInsets.all(4),
-            child: AppIconButton(
-              icon: Icons.arrow_back_ios_new_rounded,
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
               tooltip: 'Quay lại',
               onPressed: () => Navigator.maybePop(context),
+              style: IconButton.styleFrom(hoverColor: Colors.transparent),
             ),
           )
         : null,
@@ -67,6 +71,7 @@ class AppScaffold extends StatelessWidget {
     this.bottomNavigationBar,
     this.padding = const EdgeInsets.all(AppSizes.screenPadding),
     this.subtitle,
+    this.titleWidget,
     this.appBarBottom,
     this.scaffoldKey,
     this.drawer,
@@ -81,6 +86,7 @@ class AppScaffold extends StatelessWidget {
   final Widget? bottomNavigationBar;
   final EdgeInsetsGeometry padding;
   final String? subtitle;
+  final Widget? titleWidget;
   final PreferredSizeWidget? appBarBottom;
   final GlobalKey<ScaffoldState>? scaffoldKey;
   final Widget? drawer;
@@ -94,6 +100,7 @@ class AppScaffold extends StatelessWidget {
         ? null
         : AppTopBar(
             title: title!,
+            titleWidget: titleWidget,
             subtitle: subtitle,
             bottom: appBarBottom,
             showBack: showBack,

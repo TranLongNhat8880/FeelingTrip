@@ -396,7 +396,8 @@ class MockCompanionRepository implements CompanionRepository {
     required String tripId,
     required String title,
     String? content,
-    required int targetMembersCount,
+    int? targetMembersCount,
+    int? recruitmentCount,
     int? minAge,
     int? maxAge,
     String genderPreference = 'ANY',
@@ -418,7 +419,9 @@ class MockCompanionRepository implements CompanionRepository {
       id: 'post-mock-${DateTime.now().millisecondsSinceEpoch}',
       title: title,
       content: content,
-      targetMembersCount: targetMembersCount,
+      targetMembersCount: recruitmentCount != null
+          ? 1 + recruitmentCount
+          : targetMembersCount!,
       currentMembersCount: 1,
       genderPreference: genderPreference,
       minAge: minAge,
@@ -504,7 +507,9 @@ class MockCompanionRepository implements CompanionRepository {
     final index = _mockPosts.indexWhere((p) => p.id == postId);
     if (index < 0) throw Exception('Bài đăng không tồn tại');
     final p = _mockPosts[index];
-    final target = data['targetMembersCount'] as int? ?? p.targetMembersCount;
+    final target = data['recruitmentCount'] != null
+        ? p.currentMembersCount + (data['recruitmentCount'] as int)
+        : data['targetMembersCount'] as int? ?? p.targetMembersCount;
     if (target < p.currentMembersCount) {
       throw Exception('Số lượng mục tiêu nhỏ hơn số thành viên hiện có');
     }
@@ -517,7 +522,9 @@ class MockCompanionRepository implements CompanionRepository {
       minAge: data.containsKey('minAge') ? data['minAge'] : p.minAge,
       maxAge: data.containsKey('maxAge') ? data['maxAge'] : p.maxAge,
       genderPreference: data['genderPreference'] ?? p.genderPreference,
-      tags: List<String>.from(data['tags'] ?? p.tags),
+      tags: data.containsKey('tags')
+          ? List<String>.from(data['tags'] ?? [])
+          : p.tags,
       status: target <= p.currentMembersCount ? 'FULL' : 'OPEN',
       createdAt: p.createdAt,
       updatedAt: DateTime.now(),
@@ -525,6 +532,30 @@ class MockCompanionRepository implements CompanionRepository {
       creator: p.creator,
     );
   }
+
+  @override
+  Future<List<Map<String, dynamic>>> getPublicPosts({
+    required String userId,
+    int page = 1,
+  }) async => _mockPosts
+      .where((p) => p.creator.id == userId && !p.isClosed)
+      .skip((page - 1) * 20)
+      .take(20)
+      .map(
+        (p) => {
+          'id': p.id,
+          'title': p.title,
+          'status': ['COMPLETED', 'CANCELLED'].contains(p.trip.status)
+              ? 'CLOSED'
+              : p.status,
+          'trip_id': p.trip.id,
+          'trip_name': p.trip.name,
+          'trip_status': p.trip.status,
+          'trip_cover_image_url': p.trip.coverImageUrl,
+          'destination': p.trip.destination,
+        },
+      )
+      .toList();
 
   @override
   Future<List<Map<String, dynamic>>> getMyPosts({int page = 1}) async =>
@@ -538,6 +569,8 @@ class MockCompanionRepository implements CompanionRepository {
               'title': p.title,
               'status': p.status,
               'trip_name': p.trip.name,
+              'trip_cover_image_url': p.trip.coverImageUrl,
+              'trip_status': p.trip.status,
               'destination': p.trip.destination,
             },
           )

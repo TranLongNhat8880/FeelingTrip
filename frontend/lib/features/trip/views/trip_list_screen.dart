@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../routes/app_routes.dart';
 import '../../../shared/ui_kit.dart';
 import '../models/trip_model.dart';
 import '../repositories/trip_repository.dart';
 import '../viewmodels/trip_viewmodel.dart';
 import 'trip_detail_screen.dart';
 import 'trip_form_screen.dart';
-import 'trip_invitations_screen.dart';
 import 'widgets/trip_widgets.dart';
 
 class TripListScreen extends StatefulWidget {
@@ -49,6 +47,7 @@ class _TripListScreenState extends State<TripListScreen> {
     return _viewModel.trips
         .where(
           (trip) =>
+              trip.membershipStatus == 'ACTIVE' &&
               (_status == null || trip.status == _status) &&
               (query.isEmpty ||
                   '${trip.name} ${trip.destination}'.toLowerCase().contains(
@@ -131,39 +130,6 @@ class _TripListScreenState extends State<TripListScreen> {
                 icon: Icons.key_outlined,
                 variant: AppButtonVariant.secondary,
                 onPressed: _join,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          children: [
-            CustomButton(
-              text: 'Lời mời của tôi',
-              icon: Icons.mail_outline,
-              fullWidth: false,
-              variant: AppButtonVariant.text,
-              onPressed: () async {
-                await Navigator.push<void>(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => TripInvitationsScreen(
-                      repository: _viewModel.repository,
-                    ),
-                  ),
-                );
-                await _viewModel.loadTrips();
-              },
-            ),
-            CustomButton(
-              text: 'Lịch trình cộng đồng',
-              icon: Icons.public_outlined,
-              fullWidth: false,
-              variant: AppButtonVariant.text,
-              onPressed: () => Navigator.pushNamed<void>(
-                context,
-                AppRoutes.publicItineraries,
               ),
             ),
           ],

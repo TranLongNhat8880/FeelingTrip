@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_sizes.dart';
 import '../../../shared/ui_kit.dart';
-import '../../auth/viewmodels/auth_viewmodel.dart';
 import '../viewmodels/companion_feed_viewmodel.dart';
 import 'companion_detail_screen.dart';
+import 'companion_search_screen.dart';
 import 'widgets/companion_post_card.dart';
 import 'widgets/companion_filter_sheet.dart';
 
@@ -25,7 +25,6 @@ class CompanionFeedScreen extends StatefulWidget {
 class _CompanionFeedScreenState extends State<CompanionFeedScreen> {
   final _vm = CompanionFeedViewModel();
   final _scrollController = ScrollController();
-  final _searchController = TextEditingController();
 
   @override
   void initState() {
@@ -46,7 +45,6 @@ class _CompanionFeedScreenState extends State<CompanionFeedScreen> {
     _vm.removeListener(_onChanged);
     _vm.dispose();
     _scrollController.dispose();
-    _searchController.dispose();
     super.dispose();
   }
 
@@ -88,13 +86,12 @@ class _CompanionFeedScreenState extends State<CompanionFeedScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = AuthScope.of(context).user;
     final filtered =
         _vm.sortBy != 'newest' ||
         _vm.status != 'OPEN' ||
         _vm.genderPreference.isNotEmpty;
     final body = ColoredBox(
-      color: AppColors.background,
+      color: const Color(0xFFF5F6F7),
       child: SafeArea(
         bottom: false,
         child: Center(
@@ -104,7 +101,8 @@ class _CompanionFeedScreenState extends State<CompanionFeedScreen> {
             ),
             child: Column(
               children: [
-                Padding(
+                Container(
+                  color: Colors.white,
                   padding: const EdgeInsets.fromLTRB(12, 6, 12, 8),
                   child: Row(
                     children: [
@@ -113,25 +111,66 @@ class _CompanionFeedScreenState extends State<CompanionFeedScreen> {
                           tooltip: 'Quay lại',
                           onPressed: () => Navigator.pop(context),
                           icon: const Icon(Icons.arrow_back_rounded),
-                        )
-                      else
-                        IconButton(
-                          tooltip: 'Mở trang cá nhân',
-                          onPressed: widget.onProfileTap,
-                          icon: AvatarPlaceholder(
-                            name: user?.fullName ?? 'Bạn',
-                            imageUrl: user?.avatarUrl,
-                            radius: 18,
-                          ),
                         ),
-                      const SizedBox(width: 8),
+                      if (!widget.embedded && Navigator.canPop(context))
+                        const SizedBox(width: 8),
                       Expanded(
-                        child: AppSearchField(
-                          controller: _searchController,
-                          hint: 'Tìm điểm đến du lịch...',
-                          onSubmitted: (value) =>
-                              _vm.applyFilter(destination: value.trim()),
-                          onClear: () => _vm.applyFilter(destination: ''),
+                        child: Semantics(
+                          button: true,
+                          label: 'Tìm điểm đến du lịch',
+                          child: Material(
+                            color: AppColors.inputSurface,
+                            borderRadius: BorderRadius.circular(28),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(28),
+                              onTap: () => Navigator.push<void>(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => CompanionSearchScreen(
+                                    destinations: _vm.posts
+                                        .map((p) => p.trip.destination ?? '')
+                                        .where((d) => d.isNotEmpty)
+                                        .toList(),
+                                    sortBy: _vm.sortBy,
+                                    status: _vm.status,
+                                    genderPreference: _vm.genderPreference,
+                                  ),
+                                ),
+                              ),
+                              child: Container(
+                                constraints: const BoxConstraints(
+                                  minHeight: 48,
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 12,
+                                ),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(28),
+                                  border: Border.all(color: AppColors.border),
+                                ),
+                                child: const Row(
+                                  children: [
+                                    Icon(
+                                      Icons.search_rounded,
+                                      color: AppColors.textHint,
+                                    ),
+                                    SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        'Tìm điểm đến du lịch...',
+                                        style: TextStyle(
+                                          color: AppColors.textHint,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -164,6 +203,11 @@ class _CompanionFeedScreenState extends State<CompanionFeedScreen> {
                     ],
                   ),
                 ),
+                const Divider(
+                  height: 0.5,
+                  thickness: 0.5,
+                  color: Color(0xFFE5E7EB),
+                ),
                 Expanded(child: _buildBody()),
               ],
             ),
@@ -191,7 +235,6 @@ class _CompanionFeedScreenState extends State<CompanionFeedScreen> {
         message: 'Thử thay đổi điểm đến hoặc bộ lọc.',
         buttonText: 'Xóa bộ lọc',
         onButtonPressed: () {
-          _searchController.clear();
           _vm.applyFilter(
             sortBy: 'newest',
             status: 'OPEN',
@@ -206,9 +249,10 @@ class _CompanionFeedScreenState extends State<CompanionFeedScreen> {
       child: ListView.separated(
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(0, 4, 0, 16),
+        padding: const EdgeInsets.only(bottom: 16),
         itemCount: _vm.posts.length + (_vm.isLoadingMore ? 1 : 0),
-        separatorBuilder: (_, _) => const SizedBox(height: 4),
+        separatorBuilder: (_, _) =>
+            const Divider(height: 1, thickness: 1, color: AppColors.border),
         itemBuilder: (context, index) {
           if (index == _vm.posts.length) {
             return const Padding(

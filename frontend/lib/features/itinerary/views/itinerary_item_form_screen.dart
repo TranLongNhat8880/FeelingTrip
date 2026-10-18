@@ -13,6 +13,7 @@ import '../models/itinerary_model.dart';
 import '../repositories/api_itinerary_repository.dart';
 import '../repositories/itinerary_repository.dart';
 import '../repositories/mock_itinerary_repository.dart';
+import 'itinerary_place_search_screen.dart';
 import 'widgets/itinerary_widgets.dart';
 
 class ItineraryItemFormScreen extends StatefulWidget {
@@ -45,7 +46,6 @@ class _ItineraryItemFormScreenState extends State<ItineraryItemFormScreen> {
   late final TextEditingController _address;
   late final TextEditingController _note;
   late final TextEditingController _cost;
-  late final TextEditingController _search;
   late String _category;
   late String _startTime;
   late String _endTime;
@@ -57,17 +57,12 @@ class _ItineraryItemFormScreenState extends State<ItineraryItemFormScreen> {
   String? _externalProvider;
   String? _externalPlaceId;
   String? _suggestedArrivalMessage;
-  List<ItineraryPlaceOption> _places = [];
   final _placeSearchRepository = PlaceSearchRepository();
   List<PlaceSearchResult> _geoapifyResults = const [];
-  Timer? _debounceTimer;
   Timer? _geoapifyDebounceTimer;
-  int _searchRequestId = 0;
   int _geoapifySearchRequestId = 0;
   int _distanceRequestId = 0;
-  bool _searching = false;
   bool _geoapifySearching = false;
-  String? _searchError;
   String? _geoapifySearchError;
   PlaceDistanceResult? _distanceFromPrevious;
   bool _calculatingDistance = false;
@@ -90,7 +85,6 @@ class _ItineraryItemFormScreenState extends State<ItineraryItemFormScreen> {
     _cost = TextEditingController(
       text: VndInputFormatter.format('${item?.estimatedCost ?? 0}'),
     );
-    _search = TextEditingController();
     _category = item?.category ?? 'ATTRACTION';
     _startTime = item?.startTime ?? widget.suggestedStartTime ?? '08:00';
     _endTime = item?.endTime ?? _addMinutes(_startTime, 90);
@@ -117,53 +111,30 @@ class _ItineraryItemFormScreenState extends State<ItineraryItemFormScreen> {
       }
     } else {
       _locationSource = 'CATALOG';
-      _searchPlaces();
     }
   }
 
   @override
   void dispose() {
-    _debounceTimer?.cancel();
     _geoapifyDebounceTimer?.cancel();
-    for (final controller in [_name, _address, _note, _cost, _search]) {
+    for (final controller in [_name, _address, _note, _cost]) {
       controller.dispose();
     }
     super.dispose();
   }
 
-  void _onSearchQueryChanged(String query) {
-    _debounceTimer?.cancel();
-    final requestId = ++_searchRequestId;
-    _distanceRequestId++;
-    setState(() {
-      _searchError = null;
-    });
-    _debounceTimer = Timer(
-      const Duration(milliseconds: 350),
-      () => _searchPlaces(requestId: requestId),
+  Future<void> _openCatalogPlaceSearch() async {
+    final place = await Navigator.push<ItineraryPlaceOption>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ItineraryPlaceSearchScreen(
+          destination: widget.destination,
+          repository: _repo,
+        ),
+      ),
     );
-  }
-
-  Future<void> _searchPlaces({int? requestId}) async {
-    final currentRequestId = requestId ?? ++_searchRequestId;
-    setState(() {
-      _searching = true;
-      _searchError = null;
-    });
-    try {
-      final result = await _repo.searchPlaces(
-        destination: widget.destination,
-        keyword: _search.text.trim(),
-      );
-      if (!mounted || currentRequestId != _searchRequestId) return;
-      setState(() => _places = result);
-    } catch (error) {
-      if (!mounted || currentRequestId != _searchRequestId) return;
-      setState(() => _searchError = '$error'.replaceFirst('Exception: ', ''));
-    } finally {
-      if (mounted && currentRequestId == _searchRequestId) {
-        setState(() => _searching = false);
-      }
+    if (place != null && mounted) {
+      await _choosePlace(place);
     }
   }
 
@@ -171,6 +142,7 @@ class _ItineraryItemFormScreenState extends State<ItineraryItemFormScreen> {
     setState(() {
       _selectedPlace = place;
       _selectedGeoapifyPlace = null;
+      _locationSource = 'CATALOG';
       _name.text = place.name;
       _address.text = place.address ?? place.destination;
       _category = place.category;
@@ -509,67 +481,73 @@ class _ItineraryItemFormScreenState extends State<ItineraryItemFormScreen> {
           // ─── CATALOG SECTION ───────────────────────────────────────────
           if (_locationSource == 'CATALOG') ...[
             if (_selectedPlace == null) ...[
-              // Search input
-              AppSearchField(
-                controller: _search,
-                hint:
-                    'Tìm địa điểm tại ${widget.destination.isNotEmpty ? widget.destination : 'điểm đến'}...',
-                isLoading: _searching,
-                onChanged: _onSearchQueryChanged,
-              ),
-              if (_searchError != null) ...[
-                const SizedBox(height: 10),
-                InlineError(message: _searchError!, onRetry: _searchPlaces),
-              ],
-              const SizedBox(height: 12),
-              // Places list
-              if (!_searching && _places.isEmpty)
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: const Column(
-                    children: [
-                      Icon(
-                        Icons.search_off_rounded,
-                        size: 28,
-                        color: AppColors.textHint,
-                      ),
-                      SizedBox(height: 6),
-                      Text(
-                        'Chưa tìm thấy địa điểm phù hợp',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textSecondary,
+              // Search launcher button (tương tự ô tìm kiếm ở Trang chủ)
+              Material(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                child: InkWell(
+                  onTap: _openCatalogPlaceSearch,
+                  borderRadius: BorderRadius.circular(14),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 13,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.search_rounded,
+                          color: AppColors.primary,
+                          size: 22,
                         ),
-                      ),
-                      SizedBox(height: 2),
-                      Text(
-                        'Thử tìm từ khóa khác hoặc chuyển sang tab “Tự nhập”.',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textHint,
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                widget.destination.isNotEmpty
+                                    ? 'Tìm địa điểm tại ${widget.destination}...'
+                                    : 'Tìm địa điểm trong kho gợi ý...',
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  color: AppColors.textSecondary,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              const Text(
+                                'Chạm để mở trang tìm kiếm trong kho gợi ý',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: AppColors.textHint,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                )
-              else ...[
-                Text(
-                  'Gợi ý địa điểm nổi bật (${_places.length})',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: AppColors.primarySurface,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.arrow_forward_rounded,
+                            size: 16,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                const SizedBox(height: 8),
-                ..._places.map((place) => _placeSuggestionCard(place)),
-              ],
+              ),
             ] else ...[
               // Selected place preview card
               _selectedPlacePreview(),
@@ -598,9 +576,14 @@ class _ItineraryItemFormScreenState extends State<ItineraryItemFormScreen> {
                 ? null
                 : 'Nhập ít nhất 3 ký tự để nhận gợi ý địa điểm.',
             onChanged: _isCatalogSource ? null : _onGeoapifyQueryChanged,
-            validator: (value) => (value ?? '').trim().isEmpty
-                ? 'Vui lòng nhập tên điểm dừng'
-                : null,
+            validator: (value) {
+              final text = (value ?? '').trim();
+              if (text.isEmpty) return 'Vui lòng nhập tên điểm dừng';
+              if (text.length > 255) {
+                return 'Tên điểm dừng không được vượt quá 255 ký tự';
+              }
+              return null;
+            },
           ),
           if (!_isCatalogSource) ...[
             const SizedBox(height: 8),
@@ -799,6 +782,13 @@ class _ItineraryItemFormScreenState extends State<ItineraryItemFormScreen> {
             controller: _note,
             prefixIcon: Icons.notes_rounded,
             maxLines: 3,
+            validator: (value) {
+              final text = (value ?? '').trim();
+              if (text.isNotEmpty && text.length > 1000) {
+                return 'Ghi chú không được vượt quá 1000 ký tự';
+              }
+              return null;
+            },
           ),
           const SizedBox(height: 90),
         ],
@@ -835,7 +825,6 @@ class _ItineraryItemFormScreenState extends State<ItineraryItemFormScreen> {
                   _longitude = null;
                   _distanceFromPrevious = null;
                 });
-                _searchPlaces();
               }
             },
           ),
@@ -937,89 +926,6 @@ class _ItineraryItemFormScreenState extends State<ItineraryItemFormScreen> {
     );
   }
 
-  Widget _placeSuggestionCard(ItineraryPlaceOption place) {
-    final catColor = getCategoryColor(place.category);
-    final catIcon = getCategoryIcon(place.category);
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        child: InkWell(
-          onTap: () => _choosePlace(place),
-          borderRadius: BorderRadius.circular(12),
-          child: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: catColor.withValues(alpha: 0.12),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(catIcon, size: 19, color: catColor),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        place.name,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        place.address ?? place.destination,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.star_rounded,
-                      size: 15,
-                      color: Color(0xFFFFB703),
-                    ),
-                    const SizedBox(width: 2),
-                    Text(
-                      place.rating.toStringAsFixed(1),
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _selectedPlacePreview() {
     final place = _selectedPlace!;
     final catColor = getCategoryColor(place.category);
@@ -1076,20 +982,29 @@ class _ItineraryItemFormScreenState extends State<ItineraryItemFormScreen> {
               ),
               const Spacer(),
               InkWell(
-                onTap: () {
-                  setState(() {
-                    _selectedPlace = null;
-                    _distanceFromPrevious = null;
-                  });
-                },
+                onTap: _openCatalogPlaceSearch,
                 child: const Text(
-                  'Chọn địa điểm khác',
+                  'Đổi địa điểm',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                     color: AppColors.primaryDark,
                     decoration: TextDecoration.underline,
                   ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              InkWell(
+                onTap: () {
+                  setState(() {
+                    _selectedPlace = null;
+                    _distanceFromPrevious = null;
+                  });
+                },
+                child: const Icon(
+                  Icons.close_rounded,
+                  size: 16,
+                  color: AppColors.textSecondary,
                 ),
               ),
             ],

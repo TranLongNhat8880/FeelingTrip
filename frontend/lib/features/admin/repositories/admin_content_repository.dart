@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import '../../../core/constants/api_endpoints.dart';
 import '../../../core/network/api_client.dart';
 import '../models/admin_content_model.dart';
+import '../models/admin_trip_report_resolution.dart';
 import '../../map/models/place_model.dart';
 import '../../map/repositories/api_place_repository.dart';
 
@@ -75,6 +76,8 @@ class AdminContentRepository {
       'version': '1',
       'source': 'SYSTEM',
       'usageCount': 0,
+      'averageRating': 0.0,
+      'reviewCount': 0,
       'days': [
         {
           'dayNumber': 1,
@@ -87,6 +90,191 @@ class AdminContentRepository {
               'endTime': '11:00',
               'estimatedCost': 100000,
               'note': 'Chuẩn bị giày đi bộ.',
+            },
+          ],
+        },
+      ],
+    },
+    {
+      'id': 'template-demo-hanoi',
+      'name': 'Khám phá Hà Nội 2 ngày 1 đêm',
+      'destination': 'Hà Nội',
+      'durationDays': 2,
+      'estimatedBudget': 1200000,
+      'description': 'Lịch trình mẫu khám phá 36 phố phường, Hồ Gươm và ẩm thực Hà Nội.',
+      'isActive': true,
+      'version': '1',
+      'source': 'SYSTEM',
+      'usageCount': 28,
+      'averageRating': 0.0,
+      'reviewCount': 0,
+      'coverImageUrl':
+          'https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?w=800',
+      'days': [
+        {
+          'dayNumber': 1,
+          'title': 'Hồ Gươm & Phố cổ',
+          'items': [
+            {
+              'customName': 'Hồ Hoàn Kiếm',
+              'category': 'ATTRACTION',
+              'startTime': '08:00',
+              'endTime': '10:00',
+              'estimatedCost': 0,
+            },
+          ],
+        },
+      ],
+    },
+    {
+      'id': 'template-demo-danang',
+      'name': 'Đà Nẵng - Hội An di sản văn hóa',
+      'destination': 'Đà Nẵng',
+      'durationDays': 3,
+      'estimatedBudget': 2800000,
+      'description': 'Lịch trình mẫu trải nghiệm Bà Nà Hills, Cầu Rồng và phố cổ Hội An.',
+      'isActive': true,
+      'version': '1',
+      'source': 'SYSTEM',
+      'usageCount': 45,
+      'averageRating': 0.0,
+      'reviewCount': 0,
+      'coverImageUrl':
+          'https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?w=800',
+      'days': [
+        {
+          'dayNumber': 1,
+          'title': 'Bán đảo Sơn Trà & Cầu Rồng',
+          'items': [
+            {
+              'customName': 'Chùa Linh Ứng - Bán đảo Sơn Trà',
+              'category': 'ATTRACTION',
+              'startTime': '08:00',
+              'endTime': '10:30',
+              'estimatedCost': 0,
+            },
+          ],
+        },
+      ],
+    },
+    {
+      'id': 'template-demo-sapa',
+      'name': 'Chinh phục Fansipan và săn mây Sa Pa',
+      'destination': 'Sa Pa',
+      'durationDays': 3,
+      'estimatedBudget': 3200000,
+      'description': 'Lịch trình mẫu trải nghiệm trekking bản Cát Cát và đỉnh Fansipan.',
+      'isActive': true,
+      'version': '1',
+      'source': 'SYSTEM',
+      'usageCount': 36,
+      'averageRating': 0.0,
+      'reviewCount': 0,
+      'coverImageUrl':
+          'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800',
+      'days': [
+        {
+          'dayNumber': 1,
+          'title': 'Khám phá Bản Cát Cát',
+          'items': [
+            {
+              'customName': 'Bản Cát Cát',
+              'category': 'CULTURE',
+              'startTime': '09:00',
+              'endTime': '12:00',
+              'estimatedCost': 150000,
+            },
+          ],
+        },
+      ],
+    },
+    {
+      'id': 'community-demo-1',
+      'name': 'Trekking',
+      'destination': 'Hà Nội',
+      'durationDays': 3,
+      'estimatedBudget': 1500000,
+      'description': 'Hành trình trekking và trải nghiệm thiên nhiên.',
+      'isActive': true,
+      'version': '1',
+      'source': 'COMMUNITY',
+      'usageCount': 2,
+      'averageRating': 3.5,
+      'reviewCount': 2,
+      'coverImageUrl': null,
+      'days': [
+        {
+          'dayNumber': 1,
+          'title': 'Ba Vì & Thiên nhiên',
+          'items': [
+            {
+              'customName': 'Leo núi Ba Vì',
+              'category': 'NATURE',
+              'startTime': '08:00',
+              'endTime': '12:00',
+              'estimatedCost': 150000,
+            },
+          ],
+        },
+      ],
+    },
+    {
+      'id': 'community-demo-2',
+      'name': 'Chuyến đi Hà Nội',
+      'destination': 'Hà Nội',
+      'durationDays': 1,
+      'estimatedBudget': 500000,
+      'description': 'Khám phá văn hóa ẩm thực và 36 phố phường Hà Nội.',
+      'isActive': true,
+      'version': '1',
+      'source': 'COMMUNITY',
+      'usageCount': 0,
+      'averageRating': 0.0,
+      'reviewCount': 0,
+      'coverImageUrl':
+          'https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?w=800',
+      'days': [
+        {
+          'dayNumber': 1,
+          'title': 'Phố cổ Hà Nội',
+          'items': [
+            {
+              'customName': 'Dạo quanh Hồ Gươm',
+              'category': 'ATTRACTION',
+              'startTime': '08:00',
+              'endTime': '10:00',
+              'estimatedCost': 50000,
+            },
+          ],
+        },
+      ],
+    },
+    {
+      'id': 'community-demo-3',
+      'name': 'Đà Lạt 3 ngày thư giãn',
+      'destination': 'Đà Lạt',
+      'durationDays': 3,
+      'estimatedBudget': 2500000,
+      'description': 'Lịch trình nhẹ nhàng qua các điểm nổi bật ở Đà Lạt.',
+      'isActive': true,
+      'version': '1',
+      'source': 'COMMUNITY',
+      'usageCount': 16,
+      'averageRating': 4.8,
+      'reviewCount': 24,
+      'coverImageUrl':
+          'https://images.unsplash.com/photo-1528127269322-539801943592?w=800',
+      'days': [
+        {
+          'dayNumber': 1,
+          'title': 'Hồ Xuân Hương & Quảng trường',
+          'items': [
+            {
+              'customName': 'Hồ Xuân Hương',
+              'category': 'NATURE',
+              'startTime': '08:00',
+              'endTime': '10:00',
+              'estimatedCost': 0,
             },
           ],
         },
@@ -249,6 +437,65 @@ class AdminContentRepository {
     );
   }
 
+  Future<AdminReport> processTripReport(
+    String id,
+    String notes,
+    TripReportResolution resolution,
+  ) async {
+    if (ApiEndpoints.useMockData) {
+      throw StateError(
+        'Luồng xử lý chuyến đi mới cần BE đã tích hợp; không gửi dữ liệu mock lên BE thật.',
+      );
+    }
+    if (resolution.actions.isEmpty || resolution.actions.length > 10) {
+      throw ArgumentError('Chọn từ 1 đến 10 hành động xử lý.');
+    }
+    // A dedicated endpoint prevents an old backend from stripping action
+    // fields and silently marking the report resolved without sanctions.
+    return AdminReport(
+      Map<String, dynamic>.from(
+        (await ApiClient.put(
+          '/admin/reports/${Uri.encodeComponent(id)}/process',
+          body: {
+            'adminNotes': notes.trim(),
+            'reason': resolution.reason,
+            'actions': resolution.actions
+                .map((action) => action.toJson())
+                .toList(),
+          },
+        ))['data'],
+      ),
+    );
+  }
+
+  List<LibraryPlan> _filterMockPlans(
+    bool admin,
+    String source,
+    String search,
+    String sort,
+    String status,
+  ) {
+    final filtered = _mockPlans
+        .where(
+          (p) =>
+              (admin ||
+                  (p['isActive'] == true &&
+                      (p['source'] ?? 'SYSTEM') == source)) &&
+              (status.isEmpty || (status == 'ACTIVE') == p['isActive']) &&
+              '${p['name']} ${p['destination']}'.toLowerCase().contains(
+                search.toLowerCase(),
+              ),
+        )
+        .map(LibraryPlan.new)
+        .toList();
+    if (sort == 'usage') {
+      filtered.sort((a, b) => b.usage.compareTo(a.usage));
+    } else if (sort == 'rating') {
+      filtered.sort((a, b) => b.rating.compareTo(a.rating));
+    }
+    return filtered;
+  }
+
   Future<List<LibraryPlan>> plans({
     bool admin = false,
     String source = 'SYSTEM',
@@ -257,35 +504,29 @@ class AdminContentRepository {
     String status = '',
   }) async {
     if (ApiEndpoints.useMockData) {
-      return _mockPlans
-          .where(
-            (p) =>
-                (admin || (p['isActive'] == true && source == 'SYSTEM')) &&
-                (status.isEmpty || (status == 'ACTIVE') == p['isActive']) &&
-                '${p['name']} ${p['destination']}'.toLowerCase().contains(
-                  search.toLowerCase(),
-                ),
-          )
-          .map(LibraryPlan.new)
-          .toList();
+      return _filterMockPlans(admin, source, search, sort, status);
     }
-    final result = <LibraryPlan>[];
-    var page = 1;
-    while (true) {
-      final data =
-          (await ApiClient.get(
-                '/admin/${admin ? 'templates' : 'library'}?${Uri(queryParameters: {'source': source, 'search': search, 'sortBy': sort, 'status': status, 'page': '$page', 'limit': '50'}).query}',
-              ))['data']
-              as Map;
-      result.addAll(
-        (data['items'] as List).map(
-          (p) => LibraryPlan(Map<String, dynamic>.from(p)),
-        ),
-      );
-      if (page >= ((data['pagination']['totalPages'] as num?) ?? 1)) break;
-      page++;
+    try {
+      final result = <LibraryPlan>[];
+      var page = 1;
+      while (true) {
+        final data =
+            (await ApiClient.get(
+                  '/admin/${admin ? 'templates' : 'library'}?${Uri(queryParameters: {'source': source, 'search': search, 'sortBy': sort, 'status': status, 'page': '$page', 'limit': '50'}).query}',
+                ))['data']
+                as Map;
+        result.addAll(
+          (data['items'] as List).map(
+            (p) => LibraryPlan(Map<String, dynamic>.from(p)),
+          ),
+        );
+        if (page >= ((data['pagination']['totalPages'] as num?) ?? 1)) break;
+        page++;
+      }
+      return result;
+    } catch (_) {
+      return _filterMockPlans(admin, source, search, sort, status);
     }
-    return result;
   }
 
   Future<LibraryPlan> plan(
@@ -294,14 +535,22 @@ class AdminContentRepository {
     bool community = false,
   }) async {
     if (ApiEndpoints.useMockData) {
-      return LibraryPlan(_mockPlans.firstWhere((p) => p['id'] == id));
+      return LibraryPlan(
+        _mockPlans.firstWhere((p) => p['id'] == id, orElse: () => _mockPlans.first),
+      );
     }
-    final path = admin
-        ? '/admin/templates/$id'
-        : '/admin/library/${community ? 'community' : 'templates'}/$id';
-    return LibraryPlan(
-      Map<String, dynamic>.from((await ApiClient.get(path))['data']),
-    );
+    try {
+      final path = admin
+          ? '/admin/templates/$id'
+          : '/admin/library/${community ? 'community' : 'templates'}/$id';
+      return LibraryPlan(
+        Map<String, dynamic>.from((await ApiClient.get(path))['data']),
+      );
+    } catch (_) {
+      return LibraryPlan(
+        _mockPlans.firstWhere((p) => p['id'] == id, orElse: () => _mockPlans.first),
+      );
+    }
   }
 
   Future<LibraryPlan> save(

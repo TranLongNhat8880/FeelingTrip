@@ -243,4 +243,13 @@ router.put(
   adminController.warnReportedUser
 );
 
+// Xử lý báo cáo chuyến đi và kết luận trong cùng một giao dịch
+router.put(
+  '/reports/:id/process',
+  authenticate,
+  authorize(ROLES.ADMIN),
+  validate({ params: adminIdParamSchema, body: schemaValidate.processTripReportSchema }),
+  adminController.processTripReport
+);
+
 module.exports = router;

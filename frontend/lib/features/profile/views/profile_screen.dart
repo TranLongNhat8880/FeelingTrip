@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../../shared/ui_kit.dart';
 import '../../review/views/blocked_users_screen.dart';
-import '../../review/views/emergency_contacts_screen.dart';
 import '../models/profile_model.dart';
 import '../viewmodels/profile_viewmodel.dart';
 import 'bank_accounts_screen.dart';
@@ -73,13 +72,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     await Navigator.push<void>(
       context,
       MaterialPageRoute(builder: (_) => const BlockedUsersScreen()),
-    );
-  }
-
-  Future<void> _openEmergencyContacts() async {
-    await Navigator.push<void>(
-      context,
-      MaterialPageRoute(builder: (_) => const EmergencyContactsScreen()),
     );
   }
 
@@ -309,9 +301,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildFeatureActions(ProfileModel profile) {
     final bankName = profile.bankName?.trim();
-    final bankSubtitle = bankName == null || bankName.isEmpty
-        ? 'Chưa liên kết tài khoản ngân hàng'
-        : 'Đang sử dụng $bankName';
+    final hasReceivingAccount = profile.bankAccountNumber?.isNotEmpty ?? false;
+    final bankSubtitle = !hasReceivingAccount
+        ? 'Chưa lưu thông tin nhận tiền'
+        : 'Thông tin nhận tiền: ${bankName == null || bankName.isEmpty ? 'đã lưu' : bankName}';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -352,13 +345,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           subtitle: 'Quản lý những tài khoản không thể tương tác với bạn.',
         ),
         const SizedBox(height: 14),
-        _buildFeatureTile(
-          title: 'Liên hệ khẩn cấp',
-          subtitle: 'Quản lý người có thể hỗ trợ khi cần',
-          icon: Icons.contact_emergency_outlined,
-          onTap: _openEmergencyContacts,
-        ),
-        const SizedBox(height: 12),
         _buildFeatureTile(
           title: 'Người dùng đã chặn',
           subtitle: 'Xem và bỏ chặn tài khoản',

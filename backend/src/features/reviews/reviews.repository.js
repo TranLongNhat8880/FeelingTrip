@@ -1,7 +1,7 @@
 ﻿const db = require('../../config/database');
 
 // ============================================================================
-// REPOSITORY: Reviews, Reports, Blocks, Emergency Contacts & SOS
+// REPOSITORY: Reviews, Reports, Blocks
 // ============================================================================
 
 /**
@@ -127,6 +127,41 @@ const createReview = async ({
     return rows[0];
 };
 
+// One read snapshot: permission, summary and page cannot disagree if the trip
+// becomes PRIVATE or reviews are added while the request is being processed.
+const findPublicTripReviews = async ({ tripId, page, limit }) => {
+    const { rows } = await db.query(`
+      SELECT t.id AS trip_id, summary.review_count, summary.average_rating,
+        COALESCE(review_page.items, '[]'::jsonb) AS items
+      FROM trips t
+      CROSS JOIN LATERAL (
+        SELECT COUNT(*)::int AS review_count,
+          COALESCE(ROUND(AVG(r.rating)::numeric, 2), 0) AS average_rating
+        FROM trip_reviews r
+        WHERE r.trip_id = t.id AND r.reviewee_id IS NULL
+      ) summary
+      CROSS JOIN LATERAL (
+        SELECT jsonb_agg(item ORDER BY item.created_at DESC, item.id DESC) AS items
+        FROM (
+          SELECT r.id, r.rating, r.comment, r.created_at,
+            jsonb_build_object(
+              'id', u.id,
+              'displayName', COALESCE(NULLIF(BTRIM(u.nickname), ''),
+                NULLIF(BTRIM(u.full_name), ''), 'Người dùng'),
+              'avatarUrl', u.avatar_url
+            ) AS reviewer
+          FROM trip_reviews r
+          JOIN users u ON u.id = r.reviewer_id
+          WHERE r.trip_id = t.id AND r.reviewee_id IS NULL
+          ORDER BY r.created_at DESC, r.id DESC
+          LIMIT $2 OFFSET $3
+        ) item
+      ) review_page
+      WHERE t.id = $1 AND t.privacy_type = 'PUBLIC' AND t.status = 'COMPLETED'
+    `, [tripId, limit, (page - 1) * limit]);
+    return rows[0] || null;
+};
+
 /**
  * Tìm user để kiểm tra đối tượng báo cáo/chặn.
  */
@@ -154,6 +189,46 @@ const findTripById = async (tripId) => {
   `;
 
     const { rows } = await db.query(query, [tripId]);
+    return rows[0] || null;
+};
+
+/**
+ * Report eligibility is independent of review eligibility and trip lifecycle.
+ * A published recruitment post exposes a public reporting context even when
+ * the underlying trip remains PRIVATE. CLOSED posts do not grant this access.
+ * Historical participants (LEFT/REMOVED) retain the right to report incidents.
+ */
+const findReportTripContext = async ({ tripId, reporterId, reportedUserId = null }) => {
+    const query = `
+    SELECT t.id,
+      (
+        t.privacy_type = 'PUBLIC'
+        OR EXISTS (
+          SELECT 1 FROM companion_posts cp
+          WHERE cp.trip_id = t.id AND cp.status IN ('OPEN', 'FULL')
+        )
+      ) AS is_publicly_reportable,
+      (
+        t.creator_id = $2
+        OR EXISTS (
+          SELECT 1 FROM trip_members reporter_member
+          WHERE reporter_member.trip_id = t.id AND reporter_member.user_id = $2
+            AND reporter_member.membership_status IN ('ACTIVE', 'LEFT', 'REMOVED')
+        )
+      ) AS reporter_was_member,
+      CASE WHEN $3::UUID IS NULL THEN NULL ELSE (
+        t.creator_id = $3
+        OR EXISTS (
+          SELECT 1 FROM trip_members reported_member
+          WHERE reported_member.trip_id = t.id AND reported_member.user_id = $3
+            AND reported_member.membership_status IN ('ACTIVE', 'LEFT', 'REMOVED')
+        )
+      ) END AS reported_user_was_member
+    FROM trips t
+    WHERE t.id = $1
+    LIMIT 1;
+    `;
+    const { rows } = await db.query(query, [tripId, reporterId, reportedUserId]);
     return rows[0] || null;
 };
 
@@ -253,236 +328,16 @@ const findBlockedUsers = async (blockerId) => {
     return rows;
 };
 
-/**
- * Danh sách liên hệ khẩn cấp của người dùng.
- */
-const findEmergencyContacts = async (userId) => {
-    const query = `
-    SELECT
-      id,
-      full_name,
-      phone,
-      relationship,
-      created_at
-    FROM emergency_contacts
-    WHERE user_id = $1
-    ORDER BY created_at DESC, id DESC;
-  `;
-
-    const { rows } = await db.query(query, [userId]);
-    return rows;
-};
-
-/**
- * Tạo liên hệ khẩn cấp.
- */
-const createEmergencyContact = async ({
-    userId,
-    fullName,
-    phone,
-    relationship,
-}) => {
-    const query = `
-    INSERT INTO emergency_contacts (
-      user_id,
-      full_name,
-      phone,
-      relationship
-    )
-    VALUES ($1, $2, $3, $4)
-    RETURNING
-      id,
-      full_name,
-      phone,
-      relationship,
-      created_at;
-  `;
-
-    const { rows } = await db.query(query, [
-        userId,
-        fullName,
-        phone,
-        relationship,
-    ]);
-
-    return rows[0];
-};
-
-/**
- * Cập nhật liên hệ khẩn cấp thuộc sở hữu của user.
- */
-const updateEmergencyContact = async ({
-    contactId,
-    userId,
-    contactData,
-}) => {
-    const columnMap = {
-        fullName: 'full_name',
-        phone: 'phone',
-        relationship: 'relationship',
-    };
-
-    const updates = [];
-    const values = [contactId, userId];
-
-    for (const [field, column] of Object.entries(columnMap)) {
-        if (contactData[field] !== undefined) {
-            values.push(contactData[field]);
-            updates.push(`${column} = $${values.length}`);
-        }
-    }
-
-    if (updates.length === 0) {
-        return null;
-    }
-
-    const query = `
-    UPDATE emergency_contacts
-    SET ${updates.join(', ')}
-    WHERE id = $1
-      AND user_id = $2
-    RETURNING
-      id,
-      full_name,
-      phone,
-      relationship,
-      created_at;
-  `;
-
-    const { rows } = await db.query(query, values);
-    return rows[0] || null;
-};
-
-/**
- * Xóa liên hệ khẩn cấp thuộc sở hữu của user.
- */
-const deleteEmergencyContact = async ({ contactId, userId }) => {
-    const query = `
-    DELETE FROM emergency_contacts
-    WHERE id = $1
-      AND user_id = $2
-    RETURNING id;
-  `;
-
-    const { rows } = await db.query(query, [contactId, userId]);
-    return rows[0] || null;
-};
-
-/**
- * Tạo cảnh báo SOS.
- */
-const createSos = async ({
-    userId,
-    tripId = null,
-    latitude,
-    longitude,
-    message,
-}) => {
-    const query = `
-    INSERT INTO sos_alerts (
-      user_id,
-      trip_id,
-      latitude,
-      longitude,
-      message
-    )
-    VALUES ($1, $2, $3, $4, $5)
-    RETURNING
-      id,
-      user_id,
-      trip_id,
-      latitude,
-      longitude,
-      message,
-      status,
-      created_at,
-      resolved_at;
-  `;
-
-    const { rows } = await db.query(query, [
-        userId,
-        tripId,
-        latitude,
-        longitude,
-        message,
-    ]);
-
-    return rows[0];
-};
-
-/**
- * Lấy SOS theo ID và chủ sở hữu.
- */
-const findSosByIdForUser = async ({ sosId, userId }) => {
-    const query = `
-    SELECT
-      id,
-      user_id,
-      trip_id,
-      latitude,
-      longitude,
-      message,
-      status,
-      created_at,
-      resolved_at
-    FROM sos_alerts
-    WHERE id = $1
-      AND user_id = $2
-    LIMIT 1;
-  `;
-
-    const { rows } = await db.query(query, [sosId, userId]);
-    return rows[0] || null;
-};
-
-/**
- * Kết thúc một SOS đang ACTIVE.
- */
-const updateSosStatus = async ({ sosId, userId, status }) => {
-    const query = `
-    UPDATE sos_alerts
-    SET
-      status = $3,
-      resolved_at = CURRENT_TIMESTAMP
-    WHERE id = $1
-      AND user_id = $2
-      AND status = 'ACTIVE'
-    RETURNING
-      id,
-      user_id,
-      trip_id,
-      latitude,
-      longitude,
-      message,
-      status,
-      created_at,
-      resolved_at;
-  `;
-
-    const { rows } = await db.query(query, [
-        sosId,
-        userId,
-        status,
-    ]);
-
-    return rows[0] || null;
-};
-
 module.exports = {
     findTripContext,
     findExistingReview,
     createReview,
+    findPublicTripReviews,
     findUserById,
     findTripById,
+    findReportTripContext,
     createReport,
     createBlock,
     deleteBlock,
     findBlockedUsers,
-    findEmergencyContacts,
-    createEmergencyContact,
-    updateEmergencyContact,
-    deleteEmergencyContact,
-    createSos,
-    findSosByIdForUser,
-    updateSosStatus,
 };

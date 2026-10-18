@@ -165,49 +165,63 @@ class _AdminPlaceManagementContentState
     return AnimatedBuilder(
       animation: _viewModel,
       builder: (context, _) {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SectionHeader(
-              title: 'Kho địa điểm',
-              subtitle: '${_viewModel.totalItems} địa điểm trong hệ thống',
-              action: CustomButton(
-                text: 'Thêm địa điểm',
-                icon: Icons.add_location_alt_outlined,
-                width: 180,
-                onPressed: _openCreatePlace,
+        return RefreshIndicator(
+          color: AppColors.primary,
+          onRefresh: _viewModel.loadPlaces,
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            slivers: [
+              SliverToBoxAdapter(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SectionHeader(
+                      title: 'Kho địa điểm',
+                      subtitle:
+                          '${_viewModel.totalItems} địa điểm trong hệ thống',
+                      action: CustomButton(
+                        text: 'Thêm địa điểm',
+                        icon: Icons.add_location_alt_outlined,
+                        width: 180,
+                        onPressed: _openCreatePlace,
+                      ),
+                    ),
+                    const SizedBox(height: AppSizes.spaceL),
+                    AppSearchField(
+                      controller: _searchController,
+                      hint: 'Tìm tên, địa chỉ hoặc thành phố...',
+                      isLoading: _viewModel.isLoading,
+                      onChanged: _onSearchChanged,
+                    ),
+                    const SizedBox(height: AppSizes.spaceM),
+                    _buildCategoryList(),
+                    const SizedBox(height: AppSizes.spaceM),
+                    AppChoiceChips<String>(
+                      options: const {
+                        'all': 'Tất cả',
+                        'active': 'Đang hiển thị',
+                        'hidden': 'Đã ẩn',
+                      },
+                      selected: {_statusFilter},
+                      enabled: !_viewModel.isLoading,
+                      onChanged: _changeStatusFilter,
+                    ),
+                    if (_viewModel.errorMessage != null &&
+                        _viewModel.hasPlaces) ...[
+                      const SizedBox(height: AppSizes.spaceM),
+                      AppInlineNotice(
+                        message: _viewModel.errorMessage!,
+                        tone: AppStatusTone.error,
+                      ),
+                    ],
+                    const SizedBox(height: AppSizes.spaceM),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: AppSizes.spaceL),
-            AppSearchField(
-              controller: _searchController,
-              hint: 'Tìm tên, địa chỉ hoặc thành phố...',
-              isLoading: _viewModel.isLoading,
-              onChanged: _onSearchChanged,
-            ),
-            const SizedBox(height: AppSizes.spaceM),
-            _buildCategoryList(),
-            const SizedBox(height: AppSizes.spaceM),
-            AppChoiceChips<String>(
-              options: const {
-                'all': 'Tất cả',
-                'active': 'Đang hiển thị',
-                'hidden': 'Đã ẩn',
-              },
-              selected: {_statusFilter},
-              enabled: !_viewModel.isLoading,
-              onChanged: _changeStatusFilter,
-            ),
-            if (_viewModel.errorMessage != null && _viewModel.hasPlaces) ...[
-              const SizedBox(height: AppSizes.spaceM),
-              AppInlineNotice(
-                message: _viewModel.errorMessage!,
-                tone: AppStatusTone.error,
-              ),
+              ..._buildBodySlivers(),
             ],
-            const SizedBox(height: AppSizes.spaceM),
-            Expanded(child: _buildBody()),
-          ],
+          ),
         );
       },
     );
@@ -233,34 +247,46 @@ class _AdminPlaceManagementContentState
     );
   }
 
-  Widget _buildBody() {
+  List<Widget> _buildBodySlivers() {
     if (_viewModel.isLoading && !_viewModel.hasPlaces) {
-      return const LoadingIndicator(message: 'Đang tải kho địa điểm...');
+      return const [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: LoadingIndicator(message: 'Đang tải kho địa điểm...'),
+        ),
+      ];
     }
 
     if (_viewModel.errorMessage != null && !_viewModel.hasPlaces) {
-      return ErrorState(
-        message: _viewModel.errorMessage!,
-        accessDenied: _viewModel.errorMessage!.toLowerCase().contains(
-          'permission',
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: ErrorState(
+            message: _viewModel.errorMessage!,
+            accessDenied: _viewModel.errorMessage!.toLowerCase().contains(
+              'permission',
+            ),
+            onRetry: _viewModel.loadPlaces,
+          ),
         ),
-        onRetry: _viewModel.loadPlaces,
-      );
+      ];
     }
 
     if (!_viewModel.hasPlaces) {
-      return const EmptyStateWidget(
-        icon: Icons.location_off_outlined,
-        title: 'Không có địa điểm phù hợp',
-        message: 'Hãy thử từ khóa hoặc trạng thái khác.',
-      );
+      return const [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: EmptyStateWidget(
+            icon: Icons.location_off_outlined,
+            title: 'Không có địa điểm phù hợp',
+            message: 'Hãy thử từ khóa hoặc trạng thái khác.',
+          ),
+        ),
+      ];
     }
 
-    return RefreshIndicator(
-      color: AppColors.primary,
-      onRefresh: _viewModel.loadPlaces,
-      child: ListView.separated(
-        physics: const AlwaysScrollableScrollPhysics(),
+    return [
+      SliverList.separated(
         itemCount: _viewModel.places.length + 1,
         separatorBuilder: (_, index) => index < _viewModel.places.length - 1
             ? const SizedBox(height: AppSizes.spaceM)
@@ -278,7 +304,10 @@ class _AdminPlaceManagementContentState
           return _buildPlaceCard(_viewModel.places[index]);
         },
       ),
-    );
+      const SliverToBoxAdapter(
+        child: SizedBox(height: AppSizes.spaceXL),
+      ),
+    ];
   }
 
   Widget _buildPlaceCard(PlaceModel place) {

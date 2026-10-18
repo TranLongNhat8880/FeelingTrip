@@ -13,6 +13,7 @@ class CustomTextField extends StatefulWidget {
     this.keyboardType,
     this.validator,
     this.maxLines = 1,
+    this.minLines,
     this.enabled = true,
     this.readOnly = false,
     this.onChanged,
@@ -32,7 +33,8 @@ class CustomTextField extends StatefulWidget {
   final bool isPassword;
   final TextInputType? keyboardType;
   final FormFieldValidator<String>? validator;
-  final int maxLines;
+  final int? maxLines;
+  final int? minLines;
   final bool enabled;
   final bool readOnly;
   final ValueChanged<String>? onChanged;
@@ -160,8 +162,8 @@ class _CustomTextFieldState extends State<CustomTextField> {
                         color: hasError
                             ? AppColors.error
                             : (_isFocused
-                                ? AppColors.primary
-                                : const Color(0xFF5D6889)),
+                                  ? AppColors.primary
+                                  : const Color(0xFF5D6889)),
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -178,6 +180,7 @@ class _CustomTextFieldState extends State<CustomTextField> {
                       autocorrect: !widget.isPassword,
                       keyboardType: widget.keyboardType,
                       maxLines: widget.isPassword ? 1 : widget.maxLines,
+                      minLines: widget.isPassword ? 1 : widget.minLines,
                       enabled: widget.enabled,
                       readOnly: widget.readOnly,
                       onChanged: (val) {

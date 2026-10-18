@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:feeling_trip/core/constants/app_colors.dart';
 import 'package:feeling_trip/core/constants/app_sizes.dart';
 import 'package:feeling_trip/shared/ui_kit.dart';
@@ -20,6 +21,7 @@ class CreateCompanionPostScreen extends StatefulWidget {
   const CreateCompanionPostScreen({
     super.key,
     this.repository,
+    this.tripRepository,
     this.post,
     this.tripId,
     this.tripName,
@@ -27,6 +29,7 @@ class CreateCompanionPostScreen extends StatefulWidget {
   });
 
   final CompanionRepository? repository;
+  final CompanionTripRepository? tripRepository;
   final CompanionPost? post;
   final String? tripId;
   final String? tripName;
@@ -39,6 +42,7 @@ class CreateCompanionPostScreen extends StatefulWidget {
 
 class _CreateCompanionPostScreenState extends State<CreateCompanionPostScreen> {
   late final CompanionRepository _repo;
+  late final _tripRepo = widget.tripRepository ?? CompanionTripRepository();
 
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
@@ -46,15 +50,18 @@ class _CreateCompanionPostScreenState extends State<CreateCompanionPostScreen> {
   final _minAgeController = TextEditingController();
   final _maxAgeController = TextEditingController();
 
-  int _targetMembersCount = 3;
+  int _recruitmentCount = 1;
+  int _currentMembersCount = 1;
+  String? _tripImage;
   String _genderPreference = 'ANY';
-  final Set<String> _selectedTags = {'Phượt', 'Nhiếp ảnh'};
+  final Set<String> _selectedTags = {};
   bool _isSubmitting = false;
 
   // Danh sách chuyến đi mẫu để leader chọn
   List<Map<String, String>> _availableTrips = [];
   bool _loadingTrips = false;
   bool _alreadyPosted = false;
+  bool _privateTrip = false;
   String? _tripError;
   static const List<Map<String, String>> _mockTrips = [
     {
@@ -110,9 +117,6 @@ class _CreateCompanionPostScreenState extends State<CreateCompanionPostScreen> {
         widget.tripId ??
         (_availableTrips.isEmpty ? '' : _availableTrips.first['id']!);
     if (widget.post == null) _loadTrips();
-    if (widget.tripName != null && widget.tripName!.isNotEmpty) {
-      _titleController.text = 'Tìm bạn đồng hành: ${widget.tripName}';
-    }
     final post = widget.post;
     if (post != null) {
       _selectedTripId = post.trip.id;
@@ -120,7 +124,9 @@ class _CreateCompanionPostScreenState extends State<CreateCompanionPostScreen> {
       _contentController.text = post.content ?? '';
       _minAgeController.text = post.minAge?.toString() ?? '';
       _maxAgeController.text = post.maxAge?.toString() ?? '';
-      _targetMembersCount = post.targetMembersCount;
+      _currentMembersCount = post.currentMembersCount;
+      _recruitmentCount = post.slotsLeft.clamp(0, 49);
+      _tripImage = post.trip.coverImageUrl;
       _genderPreference = post.genderPreference;
       _selectedTags
         ..clear()
@@ -135,18 +141,24 @@ class _CreateCompanionPostScreenState extends State<CreateCompanionPostScreen> {
     });
     try {
       if (widget.tripId != null) {
-        final exists = await CompanionTripRepository().hasPostForTrip(
-          widget.tripId!,
-        );
-        if (mounted) setState(() => _alreadyPosted = exists);
+        final exists = await _tripRepo.hasPostForTrip(widget.tripId!);
+        final trip = await _tripRepo.getTrip(widget.tripId!);
+        if (mounted) {
+          setState(() {
+            _alreadyPosted = exists;
+            _privateTrip = trip['privacyType'] != 'PUBLIC';
+            _currentMembersCount = int.tryParse(trip['memberCount'] ?? '') ?? 1;
+            _tripImage = trip['image'];
+          });
+        }
       } else {
         final trips = ApiEndpoints.useMockData
             ? List<Map<String, String>>.of(_mockTrips)
-            : await CompanionTripRepository().getMyTrips();
+            : await _tripRepo.getMyTrips();
         final available = <Map<String, String>>[];
         for (final trip in trips) {
           final posted = ApiEndpoints.useMockData
-              ? await CompanionTripRepository().hasPostForTrip(trip['id']!)
+              ? await _tripRepo.hasPostForTrip(trip['id']!)
               : trip['hasCompanionPost'] == 'true';
           if (!posted) available.add(trip);
         }
@@ -156,6 +168,7 @@ class _CreateCompanionPostScreenState extends State<CreateCompanionPostScreen> {
             if (!available.any((t) => t['id'] == _selectedTripId)) {
               _selectedTripId = available.isEmpty ? '' : available.first['id']!;
             }
+            _updateSelectedTrip();
           });
         }
       }
@@ -163,6 +176,65 @@ class _CreateCompanionPostScreenState extends State<CreateCompanionPostScreen> {
       if (mounted) setState(() => _tripError = 'Không tải được chuyến đi.');
     } finally {
       if (mounted) setState(() => _loadingTrips = false);
+    }
+  }
+
+  void _updateSelectedTrip() {
+    final trip = _availableTrips
+        .where((trip) => trip['id'] == _selectedTripId)
+        .firstOrNull;
+    _privateTrip = trip?['privacyType'] == 'PRIVATE';
+    _currentMembersCount = int.tryParse(trip?['memberCount'] ?? '') ?? 1;
+    _tripImage = trip?['image'];
+  }
+
+  String? _validateAge(String? value) {
+    if (value == null || value.trim().isEmpty) return null;
+    final age = int.tryParse(value.trim());
+    if (age == null || age < 16 || age > 100) return 'Nhập tuổi từ 16 đến 100';
+    return null;
+  }
+
+  String? _validateMaxAge(String? value) {
+    final error = _validateAge(value);
+    if (error != null) return error;
+    final minAge = int.tryParse(_minAgeController.text.trim());
+    final maxAge = int.tryParse(value?.trim() ?? '');
+    if (minAge != null && maxAge != null && minAge > maxAge) {
+      return 'Tuổi tối đa phải từ $minAge trở lên';
+    }
+    return null;
+  }
+
+  Future<void> _makePublic() async {
+    if (_isSubmitting || _loadingTrips || _selectedTripId.isEmpty) return;
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: 'Chuyển chuyến đi sang công khai?',
+      message:
+          'Đổi quyền riêng tư của chuyến đi để đăng bài tìm bạn đồng hành. Sau khi đổi, bạn có thể tiếp tục hoàn thiện và đăng bài tuyển.',
+      confirmLabel: 'Chuyển sang công khai',
+    );
+    if (!confirmed || !mounted) return;
+    setState(() => _isSubmitting = true);
+    try {
+      await _tripRepo.makePublic(_selectedTripId);
+      if (!mounted) return;
+      await _loadTrips();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            e is ApiException
+                ? e.message
+                : 'Không đổi được quyền riêng tư. Hãy thử lại.',
+          ),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
@@ -179,6 +251,7 @@ class _CreateCompanionPostScreenState extends State<CreateCompanionPostScreen> {
     if (_isSubmitting ||
         _loadingTrips ||
         _alreadyPosted ||
+        _privateTrip ||
         _tripError != null ||
         !_formKey.currentState!.validate()) {
       return;
@@ -192,6 +265,15 @@ class _CreateCompanionPostScreenState extends State<CreateCompanionPostScreen> {
       return;
     }
 
+    final ageError =
+        _validateAge(_minAgeController.text) ??
+        _validateAge(_maxAgeController.text);
+    if (ageError != null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(ageError)));
+      return;
+    }
     final minAge = int.tryParse(_minAgeController.text.trim());
     final maxAge = int.tryParse(_maxAgeController.text.trim());
 
@@ -213,11 +295,11 @@ class _CreateCompanionPostScreenState extends State<CreateCompanionPostScreen> {
           'title': _titleController.text.trim(),
           if (_contentController.text.trim().isNotEmpty)
             'content': _contentController.text.trim(),
-          'targetMembersCount': _targetMembersCount,
+          'recruitmentCount': _recruitmentCount,
           'minAge': minAge,
           'maxAge': maxAge,
           'genderPreference': _genderPreference,
-          'tags': _selectedTags.toList(),
+          'tags': _selectedTags.isEmpty ? null : _selectedTags.toList(),
         });
         if (mounted) Navigator.pop(context, true);
         return;
@@ -228,7 +310,7 @@ class _CreateCompanionPostScreenState extends State<CreateCompanionPostScreen> {
         content: _contentController.text.trim().isNotEmpty
             ? _contentController.text.trim()
             : null,
-        targetMembersCount: _targetMembersCount,
+        recruitmentCount: _recruitmentCount,
         minAge: minAge,
         maxAge: maxAge,
         genderPreference: _genderPreference,
@@ -268,6 +350,8 @@ class _CreateCompanionPostScreenState extends State<CreateCompanionPostScreen> {
       bottomAction: CustomButton(
         text: _alreadyPosted
             ? 'Đã đăng bài'
+            : _privateTrip
+            ? 'Chuyển sang công khai'
             : widget.post == null
             ? 'Đăng bài'
             : 'Lưu thay đổi',
@@ -278,263 +362,366 @@ class _CreateCompanionPostScreenState extends State<CreateCompanionPostScreen> {
                 _tripError != null ||
                 (widget.post == null && _selectedTripId.isEmpty)
             ? null
+            : _privateTrip
+            ? _makePublic
             : _submit,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ── Chọn chuyến đi ──────────────────────────────────────────
-              Text('Chuyến đi gắn liền *', style: text.titleSmall),
-              const SizedBox(height: 8),
-              if (_loadingTrips) const LoadingIndicator(),
-              if (_alreadyPosted)
-                const AppInlineNotice(
-                  message:
-                      'Chuyến đi này đã có bài tuyển đang hoạt động. Bạn có thể sửa hoặc đóng bài trong Bài tuyển của tôi.',
-                  tone: AppStatusTone.info,
-                ),
-              if (_tripError != null)
-                ErrorState(message: _tripError!, onRetry: _loadTrips),
-              if (widget.tripId != null || widget.post != null)
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: AppColors.primarySurface,
-                    borderRadius: BorderRadius.circular(AppSizes.inputRadius),
-                    border: Border.all(color: AppColors.primaryBorder),
+      body: ColoredBox(
+        color: Colors.white,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ── Chọn chuyến đi ──────────────────────────────────────────
+                Text('Chuyến đi gắn liền *', style: text.titleSmall),
+                const SizedBox(height: 8),
+                if (_loadingTrips) const LoadingIndicator(),
+                if (_alreadyPosted)
+                  const AppInlineNotice(
+                    message:
+                        'Chuyến đi này đã có bài tuyển đang hoạt động. Bạn có thể sửa hoặc đóng bài trong Bài tuyển của tôi.',
+                    tone: AppStatusTone.info,
                   ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.luggage_rounded,
-                        color: AppColors.primary,
-                        size: 24,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              widget.tripName ??
-                                  widget.post?.trip.name ??
-                                  _selectedTripId,
-                              style: text.titleSmall?.copyWith(
-                                color: AppColors.primaryDark,
-                                fontWeight: FontWeight.bold,
+                if (_tripError != null)
+                  ErrorState(message: _tripError!, onRetry: _loadTrips),
+                if (widget.tripId != null || widget.post != null)
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: AppColors.primarySurface,
+                      borderRadius: BorderRadius.circular(AppSizes.inputRadius),
+                      border: Border.all(color: AppColors.primaryBorder),
+                    ),
+                    child: Row(
+                      children: [
+                        if (_tripImage?.trim().isNotEmpty == true)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 12),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Image.network(
+                                _tripImage!,
+                                width: 44,
+                                height: 44,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, _, _) =>
+                                    const SizedBox.shrink(),
                               ),
                             ),
-                            if (widget.tripDestination != null)
+                          ),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
                               Text(
-                                widget.tripDestination!,
-                                style: text.bodySmall?.copyWith(
-                                  color: AppColors.textSecondary,
+                                widget.tripName ??
+                                    widget.post?.trip.name ??
+                                    _selectedTripId,
+                                style: text.titleSmall?.copyWith(
+                                  color: AppColors.primaryDark,
+                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
+                              if (widget.tripDestination != null)
+                                Text(
+                                  widget.tripDestination!,
+                                  style: text.bodySmall?.copyWith(
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                        AppStatusBadge(
+                          label: _privateTrip ? 'Riêng tư' : 'Công khai',
+                          tone: _privateTrip
+                              ? AppStatusTone.neutral
+                              : AppStatusTone.success,
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  AppDropdownField<String>(
+                    label: 'Chọn chuyến đi',
+                    isDense: false,
+                    value: _selectedTripId.isEmpty ? null : _selectedTripId,
+                    items: _availableTrips.map((t) {
+                      return DropdownMenuItem<String>(
+                        value: t['id'],
+                        child: Row(
+                          children: [
+                            if (t['image']?.trim().isNotEmpty == true)
+                              Padding(
+                                padding: const EdgeInsets.only(right: 10),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(6),
+                                  child: Image.network(
+                                    t['image']!,
+                                    width: 36,
+                                    height: 36,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, _, _) =>
+                                        const SizedBox.shrink(),
+                                  ),
+                                ),
+                              ),
+                            Expanded(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    t['name'] ?? '',
+                                    maxLines: 1,
+                                    style: text.titleSmall,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  Text(
+                                    "${t['destination']}${t['privacyType'] == 'PRIVATE' ? ' · Riêng tư' : ''}",
+                                    maxLines: 1,
+                                    style: text.bodySmall?.copyWith(
+                                      color: AppColors.textSecondary,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
+                            ),
                           ],
                         ),
+                      );
+                    }).toList(),
+                    onChanged: (val) {
+                      if (val != null) {
+                        setState(() {
+                          _selectedTripId = val;
+                          _updateSelectedTrip();
+                        });
+                      }
+                    },
+                  ),
+                const SizedBox(height: 16),
+
+                // ── Tiêu đề bài đăng ────────────────────────────────────────
+                CustomTextField(
+                  label: 'Tiêu đề bài đăng *',
+                  controller: _titleController,
+                  hint: 'VD: Tìm 2 bạn nữ đi Sapa săn mây cuối tuần...',
+                  validator: (val) {
+                    if (val == null || val.trim().isEmpty) {
+                      return 'Vui lòng nhập tiêu đề bài đăng';
+                    }
+                    if (val.trim().length < 5) {
+                      return 'Tiêu đề cần ít nhất 5 ký tự';
+                    }
+                    if (val.trim().length > 255) {
+                      return 'Tiêu đề tối đa 255 ký tự';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                // ── Nội dung chi tiết ───────────────────────────────────────
+                CustomTextField(
+                  label: 'Lời nhắn *',
+                  validator: (value) {
+                    final content = value?.trim() ?? '';
+                    if (content.length < 3) {
+                      return 'Nội dung cần ít nhất 3 ký tự';
+                    }
+                    if (content.length > 5000) {
+                      return 'Nội dung tối đa 5000 ký tự';
+                    }
+                    return null;
+                  },
+                  controller: _contentController,
+                  hint: 'Chia sẻ phong cách du lịch, dự tính chi phí...',
+                  minLines: 3,
+                  maxLines: null,
+                ),
+                const SizedBox(height: 20),
+
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Số người muốn tuyển *',
+                        style: text.titleSmall,
                       ),
-                      const AppStatusBadge(
-                        label: 'Đã gắn',
-                        tone: AppStatusTone.success,
+                    ),
+                    _CounterButton(
+                      icon: Icons.remove,
+                      onPressed:
+                          _recruitmentCount > (widget.post == null ? 1 : 0)
+                          ? () => setState(() => _recruitmentCount--)
+                          : null,
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Text(
+                        '$_recruitmentCount',
+                        style: text.titleMedium?.copyWith(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    _CounterButton(
+                      icon: Icons.add,
+                      onPressed: _currentMembersCount + _recruitmentCount < 50
+                          ? () => setState(() => _recruitmentCount++)
+                          : null,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Nhóm hiện có $_currentMembersCount thành viên',
+                  style: text.bodySmall?.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Divider(),
+
+                // ── Giới tính ưu tiên ───────────────────────────────────────
+                _PreferenceSection(
+                  title: 'Ưu tiên giới tính',
+                  value: _genderPreference == 'MALE'
+                      ? 'Nam'
+                      : _genderPreference == 'FEMALE'
+                      ? 'Nữ'
+                      : 'Bất kỳ',
+                  child: Wrap(
+                    spacing: 10,
+                    children: [
+                      _GenderChip(
+                        label: 'Bất kỳ',
+                        value: 'ANY',
+                        groupValue: _genderPreference,
+                        onSelected: (val) =>
+                            setState(() => _genderPreference = val),
+                      ),
+                      _GenderChip(
+                        label: 'Nam',
+                        value: 'MALE',
+                        groupValue: _genderPreference,
+                        onSelected: (val) =>
+                            setState(() => _genderPreference = val),
+                      ),
+                      _GenderChip(
+                        label: 'Nữ',
+                        value: 'FEMALE',
+                        groupValue: _genderPreference,
+                        onSelected: (val) =>
+                            setState(() => _genderPreference = val),
                       ),
                     ],
                   ),
-                )
-              else
-                AppDropdownField<String>(
-                  label: 'Chọn chuyến đi',
-                  value: _selectedTripId.isEmpty ? null : _selectedTripId,
-                  items: _availableTrips.map((t) {
-                    return DropdownMenuItem<String>(
-                      value: t['id'],
-                      child: Text(
-                        '${t['name']} (${t['destination']})',
-                        style: text.bodyMedium,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    );
-                  }).toList(),
-                  onChanged: (val) {
-                    if (val != null) setState(() => _selectedTripId = val);
-                  },
                 ),
-              const SizedBox(height: 20),
 
-              // ── Tiêu đề bài đăng ────────────────────────────────────────
-              CustomTextField(
-                label: 'Tiêu đề bài đăng *',
-                controller: _titleController,
-                hint: 'VD: Tìm 2 bạn nữ đi Sapa săn mây cuối tuần...',
-                validator: (val) {
-                  if (val == null || val.trim().isEmpty) {
-                    return 'Vui lòng nhập tiêu đề bài đăng';
-                  }
-                  if (val.trim().length < 6) {
-                    return 'Tiêu đề cần ít nhất 6 ký tự';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 20),
-
-              // ── Nội dung chi tiết ───────────────────────────────────────
-              CustomTextField(
-                label: 'Lời nhắn / Giới thiệu chi tiết *',
-                validator: (value) {
-                  final content = value?.trim() ?? '';
-                  if (content.length < 10) {
-                    return 'Nội dung cần ít nhất 10 ký tự';
-                  }
-                  if (content.length > 5000) {
-                    return 'Nội dung tối đa 5000 ký tự';
-                  }
-                  return null;
-                },
-                controller: _contentController,
-                hint: 'Chia sẻ phong cách du lịch, dự tính chi phí...',
-                maxLines: 4,
-              ),
-              const SizedBox(height: 20),
-
-              // ── Số lượng slot tuyển ─────────────────────────────────────
-              Text(
-                'Tổng số thành viên (gồm trưởng nhóm) *',
-                style: text.titleSmall,
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  _CounterButton(
-                    icon: Icons.remove,
-                    onPressed: _targetMembersCount > 1
-                        ? () => setState(() => _targetMembersCount--)
-                        : null,
-                  ),
-                  const SizedBox(width: 16),
-                  Text(
-                    '$_targetMembersCount người',
-                    style: text.titleMedium?.copyWith(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  _CounterButton(
-                    icon: Icons.add,
-                    onPressed: _targetMembersCount < 20
-                        ? () => setState(() => _targetMembersCount++)
-                        : null,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-
-              // ── Giới tính ưu tiên ───────────────────────────────────────
-              Text('Ưu tiên giới tính', style: text.titleSmall),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 10,
-                children: [
-                  _GenderChip(
-                    label: 'Tất cả (Bất kỳ)',
-                    value: 'ANY',
-                    groupValue: _genderPreference,
-                    onSelected: (val) =>
-                        setState(() => _genderPreference = val),
-                  ),
-                  _GenderChip(
-                    label: 'Chỉ Nam',
-                    value: 'MALE',
-                    groupValue: _genderPreference,
-                    onSelected: (val) =>
-                        setState(() => _genderPreference = val),
-                  ),
-                  _GenderChip(
-                    label: 'Chỉ Nữ',
-                    value: 'FEMALE',
-                    groupValue: _genderPreference,
-                    onSelected: (val) =>
-                        setState(() => _genderPreference = val),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-
-              // ── Khoảng độ tuổi ──────────────────────────────────────────
-              Text('Yêu cầu độ tuổi (tùy chọn)', style: text.titleSmall),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: CustomTextField(
-                      label: 'Từ tuổi',
-                      controller: _minAgeController,
-                      hint: '18',
-                      keyboardType: TextInputType.number,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: CustomTextField(
-                      label: 'Đến tuổi',
-                      controller: _maxAgeController,
-                      hint: '35',
-                      keyboardType: TextInputType.number,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-
-              // ── Chủ đề / Tags ────────────────────────────────────────────
-              Text('Chủ đề chuyến đi', style: text.titleSmall),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: _availableTags.map((tag) {
-                  final isSelected = _selectedTags.contains(tag);
-                  return FilterChip(
-                    label: Text(tag),
-                    selected: isSelected,
-                    selectedColor: AppColors.primarySurface,
-                    checkmarkColor: AppColors.primary,
-                    labelStyle: TextStyle(
-                      color: isSelected
-                          ? AppColors.primary
-                          : AppColors.textPrimary,
-                      fontWeight: isSelected
-                          ? FontWeight.w600
-                          : FontWeight.normal,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppSizes.radiusRound),
-                      side: BorderSide(
-                        color: isSelected
-                            ? AppColors.primary
-                            : AppColors.border,
+                // ── Khoảng độ tuổi ──────────────────────────────────────────
+                _PreferenceSection(
+                  title: 'Yêu cầu độ tuổi',
+                  value:
+                      _minAgeController.text.isEmpty &&
+                          _maxAgeController.text.isEmpty
+                      ? 'Không giới hạn'
+                      : _validateAge(_minAgeController.text) != null ||
+                            _validateMaxAge(_maxAgeController.text) != null
+                      ? 'Cần kiểm tra độ tuổi'
+                      : '${_minAgeController.text.isEmpty ? '…' : _minAgeController.text} – ${_maxAgeController.text.isEmpty ? '…' : _maxAgeController.text}',
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: CustomTextField(
+                          label: 'Từ tuổi',
+                          controller: _minAgeController,
+                          errorText: _validateAge(_minAgeController.text),
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(3),
+                          ],
+                          hint: 'Không giới hạn',
+                          keyboardType: TextInputType.number,
+                          onChanged: (_) => setState(() {}),
+                        ),
                       ),
-                    ),
-                    backgroundColor: AppColors.inputSurface,
-                    onSelected: (selected) {
-                      setState(() {
-                        if (selected) {
-                          _selectedTags.add(tag);
-                        } else {
-                          _selectedTags.remove(tag);
-                        }
-                      });
-                    },
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 40),
-            ],
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: CustomTextField(
+                          label: 'Đến tuổi',
+                          controller: _maxAgeController,
+                          errorText: _validateMaxAge(_maxAgeController.text),
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(3),
+                          ],
+                          hint: 'Không giới hạn',
+                          keyboardType: TextInputType.number,
+                          onChanged: (_) => setState(() {}),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // ── Chủ đề / Tags ────────────────────────────────────────────
+                _PreferenceSection(
+                  title: 'Chủ đề chuyến đi',
+                  value: _selectedTags.isEmpty
+                      ? 'Chưa chọn'
+                      : _selectedTags.join(', '),
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _availableTags.map((tag) {
+                      final isSelected = _selectedTags.contains(tag);
+                      return FilterChip(
+                        label: Text(tag),
+                        selected: isSelected,
+                        selectedColor: AppColors.primarySurface,
+                        checkmarkColor: AppColors.primary,
+                        labelStyle: TextStyle(
+                          color: isSelected
+                              ? AppColors.primary
+                              : AppColors.textPrimary,
+                          fontWeight: isSelected
+                              ? FontWeight.w600
+                              : FontWeight.normal,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(
+                            AppSizes.radiusRound,
+                          ),
+                          side: BorderSide(
+                            color: isSelected
+                                ? AppColors.primary
+                                : AppColors.border,
+                          ),
+                        ),
+                        backgroundColor: AppColors.inputSurface,
+                        onSelected: (selected) {
+                          setState(() {
+                            if (selected) {
+                              _selectedTags.add(tag);
+                            } else {
+                              _selectedTags.remove(tag);
+                            }
+                          });
+                        },
+                      );
+                    }).toList(),
+                  ),
+                ),
+                const SizedBox(height: 40),
+              ],
+            ),
           ),
         ),
       ),
@@ -607,4 +794,36 @@ class _GenderChip extends StatelessWidget {
       onSelected: (_) => onSelected(value),
     );
   }
+}
+
+class _PreferenceSection extends StatelessWidget {
+  const _PreferenceSection({
+    required this.title,
+    required this.value,
+    required this.child,
+  });
+  final String title;
+  final String value;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => ExpansionTile(
+    maintainState: true,
+    expandedCrossAxisAlignment: CrossAxisAlignment.start,
+    expandedAlignment: Alignment.centerLeft,
+    tilePadding: EdgeInsets.zero,
+    childrenPadding: const EdgeInsets.only(top: 8, bottom: 12),
+    shape: const Border(),
+    collapsedShape: const Border(),
+    title: Text(title, style: Theme.of(context).textTheme.titleSmall),
+    subtitle: Text(
+      value,
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      style: Theme.of(
+        context,
+      ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
+    ),
+    children: [child],
+  );
 }

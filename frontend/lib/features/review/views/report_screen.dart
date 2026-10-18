@@ -148,6 +148,19 @@ class _ReportScreenState extends State<ReportScreen> {
                         'Báo cáo sẽ được chuyển tới quản trị viên để xem xét.',
                   ),
                   const SizedBox(height: AppSizes.spaceL),
+                  if (widget.reportedTripId != null) ...[
+                    AppInlineNotice(
+                      message: widget.reportedUserId != null
+                          ? 'Báo cáo thành viên yêu cầu cả bạn và người bị báo cáo '
+                                'đang hoặc từng tham gia chuyến đi này. Không cần '
+                                'chờ chuyến đi hoàn thành.'
+                          : 'Bạn có thể báo cáo chuyến đi hoặc bài tuyển công khai '
+                                'mà không cần tham gia. Với chuyến đi riêng tư chưa '
+                                'có bài tuyển công khai, bạn phải đang hoặc từng tham gia.',
+                      tone: AppStatusTone.info,
+                    ),
+                    const SizedBox(height: AppSizes.spaceL),
+                  ],
                   const AppInlineNotice(
                     message:
                         'Chỉ gửi thông tin đúng sự thật. Nội dung báo cáo phải có ít nhất 5 ký tự.',

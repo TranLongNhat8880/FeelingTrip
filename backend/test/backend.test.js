@@ -1061,3 +1061,134 @@ test('member with unsettled expenses debt cannot be kicked', async () => {
 });
 
 
+
+test('companion privacy changes hide posts and block outsider access and join requests', async () => {
+  const repo = require('../src/features/companions/companions.repository');
+  const service = require('../src/features/companions/companions.service');
+  await db.query("UPDATE users SET is_verified=TRUE, verification_status='VERIFIED' WHERE id=$1", [outsiderUser]);
+  await db.query("UPDATE trips SET privacy_type='PUBLIC', status='UPCOMING' WHERE id=$1", [tripId]);
+  const post = await repo.createCompanionPost({
+    tripId, creatorId: userA, title: 'Test recruitment', content: 'Join our test trip',
+    targetMembersCount: 4, currentMembersCount: 2,
+  });
+  assert.equal((await service.getCompanionPostDetail({ postId: post.id, userId: outsiderUser })).id, post.id);
+  assert.equal((await repo.getCompanionFeed({})).total, 1);
+  assert.deepEqual(await repo.getPostedTripIds(userA), [tripId]);
+
+  await db.query("UPDATE trips SET privacy_type='PRIVATE' WHERE id=$1", [tripId]);
+  assert.equal((await repo.getCompanionFeed({})).total, 0);
+  assert.deepEqual(await repo.getPostedTripIds(userA), []);
+  for (const viewer of [outsiderUser, null]) {
+    await assert.rejects(service.getCompanionPostDetail({ postId: post.id, userId: viewer }), { status: 403 });
+  }
+  for (const viewer of [userA, userB]) {
+    assert.equal((await service.getCompanionPostDetail({ postId: post.id, userId: viewer })).id, post.id);
+  }
+  await assert.rejects(service.createJoinRequest({ postId: post.id, userId: outsiderUser, introduction: 'Please let me join' }),
+    { status: 400, message: 'Không thể gửi yêu cầu tham gia chuyến đi riêng tư' });
+  assert.equal((await db.query('SELECT COUNT(*)::int AS n FROM companion_requests WHERE post_id=$1', [post.id])).rows[0].n, 0);
+  await db.query("UPDATE trip_members SET membership_status='REMOVED' WHERE trip_id=$1 AND user_id=$2", [tripId, userB]);
+  await assert.rejects(service.getCompanionPostDetail({ postId: post.id, userId: userB }), { status: 403 });
+
+  await db.query("UPDATE trips SET privacy_type='PUBLIC' WHERE id=$1", [tripId]);
+  assert.equal((await repo.getCompanionFeed({})).total, 1);
+  assert.deepEqual(await repo.getPostedTripIds(userA), [tripId]);
+  assert.equal((await service.getCompanionPostDetail({ postId: post.id, userId: outsiderUser })).id, post.id);
+  await service.createJoinRequest({ postId: post.id, userId: outsiderUser, introduction: 'Please let me join' });
+  assert.equal((await db.query('SELECT COUNT(*)::int AS n FROM companion_requests WHERE post_id=$1', [post.id])).rows[0].n, 1);
+  await repo.deleteCompanionPost(post.id);
+  await db.query("UPDATE trips SET privacy_type='PRIVATE' WHERE id=$1", [tripId]);
+  await db.query("UPDATE trips SET privacy_type='PUBLIC' WHERE id=$1", [tripId]);
+  assert.equal((await repo.getCompanionFeed({})).total, 0);
+  assert.deepEqual(await repo.getPostedTripIds(userA), []);
+});
+
+const createPublicProfilePost = async ({
+  creatorId = userA,
+  privacyType = 'PUBLIC',
+  tripStatus = 'UPCOMING',
+  postStatus = 'OPEN',
+  targetMembersCount = 3,
+} = {}) => {
+  const repo = require('../src/features/companions/companions.repository');
+  const id = crypto.randomUUID();
+  await db.query(`
+    INSERT INTO trips (id, creator_id, name, destination, start_date, end_date, privacy_type, status, cover_image_url)
+    VALUES ($1, $2, 'Public profile trip', 'Hanoi', '2026-10-01', '2026-10-03', $3, $4, 'https://example.com/cover.jpg')
+  `, [id, creatorId, privacyType, tripStatus]);
+  await db.query("INSERT INTO trip_members (trip_id, user_id, role) VALUES ($1, $2, 'LEADER')", [id, creatorId]);
+  const post = await repo.createCompanionPost({
+    tripId: id,
+    creatorId,
+    title: 'Public recruitment post',
+    content: 'A public recruitment introduction',
+    targetMembersCount,
+    currentMembersCount: 1,
+  });
+  if (postStatus === 'CLOSED') await repo.deleteCompanionPost(post.id);
+  return post;
+};
+
+test('public author posts return only that author and exclude private or hidden posts', async () => {
+  const visible = await createPublicProfilePost();
+  await createPublicProfilePost({ privacyType: 'PRIVATE' });
+  await createPublicProfilePost({ postStatus: 'CLOSED' });
+  await createPublicProfilePost({ creatorId: userB });
+  const result = await request(`/companions/users/${userA}/posts`, 'GET', undefined, outsiderUser);
+  assert.equal(result.status, 200);
+  assert.deepEqual(result.body.data.posts.map(post => post.id), [visible.id]);
+  assert.equal(result.body.data.pagination.totalItems, 1);
+  assert.equal(result.body.data.posts[0].trip_cover_image_url, 'https://example.com/cover.jpg');
+  assert.equal(result.body.data.posts[0].status, 'OPEN');
+  assert.equal(result.body.data.posts[0].creator_email, undefined);
+  assert.equal(result.body.data.posts[0].content, undefined);
+});
+
+test('author post pagination is stable and a user without posts returns an empty list', async () => {
+  for (let i = 0; i < 3; i++) await createPublicProfilePost();
+  const first = await request(`/companions/users/${userA}/posts?page=1&limit=2`);
+  const second = await request(`/companions/users/${userA}/posts?page=2&limit=2`);
+  assert.equal(first.status, 200);
+  assert.equal(second.status, 200);
+  assert.equal(first.body.data.posts.length, 2);
+  assert.equal(second.body.data.posts.length, 1);
+  assert.equal(first.body.data.pagination.totalItems, 3);
+  assert.equal(first.body.data.pagination.totalPages, 2);
+  assert.equal(new Set([...first.body.data.posts, ...second.body.data.posts].map(post => post.id)).size, 3);
+  const empty = await request(`/companions/users/${userB}/posts`);
+  assert.equal(empty.status, 200);
+  assert.deepEqual(empty.body.data.posts, []);
+});
+
+test('public author posts require authentication, a valid user and valid pagination', async () => {
+  assert.equal((await request(`/companions/users/${userA}/posts`, 'GET', undefined, null)).status, 401);
+  assert.equal((await request('/companions/users/not-a-uuid/posts')).status, 400);
+  assert.equal((await request(`/companions/users/${userA}/posts?page=0`)).status, 400);
+  assert.equal((await request(`/companions/users/${userA}/posts?limit=51`)).status, 400);
+  assert.equal((await request(`/companions/users/${crypto.randomUUID()}/posts`)).status, 404);
+  await db.query("UPDATE users SET status='BANNED' WHERE id=$1", [userB]);
+  assert.equal((await request(`/companions/users/${userB}/posts`)).status, 404);
+});
+
+test('ending a trip closes its displayed recruitment status in both lists and detail', async () => {
+  const completed = await createPublicProfilePost({ tripStatus: 'COMPLETED' });
+  const cancelled = await createPublicProfilePost({ tripStatus: 'CANCELLED' });
+  const full = await createPublicProfilePost({ targetMembersCount: 1 });
+  const publicList = await request(`/companions/users/${userA}/posts`);
+  assert.equal(publicList.status, 200);
+  const states = new Map(publicList.body.data.posts.map(post => [post.id, post.status]));
+  assert.equal(states.get(completed.id), 'CLOSED');
+  assert.equal(states.get(cancelled.id), 'CLOSED');
+  assert.equal(states.get(full.id), 'FULL');
+  const ownList = await request('/companions/my-posts');
+  assert.equal(ownList.status, 200);
+  assert.equal(ownList.body.data.find(post => post.id === completed.id).status, 'CLOSED');
+  assert.equal(ownList.body.data.find(post => post.id === cancelled.id).status, 'CLOSED');
+  assert.equal(ownList.body.data[0].trip_cover_image_url, 'https://example.com/cover.jpg');
+  const detail = await request(`/companions/posts/${completed.id}`, 'GET', undefined, outsiderUser);
+  assert.equal(detail.status, 200);
+  assert.equal(detail.body.data.status, 'CLOSED');
+  await db.query("UPDATE users SET is_verified=TRUE, verification_status='VERIFIED' WHERE id=$1", [outsiderUser]);
+  const join = await request('/companions/join-request', 'POST', { postId: completed.id, introduction: 'Please let me join this trip' }, outsiderUser);
+  assert.equal(join.status, 400);
+});

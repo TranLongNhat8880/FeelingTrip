@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../shared/ui_kit.dart';
+import '../../../core/constants/app_colors.dart';
+import 'package:intl/intl.dart';
 import '../models/admin_content_model.dart';
 import '../viewmodels/admin_content_viewmodel.dart';
 import 'template_form_screen.dart';
@@ -70,10 +72,31 @@ class _AdminTemplatesContentState extends State<AdminTemplatesContent> {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          CustomButton(
-            text: 'Thêm mẫu',
-            icon: Icons.add,
-            onPressed: vm.updating ? null : () => edit(),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Mẫu hệ thống',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    Text(
+                      '${vm.plans.length} mẫu trong danh sách',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              FilledButton.icon(
+                onPressed: vm.updating ? null : () => edit(),
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Thêm mẫu'),
+              ),
+            ],
           ),
           const SizedBox(height: 10),
           TextField(
@@ -120,21 +143,89 @@ class _AdminTemplatesContentState extends State<AdminTemplatesContent> {
           else
             for (final row in vm.plans)
               Card(
+                margin: const EdgeInsets.only(bottom: 12),
                 child: Padding(
                   padding: const EdgeInsets.all(14),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Text(
-                        row.name,
-                        style: Theme.of(context).textTheme.titleMedium,
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: SizedBox(
+                              width: 76,
+                              height: 84,
+                              child: row.cover == null
+                                  ? const ColoredBox(
+                                      color: AppColors.primarySurface,
+                                      child: Icon(
+                                        Icons.route_outlined,
+                                        color: AppColors.primary,
+                                      ),
+                                    )
+                                  : Image.network(
+                                      row.cover!,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, _, _) =>
+                                          const ColoredBox(
+                                            color: AppColors.primarySurface,
+                                            child: Icon(Icons.route_outlined),
+                                          ),
+                                    ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  row.name,
+                                  style: Theme.of(context).textTheme.titleSmall,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 5),
+                                Text(
+                                  '${row.destination} · ${row.durationDays} ngày',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                                Text(
+                                  '${NumberFormat('#,###', 'vi_VN').format(row.budget)} đ dự kiến',
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: AppColors.textSecondary,
+                                      ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                      Text(
-                        '${row.destination} · ${row.durationDays} ngày · ${row.usage} lượt sử dụng',
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          AppStatusBadge(
+                            label: row.active ? 'Đang hiển thị' : 'Đã ẩn',
+                            tone: row.active
+                                ? AppStatusTone.success
+                                : AppStatusTone.neutral,
+                          ),
+                          const Spacer(),
+                          Text(
+                            '${row.usage} lượt sử dụng',
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: AppColors.textSecondary),
+                          ),
+                        ],
                       ),
-                      Text(row.active ? 'Đang hiển thị' : 'Đã ẩn'),
                       if (row.sourceTripId != null)
-                        const Text('Được tạo từ lịch trình cộng đồng'),
+                        const Padding(
+                          padding: EdgeInsets.only(top: 6),
+                          child: Text('Từ lịch trình cộng đồng'),
+                        ),
                       const SizedBox(height: 8),
                       Wrap(
                         spacing: 8,

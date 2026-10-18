@@ -74,7 +74,7 @@ const getUsersList = async ({
  * Cập nhật trạng thái tài khoản (khóa / mở khóa)
  * Khi BANNED → tăng token_version để vô hiệu hóa JWT hiện tại
  */
-const updateUserStatus = async (userId, status) => {
+const updateUserStatus = async (userId, status, client = db) => {
   let query;
   if (status === "BANNED") {
     query = `
@@ -94,7 +94,7 @@ const updateUserStatus = async (userId, status) => {
       RETURNING id, full_name, email, role, status, token_version, updated_at
     `;
   }
-  const { rows } = await db.query(query, [userId, status]);
+  const { rows } = await client.query(query, [userId, status]);
   return rows[0] || null;
 };
 
@@ -211,7 +211,8 @@ const getReports = async ({ page, limit, status, search }) => {
 
   const dataQuery = `
     SELECT r.*, sender.full_name AS reporter_name,
-      target.full_name AS target_name, t.name AS trip_name
+      target.full_name AS target_name, target.avatar_url AS target_avatar_url,
+      t.name AS trip_name
     ${from} ${where}
     ORDER BY r.created_at ASC, r.id ASC
     LIMIT $${params.length + 1} OFFSET $${params.length + 2}
@@ -228,7 +229,8 @@ const getReport = async (id, client = db, lock = false) => {
   const query = `
     SELECT r.*, sender.full_name AS reporter_name, sender.email AS reporter_email,
       target.full_name AS target_name, target.status AS target_status,
-      target.role AS target_role, t.name AS trip_name
+      target.role AS target_role, target.avatar_url AS target_avatar_url,
+      t.name AS trip_name
     FROM user_reports r
     JOIN users sender ON sender.id=r.reporter_id
     LEFT JOIN users target ON target.id=r.reported_user_id
@@ -528,43 +530,46 @@ const getActiveTemplatePlaces = async (ids, client) => {
 };
 
 // Lấy thông tin liên quan để admin đối chiếu báo cáo
-const getReportContext = async (report) => {
+const getReportContext = async (report, client = db) => {
   let user = null;
   let trip = null;
   let posts = [];
+  let users = [];
 
   if (report.reported_user_id) {
-    const query = `
-      SELECT id, full_name, nickname, avatar_url, status,
+    const { rows } = await client.query(`
+      SELECT id, full_name, nickname, avatar_url, status, role,
         is_verified, verification_status, created_at
-      FROM users WHERE id=$1
-    `;
-    const { rows } = await db.query(query, [report.reported_user_id]);
+      FROM users WHERE id=$1`, [report.reported_user_id]);
     user = rows[0] || null;
   }
 
   if (report.reported_trip_id) {
-    const query = `
-      SELECT id, name, destination, start_date, end_date, status,
+    const { rows } = await client.query(`
+      SELECT id, creator_id, name, destination, start_date, end_date, status,
         privacy_type, estimated_budget, cover_image_url
-      FROM trips WHERE id=$1
-    `;
-    const { rows } = await db.query(query, [report.reported_trip_id]);
+      FROM trips WHERE id=$1`, [report.reported_trip_id]);
     trip = rows[0] || null;
   }
 
   if (trip) {
-    const query = `
-      SELECT id, title, content, status, gender_preference,
+    const postResult = await client.query(`
+      SELECT id, creator_id, title, content, status, gender_preference,
         target_members_count, current_members_count
-      FROM companion_posts WHERE trip_id=$1
-      ORDER BY created_at DESC
-    `;
-    const { rows } = await db.query(query, [trip.id]);
-    posts = rows;
+      FROM companion_posts WHERE trip_id=$1 ORDER BY created_at DESC`, [trip.id]);
+    posts = postResult.rows;
+    const userResult = await client.query(`
+      SELECT u.id, u.full_name, u.status, u.role
+      FROM users u WHERE u.id=$2 OR EXISTS (
+        SELECT 1 FROM trip_members tm WHERE tm.trip_id=$1 AND tm.user_id=u.id
+          AND tm.membership_status IN ('ACTIVE','LEFT','REMOVED')
+      ) OR EXISTS (
+        SELECT 1 FROM companion_posts cp WHERE cp.trip_id=$1 AND cp.creator_id=u.id
+      ) ORDER BY u.full_name, u.id`, [trip.id, trip.creator_id]);
+    users = userResult.rows;
   }
 
-  return { user, trip, posts };
+  return { user, trip, posts, users, tripReportProcessing: true };
 };
 
 // Ưu tiên hiển thị bài tuyển có báo cáo đang chờ xử lý
@@ -586,7 +591,8 @@ const getModerationPosts = async ({ page, limit, search }) => {
 
   const dataQuery = `
     SELECT cp.id, cp.trip_id, cp.title, cp.content, cp.status,
-      t.name AS trip_name, t.destination, u.full_name AS creator_name,
+      t.name AS trip_name, t.destination, t.cover_image_url AS trip_cover_image_url,
+      u.full_name AS creator_name,
       (SELECT COUNT(*)::int FROM user_reports r
         WHERE r.reported_trip_id=t.id AND r.status='PENDING') AS report_count
     ${from}

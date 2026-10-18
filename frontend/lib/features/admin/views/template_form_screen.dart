@@ -1,7 +1,10 @@
 import 'dart:typed_data';
+import 'dart:ui' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../shared/ui_kit.dart';
+import '../../../shared/inputs/time_input_formatter.dart';
+import '../../../core/constants/app_colors.dart';
 import '../models/admin_content_model.dart';
 import '../repositories/admin_content_repository.dart';
 import '../../map/models/place_model.dart';
@@ -69,6 +72,11 @@ class _TemplateFormScreenState extends State<TemplateFormScreen> {
   final repo = AdminContentRepository();
   late TextEditingController name, destination, budget, description;
   late List<_DayForm> days;
+  int selectedTab = 0;
+  int expandedItem = 0;
+  final scroll = ScrollController();
+  final dayScroll = ScrollController();
+  final dayKeys = List.generate(31, (_) => GlobalKey());
   bool saving = false;
   String? error;
   Uint8List? cover;
@@ -86,6 +94,8 @@ class _TemplateFormScreenState extends State<TemplateFormScreen> {
 
   @override
   void dispose() {
+    scroll.dispose();
+    dayScroll.dispose();
     name.dispose();
     destination.dispose();
     budget.dispose();
@@ -148,7 +158,8 @@ class _TemplateFormScreenState extends State<TemplateFormScreen> {
   }
 
   Future<void> pickTime(_ActivityForm item, bool start) async {
-    final value = (start ? item.start : item.end).split(':');
+    final current = start ? item.start : item.end;
+    final value = (validTime(current) ? current : '09:00').split(':');
     final time = await showTimePicker(
       context: context,
       initialTime: TimeOfDay(
@@ -171,31 +182,49 @@ class _TemplateFormScreenState extends State<TemplateFormScreen> {
 
   Future<void> save() async {
     if (saving) return;
-    for (final day in days) {
-      for (final item in day.items) {
+    if (requiredText(name.text, 255) != null ||
+        requiredText(destination.text, 100) != null ||
+        money(budget.text) != null ||
+        description.text.length > 5000) {
+      setState(() {
+        selectedTab = 0;
+        error = 'Kiểm tra tên mẫu, điểm đến, ngân sách và mô tả.';
+      });
+      revealSelectedDay();
+      return;
+    }
+    for (var d = 0; d < days.length; d++) {
+      for (var i = 0; i < days[d].items.length; i++) {
+        final item = days[d].items[i];
+        String? message;
         if (item.useCatalog && item.placeId == null) {
-          setState(
-            () =>
-                error = 'Hãy chọn địa điểm từ kho hoặc chuyển sang nhập tự do.',
-          );
+          message = 'Chọn địa điểm từ kho hoặc chuyển sang nhập tự do.';
+        } else if (item.name.text.trim().isEmpty ||
+            item.name.text.trim().length > 255 ||
+            item.address.text.length > 500 ||
+            money(item.cost.text) != null ||
+            item.note.text.length > 1000) {
+          message = 'Kiểm tra tên hoạt động, địa chỉ, chi phí và ghi chú.';
+        } else if (!validTime(item.start) ||
+            !validTime(item.end) ||
+            item.start.compareTo(item.end) >= 0 ||
+            (i > 0 && item.start.compareTo(days[d].items[i - 1].end) < 0)) {
+          message =
+              'Nhập giờ HH:mm; giờ kết thúc phải sau bắt đầu và không trùng hoạt động trước.';
+        }
+        if (message != null) {
+          setState(() {
+            selectedTab = d + 1;
+            expandedItem = i;
+            error = 'Ngày ${d + 1} · Hoạt động ${i + 1}: $message';
+          });
+          if (scroll.hasClients) scroll.jumpTo(0);
+          revealSelectedDay();
           return;
         }
       }
     }
-    if (!form.currentState!.validate()) return;
-    for (final day in days) {
-      for (var i = 0; i < day.items.length; i++) {
-        final item = day.items[i];
-        if (item.start.compareTo(item.end) >= 0 ||
-            (i > 0 && item.start.compareTo(day.items[i - 1].end) < 0)) {
-          setState(
-            () => error =
-                'Giờ hoạt động phải hợp lệ, không trùng và theo thứ tự.',
-          );
-          return;
-        }
-      }
-    }
+    if (!(form.currentState?.validate() ?? false)) return;
     setState(() {
       saving = true;
       error = null;
@@ -245,10 +274,204 @@ class _TemplateFormScreenState extends State<TemplateFormScreen> {
         : null;
   }
 
+  bool validTime(String value) =>
+      RegExp(r'^([01]\d|2[0-3]):[0-5]\d$').hasMatch(value);
+
+  void selectTab(int index) {
+    FocusScope.of(context).unfocus();
+    setState(() {
+      error = null;
+      selectedTab = index;
+      expandedItem = 0;
+    });
+    if (scroll.hasClients) scroll.jumpTo(0);
+    revealSelectedDay();
+  }
+
+  void revealSelectedDay() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final target = dayKeys[selectedTab].currentContext;
+      if (target != null) {
+        Scrollable.ensureVisible(
+          target,
+          alignment: .5,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  void addDay() {
+    if (saving || days.length >= 30) return;
+    setState(() => days.add(_DayForm()));
+    selectTab(days.length);
+  }
+
+  Future<void> showDays() async {
+    FocusScope.of(context).unfocus();
+    final selected = await showModalBottomSheet<int>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      backgroundColor: Colors.white,
+      builder: (sheetContext) => SafeArea(
+        child: SizedBox(
+          height: MediaQuery.sizeOf(sheetContext).height * .72,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 8, 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Các ngày · ${days.length}',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Đóng danh sách ngày',
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(sheetContext),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: days.length + 1,
+                  itemBuilder: (_, index) => ListTile(
+                    key: ValueKey('day-list-$index'),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 4,
+                    ),
+                    selected: index == selectedTab,
+                    selectedTileColor: AppColors.primarySurface,
+                    leading: index == 0
+                        ? const Icon(Icons.description_outlined)
+                        : null,
+                    title: Text(index == 0 ? 'Thông tin chung' : 'Ngày $index'),
+                    subtitle: index == 0
+                        ? null
+                        : Text(
+                            days[index - 1].items.isEmpty
+                                ? 'Chưa có hoạt động'
+                                : '${days[index - 1].items.length} hoạt động',
+                          ),
+                    trailing: index == selectedTab
+                        ? const Icon(Icons.check, color: AppColors.primary)
+                        : const Icon(Icons.chevron_right),
+                    onTap: () => Navigator.pop(sheetContext, index),
+                  ),
+                ),
+              ),
+              const Divider(height: 1),
+              TextButton.icon(
+                onPressed: days.length >= 30
+                    ? null
+                    : () => Navigator.pop(sheetContext, -1),
+                icon: const Icon(Icons.add),
+                label: const Text('Thêm ngày'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (!mounted || selected == null) return;
+    if (selected == -1) {
+      addDay();
+    } else {
+      selectTab(selected);
+    }
+  }
+
+  Widget dayNavigation() => Material(
+    color: Colors.white,
+    child: Row(
+      children: [
+        IconButton(
+          tooltip: 'Danh sách ngày',
+          icon: const Icon(Icons.format_list_bulleted),
+          onPressed: saving ? null : showDays,
+        ),
+        Expanded(
+          child: ScrollConfiguration(
+            behavior: ScrollConfiguration.of(context).copyWith(
+              dragDevices: {
+                PointerDeviceKind.touch,
+                PointerDeviceKind.mouse,
+                PointerDeviceKind.stylus,
+                PointerDeviceKind.invertedStylus,
+                PointerDeviceKind.trackpad,
+              },
+            ),
+            child: SingleChildScrollView(
+              key: const ValueKey('template-day-strip'),
+              controller: dayScroll,
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (var index = 0; index <= days.length; index++)
+                    Semantics(
+                      selected: selectedTab == index,
+                      button: true,
+                      child: InkWell(
+                        key: dayKeys[index],
+                        onTap: () => selectTab(index),
+                        hoverColor: Colors.transparent,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 14,
+                          ),
+                          decoration: BoxDecoration(
+                            border: Border(
+                              bottom: BorderSide(
+                                color: selectedTab == index
+                                    ? AppColors.primary
+                                    : Colors.transparent,
+                                width: 3,
+                              ),
+                            ),
+                          ),
+                          child: Text(
+                            index == 0 ? 'Thông tin chung' : 'Ngày $index',
+                            style: Theme.of(context).textTheme.titleSmall
+                                ?.copyWith(
+                                  color: selectedTab == index
+                                      ? AppColors.primary
+                                      : AppColors.textSecondary,
+                                  fontWeight: selectedTab == index
+                                      ? FontWeight.w700
+                                      : FontWeight.w500,
+                                ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        IconButton(
+          tooltip: 'Thêm ngày',
+          icon: const Icon(Icons.add, color: AppColors.primary),
+          onPressed: saving || days.length >= 30 ? null : addDay,
+        ),
+      ],
+    ),
+  );
+
   @override
   Widget build(BuildContext context) => AppScaffold(
     title: widget.plan == null ? 'Thêm lịch trình mẫu' : 'Sửa lịch trình mẫu',
-    scrollable: true,
+    padding: EdgeInsets.zero,
     bottomAction: CustomButton(
       text: 'Lưu mẫu',
       isLoading: saving,
@@ -259,109 +482,207 @@ class _TemplateFormScreenState extends State<TemplateFormScreen> {
       child: Form(
         key: form,
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            CustomTextField(
-              controller: name,
-              label: 'Tên mẫu',
-              validator: (v) => requiredText(v, 255),
-            ),
-            const SizedBox(height: 12),
-            CustomTextField(
-              controller: destination,
-              label: 'Điểm đến',
-              validator: (v) => requiredText(v, 100),
-            ),
-            const SizedBox(height: 12),
-            CustomTextField(
-              controller: budget,
-              label: 'Chi phí dự kiến (đ)',
-              keyboardType: TextInputType.number,
-              validator: money,
-            ),
-            const SizedBox(height: 12),
-            CustomTextField(
-              controller: description,
-              label: 'Mô tả',
-              maxLines: 3,
-              validator: (v) =>
-                  (v?.length ?? 0) > 5000 ? 'Tối đa 5000 ký tự' : null,
-            ),
-            const SizedBox(height: 12),
-            if (cover != null)
-              Image.memory(cover!, height: 160, fit: BoxFit.cover)
-            else if (widget.plan?.cover != null)
-              Image.network(
-                widget.plan!.cover!,
-                height: 160,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => const SizedBox(),
-              ),
-            TextButton.icon(
-              onPressed: pickImage,
-              icon: const Icon(Icons.image_outlined),
-              label: const Text('Chọn ảnh bìa (không bắt buộc)'),
-            ),
-            for (var dayIndex = 0; dayIndex < days.length; dayIndex++) ...[
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Ngày ${dayIndex + 1}',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                  ),
-                  if (days.length > 1)
-                    IconButton(
-                      tooltip: 'Xóa ngày',
-                      onPressed: () {
-                        setState(() {
-                          days.removeAt(dayIndex).dispose();
-                        });
-                      },
-                      icon: const Icon(Icons.delete_outline),
-                    ),
-                ],
-              ),
-              for (
-                var itemIndex = 0;
-                itemIndex < days[dayIndex].items.length;
-                itemIndex++
-              )
-                activity(days[dayIndex], itemIndex),
-              TextButton.icon(
-                onPressed: days[dayIndex].items.length >= 50
-                    ? null
-                    : () {
-                        setState(
-                          () => days[dayIndex].items.add(_ActivityForm()),
-                        );
-                      },
-                icon: const Icon(Icons.add),
-                label: const Text('Thêm hoạt động'),
-              ),
-            ],
-            TextButton.icon(
-              onPressed: days.length >= 30
-                  ? null
-                  : () {
-                      setState(() => days.add(_DayForm()));
-                    },
-              icon: const Icon(Icons.add),
-              label: Text('Thêm ngày (${days.length}/30)'),
-            ),
+            dayNavigation(),
             if (error != null)
-              AppInlineNotice(message: error!, tone: AppStatusTone.error),
-            const SizedBox(height: 20),
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: AppInlineNotice(
+                  message: error!,
+                  tone: AppStatusTone.error,
+                ),
+              ),
+            Expanded(
+              child: SingleChildScrollView(
+                controller: scroll,
+                padding: const EdgeInsets.all(16),
+                child: selectedTab == 0 ? _information() : _day(),
+              ),
+            ),
           ],
         ),
       ),
     ),
   );
+
+  Widget _information() => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Text('Thông tin của mẫu', style: Theme.of(context).textTheme.titleLarge),
+      const SizedBox(height: 4),
+      Text(
+        '${days.length} ngày · ${days.fold<int>(0, (total, day) => total + day.items.length)} hoạt động',
+        style: Theme.of(
+          context,
+        ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
+      ),
+      const SizedBox(height: 16),
+      CustomTextField(
+        controller: name,
+        label: 'Tên mẫu',
+        validator: (v) => requiredText(v, 255),
+      ),
+      const SizedBox(height: 12),
+      CustomTextField(
+        controller: destination,
+        label: 'Điểm đến',
+        validator: (v) => requiredText(v, 100),
+      ),
+      const SizedBox(height: 12),
+      CustomTextField(
+        controller: budget,
+        label: 'Chi phí dự kiến (đ)',
+        keyboardType: TextInputType.number,
+        validator: money,
+      ),
+      const SizedBox(height: 12),
+      CustomTextField(
+        controller: description,
+        label: 'Mô tả',
+        minLines: 3,
+        maxLines: null,
+        validator: (v) => (v?.length ?? 0) > 5000 ? 'Tối đa 5000 ký tự' : null,
+      ),
+      const SizedBox(height: 12),
+      if (cover != null)
+        Image.memory(cover!, height: 160, fit: BoxFit.cover)
+      else if (widget.plan?.cover != null)
+        Image.network(
+          widget.plan!.cover!,
+          height: 160,
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) => const SizedBox(),
+        ),
+      CustomButton(
+        text: 'Chọn ảnh bìa (không bắt buộc)',
+        onPressed: pickImage,
+        icon: Icons.image_outlined,
+        variant: AppButtonVariant.secondary,
+      ),
+      const SizedBox(height: 12),
+      CustomButton(
+        text: 'Tiếp tục · Ngày 1',
+        variant: AppButtonVariant.secondary,
+        onPressed: () => selectTab(1),
+      ),
+    ],
+  );
+
+  Widget _day() {
+    final day = days[selectedTab - 1];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Lịch hoạt động · ngày $selectedTab',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  Text(
+                    '${day.items.length} hoạt động · Chạm một dòng để chỉnh sửa',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (days.length > 1)
+              IconButton(
+                tooltip: 'Xóa ngày',
+                icon: const Icon(Icons.delete_outline, color: AppColors.error),
+                style: IconButton.styleFrom(
+                  foregroundColor: AppColors.error,
+                  backgroundColor: AppColors.errorSurface,
+                ),
+                onPressed: () async {
+                  final yes = await AppConfirmDialog.show(
+                    context,
+                    title: 'Xóa ngày $selectedTab?',
+                    message:
+                        'Các hoạt động trong ngày này sẽ bị xóa khỏi bản đang soạn.',
+                    confirmLabel: 'Xóa ngày',
+                    destructive: true,
+                  );
+                  if (yes && mounted) {
+                    setState(() {
+                      days.removeAt(selectedTab - 1).dispose();
+                      selectedTab = selectedTab > days.length
+                          ? days.length
+                          : selectedTab;
+                      expandedItem = 0;
+                    });
+                    revealSelectedDay();
+                  }
+                },
+              ),
+          ],
+        ),
+        for (var i = 0; i < day.items.length; i++) activity(day, i),
+        const SizedBox(height: 12),
+        CustomButton(
+          text: 'Thêm hoạt động',
+          icon: Icons.add,
+          variant: AppButtonVariant.secondary,
+          onPressed: day.items.length >= 50
+              ? null
+              : () => setState(() {
+                  final item = _ActivityForm();
+                  if (day.items.isNotEmpty && validTime(day.items.last.end)) {
+                    item.start = day.items.last.end;
+                    final parts = item.start.split(':');
+                    final minutes =
+                        int.parse(parts[0]) * 60 + int.parse(parts[1]) + 60;
+                    final end = minutes > 1439 ? 1439 : minutes;
+                    item.end =
+                        '${(end ~/ 60).toString().padLeft(2, '0')}:${(end % 60).toString().padLeft(2, '0')}';
+                  }
+                  day.items.add(item);
+                  expandedItem = day.items.length - 1;
+                }),
+        ),
+        const SizedBox(height: 16),
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            TextButton.icon(
+              style: TextButton.styleFrom(
+                backgroundColor: AppColors.inputSurface,
+              ),
+              onPressed: () => selectTab(selectedTab - 1),
+              icon: const Icon(Icons.chevron_left),
+              label: Text(
+                selectedTab == 1
+                    ? 'Thông tin chung'
+                    : 'Ngày ${selectedTab - 1}',
+              ),
+            ),
+            if (selectedTab < days.length)
+              TextButton.icon(
+                style: TextButton.styleFrom(
+                  backgroundColor: AppColors.inputSurface,
+                ),
+                onPressed: () => selectTab(selectedTab + 1),
+                icon: const Icon(Icons.chevron_right),
+                label: Text('Ngày ${selectedTab + 1}'),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
   Widget activity(_DayForm day, int index) {
     final item = day.items[index];
     return Card(
+      key: ObjectKey(item),
       margin: const EdgeInsets.only(top: 12),
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -369,7 +690,44 @@ class _TemplateFormScreenState extends State<TemplateFormScreen> {
           children: [
             Row(
               children: [
-                Expanded(child: Text('Hoạt động ${index + 1}')),
+                Expanded(
+                  child: InkWell(
+                    onTap: () => setState(
+                      () => expandedItem = expandedItem == index ? -1 : index,
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${item.start} – ${item.end}',
+                            style: Theme.of(context).textTheme.labelLarge
+                                ?.copyWith(color: AppColors.primary),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            item.name.text.isEmpty
+                                ? 'Hoạt động ${index + 1} · Chưa nhập'
+                                : item.name.text,
+                            style: Theme.of(context).textTheme.titleSmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: expandedItem == index ? 'Thu gọn' : 'Chỉnh sửa',
+                  onPressed: () => setState(
+                    () => expandedItem = expandedItem == index ? -1 : index,
+                  ),
+                  icon: Icon(
+                    expandedItem == index
+                        ? Icons.expand_less
+                        : Icons.edit_outlined,
+                  ),
+                ),
                 if (index > 0)
                   IconButton(
                     tooltip: 'Đưa lên',
@@ -377,6 +735,7 @@ class _TemplateFormScreenState extends State<TemplateFormScreen> {
                       setState(() {
                         day.items.removeAt(index);
                         day.items.insert(index - 1, item);
+                        expandedItem = index - 1;
                       });
                     },
                     icon: const Icon(Icons.arrow_upward),
@@ -385,119 +744,161 @@ class _TemplateFormScreenState extends State<TemplateFormScreen> {
                   IconButton(
                     tooltip: 'Xóa hoạt động',
                     onPressed: () {
-                      setState(() => day.items.removeAt(index).dispose());
+                      setState(() {
+                        day.items.removeAt(index).dispose();
+                        expandedItem = -1;
+                      });
                     },
                     icon: const Icon(Icons.close),
                   ),
               ],
             ),
-            Wrap(
-              spacing: 8,
-              children: [
-                ChoiceChip(
-                  label: const Text('Chọn từ kho'),
-                  labelStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: const Color(0xFF09143B),
+            if (expandedItem == index) ...[
+              Wrap(
+                spacing: 8,
+                children: [
+                  ChoiceChip(
+                    label: const Text('Chọn từ kho'),
+                    labelStyle: Theme.of(context).textTheme.bodyMedium
+                        ?.copyWith(color: const Color(0xFF09143B)),
+                    selected: item.useCatalog,
+                    onSelected: (_) => setState(() => item.useCatalog = true),
                   ),
-                  selected: item.useCatalog,
-                  onSelected: (_) => setState(() => item.useCatalog = true),
-                ),
-                ChoiceChip(
-                  label: const Text('Nhập tự do'),
-                  labelStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: const Color(0xFF09143B),
+                  ChoiceChip(
+                    label: const Text('Nhập tự do'),
+                    labelStyle: Theme.of(context).textTheme.bodyMedium
+                        ?.copyWith(color: const Color(0xFF09143B)),
+                    selected: !item.useCatalog,
+                    onSelected: (_) => setState(() {
+                      item.useCatalog = false;
+                      item.placeId = null;
+                    }),
                   ),
-                  selected: !item.useCatalog,
-                  onSelected: (_) => setState(() {
-                    item.useCatalog = false;
-                    item.placeId = null;
-                  }),
+                ],
+              ),
+              if (item.useCatalog)
+                TextButton.icon(
+                  style: TextButton.styleFrom(
+                    backgroundColor: AppColors.inputSurface,
+                  ),
+                  onPressed: () => pickPlace(item),
+                  icon: const Icon(Icons.place_outlined),
+                  label: Text(
+                    item.placeId == null ? 'Chọn địa điểm' : 'Đổi địa điểm',
+                  ),
                 ),
-              ],
-            ),
-            if (item.useCatalog)
-              TextButton.icon(
-                onPressed: () => pickPlace(item),
-                icon: const Icon(Icons.place_outlined),
-                label: Text(
-                  item.placeId == null ? 'Chọn địa điểm' : 'Đổi địa điểm',
+              const SizedBox(height: 8),
+              CustomTextField(
+                enabled: !item.useCatalog,
+                controller: item.name,
+                label: 'Tên hoạt động / địa điểm',
+                validator: (v) =>
+                    (v?.trim().isEmpty ?? true) || (v?.length ?? 0) > 255
+                    ? 'Nhập tên từ 1 đến 255 ký tự'
+                    : null,
+              ),
+              const SizedBox(height: 8),
+              CustomTextField(
+                enabled: !item.useCatalog,
+                controller: item.address,
+                label: 'Địa chỉ (không bắt buộc)',
+                validator: (v) =>
+                    (v?.length ?? 0) > 500 ? 'Tối đa 500 ký tự' : null,
+              ),
+              DropdownButtonFormField<String>(
+                key: ValueKey(item.category),
+                initialValue: item.category,
+                isExpanded: true,
+                items: [
+                  for (final e in {
+                    'ATTRACTION': 'Tham quan',
+                    'RESTAURANT': 'Ăn uống',
+                    'CAFE': 'Cà phê',
+                    'HOTEL': 'Lưu trú',
+                    'ENTERTAINMENT': 'Giải trí',
+                    'NATURE': 'Thiên nhiên',
+                    'CULTURE': 'Văn hóa',
+                    'SHOPPING': 'Mua sắm',
+                    'OTHER': 'Khác',
+                  }.entries)
+                    DropdownMenuItem(value: e.key, child: Text(e.value)),
+                ],
+                onChanged: item.useCatalog
+                    ? null
+                    : (v) {
+                        if (v != null) item.category = v;
+                      },
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(child: timeField(item, true)),
+                  const SizedBox(width: 12),
+                  Expanded(child: timeField(item, false)),
+                ],
+              ),
+              const SizedBox(height: 12),
+              CustomTextField(
+                controller: item.cost,
+                label: 'Chi phí dự kiến (đ)',
+                keyboardType: TextInputType.number,
+                validator: money,
+              ),
+              const SizedBox(height: 8),
+              CustomTextField(
+                controller: item.note,
+                label: 'Ghi chú',
+                minLines: 2,
+                maxLines: null,
+                validator: (v) =>
+                    (v?.length ?? 0) > 1000 ? 'Tối đa 1000 ký tự' : null,
+              ),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  style: TextButton.styleFrom(
+                    backgroundColor: AppColors.inputSurface,
+                  ),
+                  onPressed: () {
+                    FocusScope.of(context).unfocus();
+                    setState(() => expandedItem = -1);
+                  },
+                  icon: const Icon(Icons.check),
+                  label: const Text('Xong hoạt động'),
                 ),
               ),
-            const SizedBox(height: 8),
-            CustomTextField(
-              enabled: !item.useCatalog,
-              controller: item.name,
-              label: 'Tên hoạt động / địa điểm',
-              validator: (v) =>
-                  (v?.trim().isEmpty ?? true) || (v?.length ?? 0) > 255
-                  ? 'Nhập tên từ 1 đến 255 ký tự'
-                  : null,
-            ),
-            const SizedBox(height: 8),
-            CustomTextField(
-              enabled: !item.useCatalog,
-              controller: item.address,
-              label: 'Địa chỉ (không bắt buộc)',
-              validator: (v) =>
-                  (v?.length ?? 0) > 500 ? 'Tối đa 500 ký tự' : null,
-            ),
-            DropdownButtonFormField<String>(
-              key: ValueKey(item.category),
-              initialValue: item.category,
-              isExpanded: true,
-              items: [
-                for (final e in {
-                  'ATTRACTION': 'Tham quan',
-                  'RESTAURANT': 'Ăn uống',
-                  'CAFE': 'Cà phê',
-                  'HOTEL': 'Lưu trú',
-                  'ENTERTAINMENT': 'Giải trí',
-                  'NATURE': 'Thiên nhiên',
-                  'CULTURE': 'Văn hóa',
-                  'SHOPPING': 'Mua sắm',
-                  'OTHER': 'Khác',
-                }.entries)
-                  DropdownMenuItem(value: e.key, child: Text(e.value)),
-              ],
-              onChanged: item.useCatalog
-                  ? null
-                  : (v) {
-                      if (v != null) item.category = v;
-                    },
-            ),
-            Row(
-              children: [
-                Expanded(
-                  child: TextButton(
-                    onPressed: () => pickTime(item, true),
-                    child: Text('Bắt đầu ${item.start}'),
-                  ),
-                ),
-                Expanded(
-                  child: TextButton(
-                    onPressed: () => pickTime(item, false),
-                    child: Text('Kết thúc ${item.end}'),
-                  ),
-                ),
-              ],
-            ),
-            CustomTextField(
-              controller: item.cost,
-              label: 'Chi phí dự kiến (đ)',
-              keyboardType: TextInputType.number,
-              validator: money,
-            ),
-            const SizedBox(height: 8),
-            CustomTextField(
-              controller: item.note,
-              label: 'Ghi chú',
-              maxLines: 2,
-              validator: (v) =>
-                  (v?.length ?? 0) > 1000 ? 'Tối đa 1000 ký tự' : null,
-            ),
+            ],
           ],
         ),
       ),
+    );
+  }
+
+  Widget timeField(_ActivityForm item, bool start) {
+    final value = start ? item.start : item.end;
+    return TextFormField(
+      key: ValueKey('${identityHashCode(item)}-$start-$value'),
+      initialValue: value,
+      keyboardType: TextInputType.number,
+      inputFormatters: const [TimeInputFormatter()],
+      decoration: InputDecoration(
+        labelText: start ? 'Bắt đầu' : 'Kết thúc',
+        hintText: '00:00',
+        suffixIcon: IconButton(
+          tooltip: 'Chọn giờ',
+          icon: const Icon(Icons.schedule, size: 20),
+          onPressed: () => pickTime(item, start),
+        ),
+      ),
+      validator: (v) => validTime(v ?? '') ? null : 'Giờ từ 00:00 đến 23:59',
+      onChanged: (v) {
+        if (start) {
+          item.start = v;
+        } else {
+          item.end = v;
+        }
+      },
     );
   }
 }

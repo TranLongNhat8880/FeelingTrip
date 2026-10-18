@@ -3,7 +3,7 @@ const { sendSuccess } = require('../../shared/utils/response.util');
 const HTTP_STATUS = require('../../shared/constants/httpStatus');
 
 // ============================================================================
-// CONTROLLER: Reviews, Reports, Blocks, Emergency Contacts & SOS
+// CONTROLLER: Reviews, Reports, Blocks
 // ============================================================================
 
 /**
@@ -139,149 +139,23 @@ const getBlockedUsers = async (req, res, next) => {
     }
 };
 
-/**
- * [GET] /api/v1/reviews/emergency-contacts
- */
-const getEmergencyContacts = async (req, res, next) => {
+const getTripReviews = async (req, res, next) => {
     try {
-        const result = await reviewsService.getEmergencyContacts(req.user.id);
-
-        return sendSuccess(
-            res,
-            result,
-            'Lấy danh sách liên hệ khẩn cấp thành công',
-            HTTP_STATUS.OK
-        );
-    } catch (error) {
-        next(error);
-    }
-};
-
-/**
- * [POST] /api/v1/reviews/emergency-contacts
- */
-const createEmergencyContact = async (req, res, next) => {
-    try {
-        const result = await reviewsService.createEmergencyContact({
-            userId: req.user.id,
-            fullName: req.body.fullName,
-            phone: req.body.phone,
-            relationship: req.body.relationship,
+        const result = await reviewsService.getTripReviews({
+            tripId: req.params.id,
+            page: req.query.page,
+            limit: req.query.limit,
         });
-
-        return sendSuccess(
-            res,
-            result,
-            'Thêm người liên hệ khẩn cấp thành công',
-            HTTP_STATUS.CREATED
-        );
-    } catch (error) {
-        next(error);
-    }
-};
-
-/**
- * [PUT] /api/v1/reviews/emergency-contacts/:id
- */
-const updateEmergencyContact = async (req, res, next) => {
-    try {
-        const result = await reviewsService.updateEmergencyContact({
-            contactId: req.params.id,
-            userId: req.user.id,
-            contactData: req.body,
-        });
-
-        return sendSuccess(
-            res,
-            result,
-            'Cập nhật người liên hệ khẩn cấp thành công',
-            HTTP_STATUS.OK
-        );
-    } catch (error) {
-        next(error);
-    }
-};
-
-/**
- * [DELETE] /api/v1/reviews/emergency-contacts/:id
- */
-const deleteEmergencyContact = async (req, res, next) => {
-    try {
-        const result = await reviewsService.deleteEmergencyContact({
-            contactId: req.params.id,
-            userId: req.user.id,
-        });
-
-        return sendSuccess(
-            res,
-            result,
-            'Xóa người liên hệ khẩn cấp thành công',
-            HTTP_STATUS.OK
-        );
-    } catch (error) {
-        next(error);
-    }
-};
-
-/**
- * [POST] /api/v1/reviews/sos
- */
-const createSos = async (req, res, next) => {
-    try {
-        const result = await reviewsService.createSos({
-            userId: req.user.id,
-            tripId: req.body.tripId,
-            latitude: req.body.latitude,
-            longitude: req.body.longitude,
-            message: req.body.message,
-        });
-
-        return sendSuccess(
-            res,
-            result,
-            'Đã kích hoạt cảnh báo SOS',
-            HTTP_STATUS.CREATED
-        );
-    } catch (error) {
-        next(error);
-    }
-};
-
-/**
- * [PUT] /api/v1/reviews/sos/:id/status
- */
-const updateSosStatus = async (req, res, next) => {
-    try {
-        const result = await reviewsService.updateSosStatus({
-            sosId: req.params.id,
-            userId: req.user.id,
-            status: req.body.status,
-        });
-
-        return sendSuccess(
-            res,
-            result,
-            req.body.status === 'FALSE_ALARM'
-                ? 'Đã đánh dấu cảnh báo là báo nhầm'
-                : 'Đã xác nhận người dùng an toàn',
-            HTTP_STATUS.OK
-        );
-    } catch (error) {
-        next(error);
-    }
+        return sendSuccess(res, result, 'Đánh giá lịch trình cộng đồng', HTTP_STATUS.OK);
+    } catch (error) { next(error); }
 };
 
 module.exports = {
     reviewMember,
     reviewTrip,
+    getTripReviews,
     createReport,
     blockUser,
     unblockUser,
     getBlockedUsers,
-    getEmergencyContacts,
-    createEmergencyContact,
-    updateEmergencyContact,
-    deleteEmergencyContact,
-    createSos,
-    updateSosStatus,
 };

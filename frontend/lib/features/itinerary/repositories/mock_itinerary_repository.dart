@@ -4,8 +4,13 @@ import 'itinerary_repository.dart';
 class MockItineraryRepository implements ItineraryRepository {
   MockItineraryRepository();
 
+  static final MockItineraryRepository shared = MockItineraryRepository();
+
   final Map<String, List<ItineraryDay>> _daysByTrip = {};
   int _sequence = 10;
+
+  void setDaysForTrip(String tripId, List<ItineraryDay> days) =>
+      _daysByTrip[tripId] = days;
 
   @override
   Future<ItineraryPlan> getItinerary(String tripId) async {
@@ -149,13 +154,39 @@ class MockItineraryRepository implements ItineraryRepository {
     List<String> orderedItemIds,
   ) async {
     final byId = {for (final item in day.items) item.id: item};
+    final ordered = orderedItemIds.map((id) => byId[id]!).toList();
+    if (ordered.isNotEmpty) {
+      int cursor = _toMinutes(ordered.first.startTime);
+      for (int i = 0; i < ordered.length; i++) {
+        final item = ordered[i];
+        final dur = _toMinutes(item.endTime) - _toMinutes(item.startTime);
+        if (dur > 0) {
+          final newStart = _toTimeString(cursor);
+          final newEnd = _toTimeString(cursor + dur);
+          ordered[i] = _copyItem(item, startTime: newStart, endTime: newEnd);
+          cursor += dur;
+        }
+      }
+    }
     final updated = _copyDay(
       day,
-      items: orderedItemIds.map((id) => byId[id]!).toList(),
+      items: ordered,
       version: '${_sequence++}',
     );
     _replaceDay(updated);
     return updated;
+  }
+
+  static int _toMinutes(String time) {
+    final parts = time.split(':').map(int.parse).toList();
+    return parts[0] * 60 + parts[1];
+  }
+
+  static String _toTimeString(int minutes) {
+    final clamped = minutes.clamp(0, 23 * 60 + 59);
+    final h = (clamped ~/ 60).toString().padLeft(2, '0');
+    final m = (clamped % 60).toString().padLeft(2, '0');
+    return '$h:$m';
   }
 
   @override
@@ -199,17 +230,65 @@ class MockItineraryRepository implements ItineraryRepository {
     return updated;
   }
 
-  @override
-  Future<List<ItineraryPlaceOption>> searchPlaces({
-    required String destination,
-    String? keyword,
-  }) async => const [
+  static const List<ItineraryPlaceOption> _mockCatalogPlaces = [
+    ItineraryPlaceOption(
+      id: 'place-hanoi-1',
+      name: 'Hồ Hoàn Kiếm',
+      destination: 'Hà Nội',
+      category: 'NATURE',
+      address: 'Phố Đinh Tiên Hoàng, Hàng Trống, Hoàn Kiếm, Hà Nội',
+      latitude: 21.0285,
+      longitude: 105.8542,
+      rating: 4.9,
+    ),
+    ItineraryPlaceOption(
+      id: 'place-hanoi-2',
+      name: 'Văn Miếu - Quốc Tử Giám',
+      destination: 'Hà Nội',
+      category: 'CULTURE',
+      address: '58 Quốc Tử Giám, Văn Miếu, Đống Đa, Hà Nội',
+      latitude: 21.0276,
+      longitude: 105.8355,
+      rating: 4.8,
+    ),
+    ItineraryPlaceOption(
+      id: 'place-hanoi-3',
+      name: 'Hồ Tây',
+      destination: 'Hà Nội',
+      category: 'NATURE',
+      address: 'Đường Thanh Niên, Tây Hồ, Hà Nội',
+      latitude: 21.0581,
+      longitude: 105.8236,
+      rating: 4.7,
+    ),
+    ItineraryPlaceOption(
+      id: 'place-hanoi-4',
+      name: 'Lăng Chủ tịch Hồ Chí Minh',
+      destination: 'Hà Nội',
+      category: 'CULTURE',
+      address: 'Số 2 Hùng Vương, Điện Biên, Ba Đình, Hà Nội',
+      latitude: 21.0368,
+      longitude: 105.8346,
+      rating: 4.9,
+    ),
+    ItineraryPlaceOption(
+      id: 'place-hanoi-5',
+      name: 'Khu du lịch Hàm Lợn',
+      destination: 'Hà Nội',
+      category: 'NATURE',
+      address: 'Xã Nam Sơn, Huyện Sóc Sơn, Hà Nội',
+      latitude: 21.3283,
+      longitude: 105.7958,
+      rating: 4.6,
+    ),
     ItineraryPlaceOption(
       id: 'place-1',
       name: 'Hồ Xuân Hương',
       destination: 'Đà Lạt',
       category: 'NATURE',
-      address: 'Trung tâm Đà Lạt',
+      address: 'Trung tâm Đà Lạt, Lâm Đồng',
+      latitude: 11.9404,
+      longitude: 108.4452,
       rating: 4.8,
     ),
     ItineraryPlaceOption(
@@ -217,38 +296,166 @@ class MockItineraryRepository implements ItineraryRepository {
       name: 'Quảng trường Lâm Viên',
       destination: 'Đà Lạt',
       category: 'ATTRACTION',
-      address: 'Đường Trần Quốc Toản',
+      address: 'Đường Trần Quốc Toản, Phường 10, Đà Lạt',
+      latitude: 11.9360,
+      longitude: 108.4458,
       rating: 4.7,
     ),
+    ItineraryPlaceOption(
+      id: 'place-3',
+      name: 'Thung Lũng Tình Yêu',
+      destination: 'Đà Lạt',
+      category: 'NATURE',
+      address: '3 - 5 - 7 Đường Mai Anh Đào, Phường 8, Đà Lạt',
+      latitude: 11.9792,
+      longitude: 108.4502,
+      rating: 4.6,
+    ),
+    ItineraryPlaceOption(
+      id: 'place-danang-1',
+      name: 'Cầu Rồng',
+      destination: 'Đà Nẵng',
+      category: 'ATTRACTION',
+      address: 'Đường Nguyễn Văn Linh, Phước Ninh, Hải Châu, Đà Nẵng',
+      latitude: 16.0611,
+      longitude: 108.2208,
+      rating: 4.8,
+    ),
+    ItineraryPlaceOption(
+      id: 'place-qn-1',
+      name: 'Vịnh Hạ Long',
+      destination: 'Quảng Ninh',
+      category: 'NATURE',
+      address: 'Thành phố Hạ Long, Quảng Ninh',
+      latitude: 20.9101,
+      longitude: 107.1839,
+      rating: 5.0,
+    ),
+    ItineraryPlaceOption(
+      id: 'place-qn-2',
+      name: 'Bảo tàng Quảng Ninh',
+      destination: 'Quảng Ninh',
+      category: 'CULTURE',
+      address: 'Trần Quốc Nghiễn, Hồng Gai, Hạ Long, Quảng Ninh',
+      latitude: 20.9503,
+      longitude: 107.0945,
+      rating: 4.8,
+    ),
+    ItineraryPlaceOption(
+      id: 'place-qn-3',
+      name: 'Bãi tắm Bãi Cháy',
+      destination: 'Quảng Ninh',
+      category: 'NATURE',
+      address: 'Bãi Cháy, Thành phố Hạ Long, Quảng Ninh',
+      latitude: 20.9582,
+      longitude: 107.0378,
+      rating: 4.7,
+    ),
+    ItineraryPlaceOption(
+      id: 'place-qn-4',
+      name: 'Đảo Tuần Châu',
+      destination: 'Quảng Ninh',
+      category: 'ATTRACTION',
+      address: 'Đảo Tuần Châu, Thành phố Hạ Long, Quảng Ninh',
+      latitude: 20.9300,
+      longitude: 106.9900,
+      rating: 4.6,
+    ),
+    ItineraryPlaceOption(
+      id: 'place-qn-5',
+      name: 'Sun World Hạ Long Complex',
+      destination: 'Quảng Ninh',
+      category: 'ENTERTAINMENT',
+      address: 'Đường Hạ Long, Bãi Cháy, Hạ Long, Quảng Ninh',
+      latitude: 20.9535,
+      longitude: 107.0505,
+      rating: 4.8,
+    ),
   ];
+
+  @override
+  Future<List<ItineraryPlaceOption>> searchPlaces({
+    required String destination,
+    String? keyword,
+  }) async {
+    await _delay();
+    final dest = destination.trim().toLowerCase();
+    final kw = keyword?.trim().toLowerCase();
+
+    var matches = _mockCatalogPlaces.where((p) {
+      if (dest.isEmpty) return true;
+      final pDest = p.destination.toLowerCase();
+      return pDest.contains(dest) ||
+          dest.contains(pDest) ||
+          (p.address?.toLowerCase().contains(dest) ?? false);
+    }).toList();
+
+    if (kw != null && kw.isNotEmpty) {
+      matches = matches.where((p) {
+        return p.name.toLowerCase().contains(kw) ||
+            p.destination.toLowerCase().contains(kw) ||
+            (p.address?.toLowerCase().contains(kw) ?? false);
+      }).toList();
+    }
+
+    return matches;
+  }
 
   @override
   Future<PublicItineraryPage> getPublicPlans({
     String? destination,
     int? durationDays,
     String? keyword,
-  }) async => PublicItineraryPage(items: [_publicSummary], total: 1);
+  }) async {
+    var items = List<PublicItinerarySummary>.of(_mockPublicPlans);
+    if (destination != null && destination.trim().isNotEmpty) {
+      final destNorm = destination.trim().toLowerCase();
+      items = items
+          .where((p) => p.destination.toLowerCase().contains(destNorm))
+          .toList();
+    }
+    if (durationDays != null) {
+      items = items.where((p) => p.durationDays == durationDays).toList();
+    }
+    if (keyword != null && keyword.trim().isNotEmpty) {
+      final kw = keyword.trim().toLowerCase();
+      items = items
+          .where((p) =>
+              p.name.toLowerCase().contains(kw) ||
+              p.destination.toLowerCase().contains(kw) ||
+              (p.description?.toLowerCase().contains(kw) ?? false))
+          .toList();
+    }
+    return PublicItineraryPage(items: items, total: items.length);
+  }
 
   @override
-  Future<PublicItineraryDetail> getPublicPlan(String sourceTripId) async =>
-      PublicItineraryDetail(
-        summary: _publicSummary,
-        days: const [
-          PublicItineraryDay(
-            dayNumber: 1,
-            title: 'Khám phá trung tâm',
-            items: [
-              PublicItineraryItem(
-                customName: 'Hồ Xuân Hương',
-                customAddress: 'Trung tâm Đà Lạt',
-                category: 'NATURE',
-                startTime: '08:00',
-                endTime: '10:00',
-              ),
-            ],
-          ),
-        ],
-      );
+  Future<PublicItineraryDetail> getPublicPlan(String sourceTripId) async {
+    final summary = _mockPublicPlans.firstWhere(
+      (p) => p.sourceTripId == sourceTripId,
+      orElse: () => _publicSummary,
+    );
+    return PublicItineraryDetail(
+      summary: summary,
+      days: [
+        PublicItineraryDay(
+          dayNumber: 1,
+          title: 'Khám phá trung tâm',
+          items: [
+            PublicItineraryItem(
+              customName: summary.destination == 'Hà Nội'
+                  ? 'Hồ Hoàn Kiếm'
+                  : 'Hồ Xuân Hương',
+              customAddress: 'Trung tâm ${summary.destination}',
+              category: 'NATURE',
+              startTime: '08:00',
+              endTime: '10:00',
+            ),
+          ],
+        ),
+      ],
+    );
+  }
 
   @override
   Future<ItineraryPlan> clonePlan(
@@ -257,16 +464,60 @@ class MockItineraryRepository implements ItineraryRepository {
     String? name,
   }) async => getItinerary('trip-clone-${_sequence++}');
 
-  PublicItinerarySummary get _publicSummary => const PublicItinerarySummary(
-    sourceTripId: 'public-trip-1',
-    name: 'Đà Lạt 3 ngày thư giãn',
-    destination: 'Đà Lạt',
-    durationDays: 3,
-    averageRating: 4.8,
-    reviewCount: 24,
-    cloneCount: 16,
-    description: 'Lịch trình nhẹ nhàng qua các điểm nổi bật ở Đà Lạt.',
-  );
+  PublicItinerarySummary get _publicSummary => _mockPublicPlans.first;
+
+  static const List<PublicItinerarySummary> _mockPublicPlans = [
+    PublicItinerarySummary(
+      sourceTripId: 'public-trip-1',
+      name: 'Đà Lạt 3 ngày thư giãn',
+      destination: 'Đà Lạt',
+      durationDays: 3,
+      averageRating: 4.8,
+      reviewCount: 24,
+      cloneCount: 16,
+      description: 'Lịch trình nhẹ nhàng qua các điểm nổi bật ở Đà Lạt.',
+    ),
+    PublicItinerarySummary(
+      sourceTripId: 'public-trip-2',
+      name: 'Chuyến đi Hà Nội 3 ngày khám phá phố cổ',
+      destination: 'Hà Nội',
+      durationDays: 3,
+      averageRating: 5.0,
+      reviewCount: 1,
+      cloneCount: 0,
+      description: 'Khám phá văn hóa ẩm thực và 36 phố phường Hà Nội.',
+    ),
+    PublicItinerarySummary(
+      sourceTripId: 'public-trip-3',
+      name: 'Hành trình di sản Đà Nẵng - Hội An',
+      destination: 'Đà Nẵng',
+      durationDays: 4,
+      averageRating: 4.7,
+      reviewCount: 19,
+      cloneCount: 12,
+      description: 'Bà Nà Hills, Cầu Rồng và phố cổ Hội An về đêm.',
+    ),
+    PublicItinerarySummary(
+      sourceTripId: 'public-trip-4',
+      name: 'Chinh phục Fansipan và săn mây Sa Pa',
+      destination: 'Sa Pa',
+      durationDays: 3,
+      averageRating: 4.9,
+      reviewCount: 31,
+      cloneCount: 25,
+      description: 'Hành trình trekking và cáp treo lên đỉnh Fansipan.',
+    ),
+    PublicItinerarySummary(
+      sourceTripId: 'public-trip-5',
+      name: 'Nghỉ dưỡng biển ngọc Phú Quốc',
+      destination: 'Phú Quốc',
+      durationDays: 4,
+      averageRating: 4.8,
+      reviewCount: 42,
+      cloneCount: 38,
+      description: 'Ngắm hoàng hôn Bãi Sao, lặn ngắm san hô và chợ đêm Phú Quốc.',
+    ),
+  ];
 
   List<ItineraryDay> _sampleDays(String tripId) => [
     ItineraryDay(
@@ -357,6 +608,8 @@ class MockItineraryRepository implements ItineraryRepository {
   ItineraryItem _copyItem(
     ItineraryItem item, {
     bool? isCompleted,
+    String? startTime,
+    String? endTime,
     String? version,
   }) => ItineraryItem(
     id: item.id,
@@ -365,8 +618,8 @@ class MockItineraryRepository implements ItineraryRepository {
     customName: item.customName,
     customAddress: item.customAddress,
     category: item.category,
-    startTime: item.startTime,
-    endTime: item.endTime,
+    startTime: startTime ?? item.startTime,
+    endTime: endTime ?? item.endTime,
     note: item.note,
     estimatedCost: item.estimatedCost,
     isCompleted: isCompleted ?? item.isCompleted,

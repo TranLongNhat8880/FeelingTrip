@@ -171,6 +171,11 @@ const findTrustScoreByUserId = async (userId) => {
       u.bio,
       u.is_verified,
       u.created_at,
+      CASE
+        WHEN u.dob <= CURRENT_DATE
+          THEN EXTRACT(YEAR FROM AGE(CURRENT_DATE, u.dob))::INTEGER
+        ELSE NULL
+      END AS age,
       COALESCE(
         ROUND(AVG(tr.rating)::NUMERIC, 2),
         0
@@ -188,7 +193,8 @@ const findTrustScoreByUserId = async (userId) => {
       u.avatar_url,
       u.bio,
       u.is_verified,
-      u.created_at
+      u.created_at,
+      u.dob
     LIMIT 1;
   `;
 

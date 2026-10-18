@@ -8,12 +8,9 @@ const upload = require('../../shared/middlewares/upload.middleware');
 const {
     reviewMemberSchema,
     reviewTripSchema,
+    tripReviewsQuerySchema,
     reportSchema,
     blockUserSchema,
-    createEmergencyContactSchema,
-    updateEmergencyContactSchema,
-    emergencySosSchema,
-    updateSosStatusSchema,
     idParamSchema,
 } = require('./reviews.validation');
 
@@ -36,6 +33,12 @@ router.post(
     '/trip',
     validate({ body: reviewTripSchema }),
     reviewsController.reviewTrip
+);
+
+router.get(
+    '/trip/:id',
+    validate({ params: idParamSchema, query: tripReviewsQuerySchema }),
+    reviewsController.getTripReviews
 );
 
 // ============================================================================
@@ -77,55 +80,6 @@ router.delete(
     '/block/:id',
     validate({ params: idParamSchema }),
     reviewsController.unblockUser
-);
-
-// ============================================================================
-// EMERGENCY CONTACTS
-// ============================================================================
-
-router.get(
-    '/emergency-contacts',
-    reviewsController.getEmergencyContacts
-);
-
-router.post(
-    '/emergency-contacts',
-    validate({ body: createEmergencyContactSchema }),
-    reviewsController.createEmergencyContact
-);
-
-router.put(
-    '/emergency-contacts/:id',
-    validate({
-        params: idParamSchema,
-        body: updateEmergencyContactSchema,
-    }),
-    reviewsController.updateEmergencyContact
-);
-
-router.delete(
-    '/emergency-contacts/:id',
-    validate({ params: idParamSchema }),
-    reviewsController.deleteEmergencyContact
-);
-
-// ============================================================================
-// SOS
-// ============================================================================
-
-router.post(
-    '/sos',
-    validate({ body: emergencySosSchema }),
-    reviewsController.createSos
-);
-
-router.put(
-    '/sos/:id/status',
-    validate({
-        params: idParamSchema,
-        body: updateSosStatusSchema,
-    }),
-    reviewsController.updateSosStatus
 );
 
 module.exports = router;

@@ -4,7 +4,7 @@ const HTTP_STATUS = require('../../shared/constants/httpStatus');
 
 const createCompanionPost = async (req, res, next) => {
   try {
-    const { tripId, title, content, targetMembersCount, minAge, maxAge, genderPreference, tags } = req.body;
+    const { tripId, title, content, targetMembersCount, recruitmentCount, minAge, maxAge, genderPreference, tags } = req.body;
     const userId = req.user.id;
     const newCompanionPost = await companionsService.createCompanionPost({
         tripId,
@@ -12,6 +12,7 @@ const createCompanionPost = async (req, res, next) => {
         title,
         content,
         targetMembersCount,
+        recruitmentCount,
         minAge,
         maxAge,
         genderPreference,
@@ -28,7 +29,7 @@ const updateCompanionPost = async (req, res, next) => {
   try {
     const {postId} = req.params;
     const userId = req.user.id;
-    const {newCreatorId, title, content, targetMembersCount, minAge, maxAge, genderPreference, tags } = req.body;
+    const {newCreatorId, title, content, targetMembersCount, recruitmentCount, minAge, maxAge, genderPreference, tags } = req.body;
 
     const updatedCompanionPost = await companionsService.updateCompanionPost({
         postId,
@@ -37,6 +38,7 @@ const updateCompanionPost = async (req, res, next) => {
         title,
         content,
         targetMembersCount,
+        recruitmentCount,
         minAge,
         maxAge,
         genderPreference,
@@ -153,6 +155,17 @@ const getMySentRequests = async (req, res, next) => {
   }
 };
 
+const getPublicPostsByUser = async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    const { page, limit } = req.query;
+    const result = await companionsService.getPublicPostsByUser({ userId, page, limit });
+    return sendSuccess(res, result, 'Bài viết công khai của người dùng', HTTP_STATUS.OK);
+  } catch (error) {
+    next(error);
+  }
+};
+
 const getMyPosts = async (req, res, next) => {
   try {
     const userId = req.user.id;
@@ -165,6 +178,7 @@ const getMyPosts = async (req, res, next) => {
 };
 
 module.exports = {
+  getPublicPostsByUser,
   getMyPosts,
   getMySentRequests,
   getPostedTripIds,

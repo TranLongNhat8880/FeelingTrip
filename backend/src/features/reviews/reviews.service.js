@@ -3,7 +3,7 @@ const apiError = require('../../shared/utils/apiError.util');
 const HTTP_STATUS = require('../../shared/constants/httpStatus');
 
 // ============================================================================
-// SERVICE: Reviews, Reports, Blocks, Emergency Contacts & SOS
+// SERVICE: Reviews, Reports, Blocks
 // ============================================================================
 
 const mapReview = (review) => ({
@@ -25,26 +25,6 @@ const mapReport = (report) => ({
     evidenceImageUrl: report.evidence_image_url,
     status: report.status,
     createdAt: report.created_at,
-});
-
-const mapEmergencyContact = (contact) => ({
-    id: contact.id,
-    fullName: contact.full_name,
-    phone: contact.phone,
-    relationship: contact.relationship,
-    createdAt: contact.created_at,
-});
-
-const mapSos = (sos) => ({
-    id: sos.id,
-    userId: sos.user_id,
-    tripId: sos.trip_id,
-    latitude: sos.latitude,
-    longitude: sos.longitude,
-    message: sos.message,
-    status: sos.status,
-    createdAt: sos.created_at,
-    resolvedAt: sos.resolved_at,
 });
 
 /**
@@ -193,7 +173,9 @@ const reviewTrip = async ({
 };
 
 /**
- * Gửi báo cáo vi phạm.
+ * Gửi báo cáo vi phạm, không yêu cầu chuyến đi COMPLETED.
+ * Có tripId: kiểm tra quyền theo bối cảnh chuyến đi tại BE, không tin UI.
+ * Không có tripId: giữ luồng báo cáo tài khoản độc lập hiện có.
  */
 const createReport = async ({
     reporterId,
@@ -221,13 +203,34 @@ const createReport = async ({
     }
 
     if (reportedTripId) {
-        const reportedTrip = await reviewsRepository.findTripById(reportedTripId);
+        const reportedTrip = await reviewsRepository.findReportTripContext({
+            tripId: reportedTripId,
+            reporterId,
+            reportedUserId: reportedUserId || null,
+        });
 
         if (!reportedTrip) {
             throw apiError(
                 HTTP_STATUS.NOT_FOUND,
                 'Không tìm thấy chuyến đi bị báo cáo'
             );
+        }
+
+        if (reportedUserId) {
+            // A public trip/post grants the right to report its content, not
+            // the right to submit a member-specific accusation in that trip.
+            if (reportedTrip.reporter_was_member !== true) {
+                throw apiError(HTTP_STATUS.FORBIDDEN,
+                    'Bạn phải đang hoặc từng tham gia chuyến đi để báo cáo thành viên trong chuyến');
+            }
+            if (reportedTrip.reported_user_was_member !== true) {
+                throw apiError(HTTP_STATUS.BAD_REQUEST,
+                    'Người bị báo cáo không phải người đang hoặc từng tham gia chuyến đi này');
+            }
+        } else if (reportedTrip.reporter_was_member !== true &&
+            reportedTrip.is_publicly_reportable !== true) {
+            throw apiError(HTTP_STATUS.FORBIDDEN,
+                'Chỉ người đang hoặc từng tham gia mới được báo cáo chuyến đi riêng tư chưa có bài tuyển công khai');
         }
     }
 
@@ -317,178 +320,38 @@ const getBlockedUsers = async (userId) => {
     }));
 };
 
-/**
- * Danh sách liên hệ khẩn cấp.
- */
-const getEmergencyContacts = async (userId) => {
-    const contacts = await reviewsRepository.findEmergencyContacts(userId);
-    return contacts.map(mapEmergencyContact);
-};
-
-/**
- * Thêm liên hệ khẩn cấp.
- */
-const createEmergencyContact = async ({
-    userId,
-    fullName,
-    phone,
-    relationship,
-}) => {
-    const contact = await reviewsRepository.createEmergencyContact({
-        userId,
-        fullName,
-        phone,
-        relationship: relationship === '' || relationship === undefined
-            ? null
-            : relationship,
-    });
-
-    return mapEmergencyContact(contact);
-};
-
-/**
- * Cập nhật liên hệ khẩn cấp.
- */
-const updateEmergencyContact = async ({
-    contactId,
-    userId,
-    contactData,
-}) => {
-    const normalizedData = { ...contactData };
-
-    if (normalizedData.relationship === '') {
-        normalizedData.relationship = null;
+const getTripReviews = async ({ tripId, page = 1, limit = 20 }) => {
+    const result = await reviewsRepository.findPublicTripReviews({ tripId, page, limit });
+    if (!result) {
+        throw apiError(HTTP_STATUS.NOT_FOUND, 'Không tìm thấy lịch trình công khai đã hoàn thành');
     }
-
-    const contact = await reviewsRepository.updateEmergencyContact({
-        contactId,
-        userId,
-        contactData: normalizedData,
-    });
-
-    if (!contact) {
-        throw apiError(
-            HTTP_STATUS.NOT_FOUND,
-            'Không tìm thấy người liên hệ khẩn cấp'
-        );
-    }
-
-    return mapEmergencyContact(contact);
-};
-
-/**
- * Xóa liên hệ khẩn cấp.
- */
-const deleteEmergencyContact = async ({ contactId, userId }) => {
-    const deleted = await reviewsRepository.deleteEmergencyContact({
-        contactId,
-        userId,
-    });
-
-    if (!deleted) {
-        throw apiError(
-            HTTP_STATUS.NOT_FOUND,
-            'Không tìm thấy người liên hệ khẩn cấp'
-        );
-    }
-
+    const total = Number(result.review_count);
     return {
-        id: deleted.id,
+        tripId: result.trip_id,
+        averageRating: Number(result.average_rating),
+        reviewCount: total,
+        items: result.items.map(review => ({
+            id: review.id,
+            tripId: result.trip_id,
+            rating: review.rating,
+            comment: review.comment,
+            createdAt: review.created_at,
+            reviewer: {
+                id: review.reviewer.id,
+                displayName: review.reviewer.displayName,
+                avatarUrl: review.reviewer.avatarUrl,
+            },
+        })),
+        pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     };
-};
-
-/**
- * Kích hoạt SOS.
- *
- * Nếu có tripId, người gửi phải tham gia chuyến đi đó.
- */
-const createSos = async ({
-    userId,
-    tripId,
-    latitude,
-    longitude,
-    message,
-}) => {
-    if (tripId) {
-        const trip = await reviewsRepository.findTripContext({
-            tripId,
-            reviewerId: userId,
-            revieweeId: null,
-        });
-
-        if (!trip) {
-            throw apiError(HTTP_STATUS.NOT_FOUND, 'Không tìm thấy chuyến đi');
-        }
-
-        if (!trip.reviewer_is_member) {
-            throw apiError(
-                HTTP_STATUS.FORBIDDEN,
-                'Bạn không phải thành viên của chuyến đi này'
-            );
-        }
-    }
-
-    const sos = await reviewsRepository.createSos({
-        userId,
-        tripId: tripId || null,
-        latitude,
-        longitude,
-        message: message === '' || message === undefined ? null : message,
-    });
-
-    return mapSos(sos);
-};
-
-/**
- * Chuyển SOS từ ACTIVE sang RESOLVED hoặc FALSE_ALARM.
- */
-const updateSosStatus = async ({ sosId, userId, status }) => {
-    const existingSos = await reviewsRepository.findSosByIdForUser({
-        sosId,
-        userId,
-    });
-
-    if (!existingSos) {
-        throw apiError(
-            HTTP_STATUS.NOT_FOUND,
-            'Không tìm thấy cảnh báo SOS'
-        );
-    }
-
-    if (existingSos.status !== 'ACTIVE') {
-        throw apiError(
-            HTTP_STATUS.CONFLICT,
-            'Cảnh báo SOS này đã được kết thúc'
-        );
-    }
-
-    const updatedSos = await reviewsRepository.updateSosStatus({
-        sosId,
-        userId,
-        status,
-    });
-
-    if (!updatedSos) {
-        throw apiError(
-            HTTP_STATUS.CONFLICT,
-            'Trạng thái SOS vừa được thay đổi bởi một yêu cầu khác'
-        );
-    }
-
-    return mapSos(updatedSos);
 };
 
 module.exports = {
     reviewMember,
     reviewTrip,
+    getTripReviews,
     createReport,
     blockUser,
     unblockUser,
     getBlockedUsers,
-    getEmergencyContacts,
-    createEmergencyContact,
-    updateEmergencyContact,
-    deleteEmergencyContact,
-    createSos,
-    updateSosStatus,
 };

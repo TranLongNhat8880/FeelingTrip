@@ -29,7 +29,8 @@ abstract class CompanionRepository {
     required String tripId,
     required String title,
     String? content,
-    required int targetMembersCount,
+    int? targetMembersCount,
+    int? recruitmentCount,
     int? minAge,
     int? maxAge,
     String genderPreference = 'ANY',
@@ -57,6 +58,10 @@ abstract class CompanionRepository {
   Future<void> updatePost(String postId, Map<String, dynamic> data);
   Future<void> closePost(String postId);
   Future<List<Map<String, dynamic>>> getMyPosts({int page = 1});
+  Future<List<Map<String, dynamic>>> getPublicPosts({
+    required String userId,
+    int page = 1,
+  });
   Future<List<Map<String, dynamic>>> getMySentRequests({
     String? status,
     int page = 1,

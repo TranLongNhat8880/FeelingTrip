@@ -121,6 +121,198 @@ void main() {
       expect(vm.trips.isNotEmpty, isTrue);
       expect(vm.isLoading, isFalse);
     });
+    test('TripViewModel excludes trips where membershipStatus is REMOVED', () async {
+      final repo = _RemovedMemberTripRepository();
+      final vm = TripViewModel(repository: repo);
+
+      await vm.loadTrips();
+      expect(vm.trips.any((t) => t.membershipStatus == 'REMOVED'), isFalse);
+      expect(vm.trips.length, 1);
+      expect(vm.trips.first.name, 'Chuyến đi hoạt động');
+    });
+
+
+    test('TripViewModel handles itinerary conflict validation gate error on transitionStatus (Approach C)', () async {
+      final repo = _FailingConflictTripRepository();
+      final vm = TripViewModel(repository: repo);
+      await vm.loadTrips();
+      final upcomingTrip = vm.trips.firstWhere((t) => t.status == 'UPCOMING');
+      await vm.loadTrip(upcomingTrip.id);
+
+      final success = await vm.transitionStatus('ONGOING');
+      expect(success, isFalse);
+      expect(vm.errorMessage, contains('chồng lấn'));
+      expect(vm.selectedTrip?.status, 'UPCOMING');
+    });
+
+    test('MockTripRepository rejects ONGOING when trip has no itinerary days', () async {
+      final itinRepo = MockItineraryRepository();
+      itinRepo.setDaysForTrip('trip-no-days', []);
+      final repo = MockTripRepository(itineraryRepository: itinRepo);
+
+      final trip = TripModel(
+        id: 'trip-no-days',
+        name: 'Chuyến đi trống ngày',
+        destination: 'Hà Nội',
+        startDate: DateTime.now().add(const Duration(days: 5)),
+        endDate: DateTime.now().add(const Duration(days: 7)),
+        estimatedBudget: 2000000,
+        privacyType: 'PRIVATE',
+        status: 'UPCOMING',
+        memberRole: 'LEADER',
+      );
+
+      expect(
+        () => repo.transitionStatus(trip, 'ONGOING'),
+        throwsA(predicate((e) => e.toString().contains('chưa có lịch trình'))),
+      );
+    });
+
+    test('MockTripRepository rejects ONGOING when days have no destinations', () async {
+      final itinRepo = MockItineraryRepository();
+      itinRepo.setDaysForTrip('trip-no-items', [
+        ItineraryDay(
+          id: 'day-empty',
+          tripId: 'trip-no-items',
+          dayNumber: 1,
+          title: 'Ngày 1',
+          tripDate: DateTime.now().add(const Duration(days: 5)),
+          materialized: true,
+          items: const [],
+        ),
+      ]);
+      final repo = MockTripRepository(itineraryRepository: itinRepo);
+
+      final trip = TripModel(
+        id: 'trip-no-items',
+        name: 'Chuyến đi chưa có điểm đến',
+        destination: 'Hà Nội',
+        startDate: DateTime.now().add(const Duration(days: 5)),
+        endDate: DateTime.now().add(const Duration(days: 7)),
+        estimatedBudget: 2000000,
+        privacyType: 'PRIVATE',
+        status: 'UPCOMING',
+        memberRole: 'LEADER',
+      );
+
+      expect(
+        () => repo.transitionStatus(trip, 'ONGOING'),
+        throwsA(predicate((e) => e.toString().contains('chưa có điểm đến'))),
+      );
+    });
+
+    test('MockTripRepository rejects ONGOING when items have overlapping time slots', () async {
+      final itinRepo = MockItineraryRepository();
+      itinRepo.setDaysForTrip('trip-overlap', [
+        ItineraryDay(
+          id: 'day-overlap',
+          tripId: 'trip-overlap',
+          dayNumber: 1,
+          title: 'Ngày 1',
+          tripDate: DateTime.now().add(const Duration(days: 5)),
+          materialized: true,
+          items: const [
+            ItineraryItem(
+              id: 'item-1',
+              itineraryId: 'day-overlap',
+              customName: 'Nhà hát Lớn Hà Nội',
+              category: 'ATTRACTION',
+              startTime: '09:43',
+              endTime: '11:13',
+              estimatedCost: 0,
+              isCompleted: false,
+              version: '1',
+            ),
+            ItineraryItem(
+              id: 'item-2',
+              itineraryId: 'day-overlap',
+              customName: 'Bảo tàng Dân tộc học Việt Nam',
+              category: 'ATTRACTION',
+              startTime: '08:00',
+              endTime: '09:30',
+              estimatedCost: 0,
+              isCompleted: false,
+              version: '1',
+            ),
+          ],
+        ),
+      ]);
+      final repo = MockTripRepository(itineraryRepository: itinRepo);
+
+      final trip = TripModel(
+        id: 'trip-overlap',
+        name: 'Chuyến đi lỗi giờ',
+        destination: 'Hà Nội',
+        startDate: DateTime.now().add(const Duration(days: 5)),
+        endDate: DateTime.now().add(const Duration(days: 7)),
+        estimatedBudget: 2000000,
+        privacyType: 'PRIVATE',
+        status: 'UPCOMING',
+        memberRole: 'LEADER',
+      );
+
+      expect(
+        () => repo.transitionStatus(trip, 'ONGOING'),
+        throwsA(predicate((e) =>
+            e.toString().contains('chồng lấn') &&
+            e.toString().contains('Nhà hát Lớn Hà Nội') &&
+            e.toString().contains('Bảo tàng Dân tộc học'))),
+      );
+    });
+
+    test('MockTripRepository allows ONGOING when items are valid and sequential', () async {
+      final itinRepo = MockItineraryRepository();
+      itinRepo.setDaysForTrip('trip-valid', [
+        ItineraryDay(
+          id: 'day-valid',
+          tripId: 'trip-valid',
+          dayNumber: 1,
+          title: 'Ngày 1',
+          tripDate: DateTime.now().add(const Duration(days: 5)),
+          materialized: true,
+          items: const [
+            ItineraryItem(
+              id: 'item-1',
+              itineraryId: 'day-valid',
+              customName: 'Bảo tàng Dân tộc học Việt Nam',
+              category: 'ATTRACTION',
+              startTime: '08:00',
+              endTime: '09:30',
+              estimatedCost: 0,
+              isCompleted: false,
+              version: '1',
+            ),
+            ItineraryItem(
+              id: 'item-2',
+              itineraryId: 'day-valid',
+              customName: 'Nhà hát Lớn Hà Nội',
+              category: 'ATTRACTION',
+              startTime: '09:43',
+              endTime: '11:13',
+              estimatedCost: 0,
+              isCompleted: false,
+              version: '1',
+            ),
+          ],
+        ),
+      ]);
+      final repo = MockTripRepository(itineraryRepository: itinRepo);
+
+      final trip = TripModel(
+        id: 'trip-valid',
+        name: 'Chuyến đi hợp lệ',
+        destination: 'Hà Nội',
+        startDate: DateTime.now().add(const Duration(days: 5)),
+        endDate: DateTime.now().add(const Duration(days: 7)),
+        estimatedBudget: 2000000,
+        privacyType: 'PRIVATE',
+        status: 'UPCOMING',
+        memberRole: 'LEADER',
+      );
+
+      final updated = await repo.transitionStatus(trip, 'ONGOING');
+      expect(updated.status, 'ONGOING');
+    });
   });
 
   group('ItineraryModel & MockItineraryRepository Tests', () {
@@ -243,6 +435,81 @@ void main() {
       expect(cloned, isNotNull);
       expect(cloned!.trip.id, isNotEmpty);
     });
+
+    test('MockItineraryRepository reorders items and recalculates sequential times (Approach A)', () async {
+      final repo = MockItineraryRepository();
+      final plan = await repo.getItinerary('trip-reorder-test');
+      final day = plan.days.first;
+
+      final item2 = await repo.addItem(
+        day.id!,
+        const ItineraryItemDraft(
+          customName: 'Thung Lũng Tình Yêu',
+          startTime: '10:00',
+          endTime: '11:30',
+          category: 'ATTRACTION',
+          estimatedCost: 0,
+        ),
+      );
+
+      final item3 = await repo.addItem(
+        day.id!,
+        const ItineraryItemDraft(
+          customName: 'Ăn trưa',
+          startTime: '11:30',
+          endTime: '12:30',
+          category: 'RESTAURANT',
+          estimatedCost: 0,
+        ),
+      );
+
+      final updatedPlan = await repo.getItinerary('trip-reorder-test');
+      final currentDay = updatedPlan.days.first;
+      expect(currentDay.items.length, 3);
+      final item1 = currentDay.items[0];
+
+      // Reorder items: [item2.id, item3.id, item1.id]
+      final reorderedDay = await repo.reorderItems(
+        currentDay,
+        [item2.id, item3.id, item1.id],
+      );
+
+      // Item 2 starts at 10:00, dur 90m -> 10:00 - 11:30
+      // Item 3 starts at 11:30, dur 60m -> 11:30 - 12:30
+      // Item 1 starts at 12:30, dur 120m -> 12:30 - 14:30
+      expect(reorderedDay.items[0].id, item2.id);
+      expect(reorderedDay.items[0].startTime, '10:00');
+      expect(reorderedDay.items[0].endTime, '11:30');
+
+      expect(reorderedDay.items[1].id, item3.id);
+      expect(reorderedDay.items[1].startTime, '11:30');
+      expect(reorderedDay.items[1].endTime, '12:30');
+
+      expect(reorderedDay.items[2].id, item1.id);
+      expect(reorderedDay.items[2].startTime, '12:30');
+      expect(reorderedDay.items[2].endTime, '14:30');
+    });
+
+    test('MockItineraryRepository searchPlaces filters places by destination and keyword', () async {
+      final repo = MockItineraryRepository();
+
+      final hanoiPlaces = await repo.searchPlaces(destination: 'Hà Nội');
+      expect(hanoiPlaces.isNotEmpty, isTrue);
+      expect(hanoiPlaces.every((p) => p.destination == 'Hà Nội'), isTrue);
+      expect(hanoiPlaces.any((p) => p.name.contains('Hoàn Kiếm')), isTrue);
+      expect(hanoiPlaces.any((p) => p.name.contains('Hàm Lợn')), isTrue);
+
+      final dalatPlaces = await repo.searchPlaces(destination: 'Đà Lạt');
+      expect(dalatPlaces.isNotEmpty, isTrue);
+      expect(dalatPlaces.every((p) => p.destination == 'Đà Lạt'), isTrue);
+
+      final keywordPlaces = await repo.searchPlaces(
+        destination: 'Hà Nội',
+        keyword: 'Văn Miếu',
+      );
+      expect(keywordPlaces.length, 1);
+      expect(keywordPlaces.first.name, 'Văn Miếu - Quốc Tử Giám');
+    });
   });
 
   group('AppRoutes Navigation & onGenerateRoute Tests', () {
@@ -322,5 +589,154 @@ void main() {
       await tester.tap(find.text('Hủy'));
       await tester.pumpAndSettle();
     });
+
+    testWidgets('TripFormScreen create mode is private by default and hides companion section', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: TripFormScreen(
+            repository: MockTripRepository(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Chế độ: Nhóm riêng tư'), findsOneWidget);
+      expect(find.text('Mặc định'), findsOneWidget);
+      expect(find.byType(SegmentedButton<bool>), findsNothing);
+      expect(find.text('Thiết lập tìm bạn đồng hành'), findsNothing);
+      expect(find.text('Tạo chuyến đi'), findsNWidgets(2)); // Title and bottom button
+    });
+
+    testWidgets('TripFormScreen edit private trip allows converting to public and expands companion setup', (tester) async {
+      final privateTrip = TripModel(
+        id: 'test-private-1',
+        name: 'Chuyến đi riêng tư',
+        destination: 'Nha Trang',
+        startDate: DateTime.now().add(const Duration(days: 10)),
+        endDate: DateTime.now().add(const Duration(days: 14)),
+        estimatedBudget: 4000000,
+        privacyType: 'PRIVATE',
+        status: 'UPCOMING',
+        memberRole: 'LEADER',
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: TripFormScreen(
+            repository: MockTripRepository(),
+            trip: privateTrip,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Quyền riêng tư: Nhóm riêng tư'), findsOneWidget);
+      expect(find.text('Chuyển sang chuyến đi Công khai'), findsOneWidget);
+      expect(find.text('Thiết lập tìm bạn đồng hành'), findsNothing);
+
+      // Scroll to button and tap convert to public
+      await tester.ensureVisible(find.text('Chuyển sang chuyến đi Công khai'));
+      await tester.tap(find.text('Chuyển sang chuyến đi Công khai'));
+      await tester.pumpAndSettle();
+
+      // Now it reveals public status, revert button and companion setup section
+      expect(find.text('Quyền riêng tư: Công khai'), findsOneWidget);
+      expect(find.text('Sẽ công khai khi lưu'), findsOneWidget);
+      expect(find.text('Giữ nhóm riêng tư'), findsOneWidget);
+      expect(find.text('Thiết lập tìm bạn đồng hành'), findsOneWidget);
+      expect(find.text('Lưu & Đăng tuyển bạn'), findsOneWidget);
+
+      // Tap revert to private
+      await tester.ensureVisible(find.text('Giữ nhóm riêng tư'));
+      await tester.tap(find.text('Giữ nhóm riêng tư'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Quyền riêng tư: Nhóm riêng tư'), findsOneWidget);
+      expect(find.text('Thiết lập tìm bạn đồng hành'), findsNothing);
+    });
+
+    testWidgets('TripFormScreen edit public trip shows public card and allows switching to private', (tester) async {
+      final publicTrip = TripModel(
+        id: 'test-public-1',
+        name: 'Chuyến đi công khai',
+        destination: 'Hà Giang',
+        startDate: DateTime.now().add(const Duration(days: 10)),
+        endDate: DateTime.now().add(const Duration(days: 14)),
+        estimatedBudget: 6000000,
+        privacyType: 'PUBLIC',
+        status: 'UPCOMING',
+        memberRole: 'LEADER',
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: TripFormScreen(
+            repository: MockTripRepository(),
+            trip: publicTrip,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Quyền riêng tư: Nhóm công khai'), findsOneWidget);
+      expect(find.text('Đang mở'), findsOneWidget);
+      expect(find.text('Chuyển về Nhóm riêng tư'), findsOneWidget);
+
+      // Scroll to button and tap switch to private
+      await tester.ensureVisible(find.text('Chuyển về Nhóm riêng tư'));
+      await tester.tap(find.text('Chuyển về Nhóm riêng tư'));
+      await tester.pumpAndSettle();
+
+      // Confirm dialog appears
+      expect(find.text('Chuyển về Nhóm riêng tư?'), findsOneWidget);
+      await tester.tap(find.text('Chuyển về riêng tư'));
+      await tester.pumpAndSettle();
+
+      // Card updates to "Sẽ chuyển về Riêng tư"
+      expect(find.text('Quyền riêng tư: Riêng tư'), findsOneWidget);
+      expect(find.text('Sẽ chuyển về Riêng tư'), findsOneWidget);
+      expect(find.text('Giữ nhóm công khai'), findsOneWidget);
+      expect(find.text('Lưu & Chuyển về Riêng tư'), findsOneWidget);
+    });
   });
 }
+
+class _FailingConflictTripRepository extends MockTripRepository {
+  @override
+  Future<TripModel> transitionStatus(TripModel trip, String status) async {
+    if (status == 'ONGOING') {
+      throw Exception('Lịch trình chưa hợp lệ để bắt đầu chuyến đi: Ngày 1: "Điểm A" (kết thúc 10:00) chồng lấn với "Điểm B" (bắt đầu 09:30)');
+    }
+    return super.transitionStatus(trip, status);
+  }
+}
+
+class _RemovedMemberTripRepository extends MockTripRepository {
+  @override
+  Future<TripPage> getMyTrips({String? status, bool includeHistory = true}) async {
+    final activeTrip = TripModel(
+      id: 'active-trip-1',
+      name: 'Chuyến đi hoạt động',
+      destination: 'Hà Nội',
+      startDate: DateTime.now().add(const Duration(days: 5)),
+      endDate: DateTime.now().add(const Duration(days: 7)),
+      estimatedBudget: 3000000,
+      privacyType: 'PRIVATE',
+      status: 'UPCOMING',
+      membershipStatus: 'ACTIVE',
+    );
+    final removedTrip = TripModel(
+      id: 'removed-trip-1',
+      name: 'Chuyến đi bị kích',
+      destination: 'Đà Lạt',
+      startDate: DateTime.now().add(const Duration(days: 2)),
+      endDate: DateTime.now().add(const Duration(days: 4)),
+      estimatedBudget: 2000000,
+      privacyType: 'PRIVATE',
+      status: 'UPCOMING',
+      membershipStatus: 'REMOVED',
+    );
+    return TripPage(items: [activeTrip, removedTrip], total: 2);
+  }
+}
+

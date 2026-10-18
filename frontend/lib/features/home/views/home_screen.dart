@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'personal_content.dart';
 
 import '../../../core/constants/api_endpoints.dart';
 import '../../../core/constants/app_colors.dart';
@@ -16,7 +17,7 @@ import '../../companion/models/companion_post_model.dart';
 import '../../companion/repositories/mock_companion_repository.dart';
 import '../../notification/viewmodels/notification_viewmodel.dart';
 import '../../notification/views/notification_screen.dart';
-import '../../admin/views/plan_library_screen.dart';
+import '../../itinerary/views/public_itineraries_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -48,13 +49,12 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  static const _titles = ['Trang chủ', 'Chuyến đi', 'Thông báo', 'Cá nhân'];
   final _scaffold = GlobalKey<ScaffoldState>();
   bool _logoutPromptOpen = false;
 
   void _select(int index) {
     setState(() => _tab = index);
-    if (index == 2) _notifications.load();
+    if (index == 3) _notifications.load();
     if (index == 1) _loadTrips();
   }
 
@@ -182,7 +182,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       IconButton(
                         tooltip: 'Mở trang cá nhân',
-                        onPressed: () => _select(3),
+                        onPressed: () => _select(4),
                         icon: AvatarPlaceholder(
                           name: name,
                           imageUrl: user.avatarUrl,
@@ -199,7 +199,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Text(_titles[_tab], style: text.headlineMedium),
+                        Text('Chuyến đi', style: text.headlineMedium),
                         const SizedBox(height: 8),
                         if (_tab == 1) ...[
                           // ── TAB 1: KẾ HOẠCH & CHUYẾN ĐI CỦA TÔI ──
@@ -376,182 +376,6 @@ class _HomeScreenState extends State<HomeScreen> {
                               ],
                             ),
                           ),
-                        ] else if (_tab == 3) ...[
-                          // ── TAB 3: TRANG CÁ NHÂN & TRUY CẬP NHANH ──
-                          const SizedBox(height: 16),
-                          AppCard(
-                            softShadow: true,
-                            child: Column(
-                              children: [
-                                AvatarPlaceholder(
-                                  name: name,
-                                  imageUrl: user.avatarUrl,
-                                  radius: 36,
-                                ),
-                                const SizedBox(height: 16),
-                                Text(name, style: text.titleLarge),
-                                const SizedBox(height: 8),
-                                Text(
-                                  user.email,
-                                  textAlign: TextAlign.center,
-                                  style: text.bodyMedium?.copyWith(
-                                    color: AppColors.textSecondary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                          Text('Truy cập nhanh', style: text.titleSmall),
-                          const SizedBox(height: 12),
-                          AppCard(
-                            outlined: true,
-                            padding: EdgeInsets.zero,
-                            child: Column(
-                              children: [
-                                ListTile(
-                                  leading: const Icon(
-                                    Icons.manage_accounts_outlined,
-                                    color: AppColors.primary,
-                                  ),
-                                  title: const Text('Hồ sơ cá nhân'),
-                                  subtitle: const Text(
-                                    'Thông tin cá nhân, eKYC và tài khoản ngân hàng',
-                                  ),
-                                  trailing: const Icon(
-                                    Icons.chevron_right,
-                                    size: 20,
-                                  ),
-                                  onTap: () => Navigator.pushNamed(
-                                    context,
-                                    AppRoutes.profile,
-                                  ),
-                                ),
-                                const Divider(height: 1, indent: 56),
-                                ListTile(
-                                  leading: const Icon(
-                                    Icons.luggage_outlined,
-                                    color: AppColors.primary,
-                                  ),
-                                  title: const Text('Chuyến đi của tôi'),
-                                  subtitle: const Text(
-                                    'Quản lý chuyến đi & lịch trình chi tiết',
-                                  ),
-                                  trailing: const Icon(
-                                    Icons.chevron_right,
-                                    size: 20,
-                                  ),
-                                  onTap: () => Navigator.pushNamed(
-                                    context,
-                                    AppRoutes.tripList,
-                                  ),
-                                ),
-                                const Divider(height: 1, indent: 56),
-                                ListTile(
-                                  leading: const Icon(
-                                    Icons.explore_outlined,
-                                    color: AppColors.primary,
-                                  ),
-                                  title: const Text('Kho địa điểm du lịch'),
-                                  subtitle: const Text(
-                                    'Khám phá danh lam thắng cảnh',
-                                  ),
-                                  trailing: const Icon(
-                                    Icons.chevron_right,
-                                    size: 20,
-                                  ),
-                                  onTap: () => Navigator.pushNamed(
-                                    context,
-                                    AppRoutes.places,
-                                  ),
-                                ),
-                                const Divider(height: 1, indent: 56),
-                                ListTile(
-                                  leading: const Icon(
-                                    Icons.inbox_outlined,
-                                    color: AppColors.warning,
-                                  ),
-                                  title: const Text(
-                                    'Yêu cầu tham gia chuyến đi',
-                                  ),
-                                  subtitle: const Text(
-                                    'Duyệt đơn ghép đoàn bạn đồng hành',
-                                  ),
-                                  trailing: const Icon(
-                                    Icons.chevron_right,
-                                    size: 20,
-                                  ),
-                                  onTap: () => Navigator.push<void>(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) =>
-                                          const CompanionRequestsScreen(
-                                            initialReceived: true,
-                                          ),
-                                    ),
-                                  ),
-                                ),
-                                if (user.isAdmin) ...[
-                                  const Divider(height: 1, indent: 56),
-                                  ListTile(
-                                    leading: const Icon(
-                                      Icons.admin_panel_settings_outlined,
-                                      color: Color(0xFF0284C7),
-                                    ),
-                                    title: const Text('Bảng điều khiển Admin'),
-                                    subtitle: const Text(
-                                      'Quản trị người dùng & địa điểm',
-                                    ),
-                                    trailing: const Icon(
-                                      Icons.chevron_right,
-                                      size: 20,
-                                    ),
-                                    onTap: () => Navigator.pushNamed(
-                                      context,
-                                      AppRoutes.admin,
-                                    ),
-                                  ),
-                                  const Divider(height: 1, indent: 56),
-                                  ListTile(
-                                    leading: const Icon(
-                                      Icons.palette_outlined,
-                                      color: Color(0xFF9333EA),
-                                    ),
-                                    title: const Text(
-                                      'Thư viện UI Kit (Debug)',
-                                    ),
-                                    subtitle: const Text(
-                                      'Xem toàn bộ component mẫu',
-                                    ),
-                                    trailing: const Icon(
-                                      Icons.chevron_right,
-                                      size: 20,
-                                    ),
-                                    onTap: () => Navigator.pushNamed(
-                                      context,
-                                      AppRoutes.uiKit,
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          if (auth.errorMessage != null)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: Text(
-                                auth.errorMessage!,
-                                style: const TextStyle(color: AppColors.error),
-                              ),
-                            ),
-                          CustomButton(
-                            text: 'Đăng xuất',
-                            isLoading: auth.isLoading,
-                            variant: AppButtonVariant.secondary,
-                            icon: Icons.logout_rounded,
-                            onPressed: _confirmLogout,
-                          ),
                         ],
                       ],
                     ),
@@ -580,6 +404,10 @@ class _HomeScreenState extends State<HomeScreen> {
             label: 'Chuyến đi',
             icon: Icons.luggage_outlined,
           ),
+          const AppNavigationItem(
+            label: 'Cộng đồng',
+            icon: Icons.alt_route_rounded,
+          ),
           AppNavigationItem(
             label: 'Thông báo',
             icon: Icons.notifications_none_rounded,
@@ -589,16 +417,18 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       body: IndexedStack(
-        index: _tab == 0
-            ? 0
-            : _tab == 2
-            ? 1
-            : 2,
+        index: _tab,
         children: [
           CompanionFeedScreen(
             embedded: true,
             active: _tab == 0,
-            onProfileTap: () => _select(3),
+            onProfileTap: () => _select(4),
+          ),
+          legacyTabs,
+          PublicItinerariesScreen(
+            embedded: true,
+            onMenuTap: () => _scaffold.currentState?.openDrawer(),
+            onProfileTap: () => _select(4),
           ),
           Center(
             child: ConstrainedBox(
@@ -608,7 +438,12 @@ class _HomeScreenState extends State<HomeScreen> {
               child: NotificationScreen(viewModel: _notifications),
             ),
           ),
-          if (_tab == 1 || _tab == 3) legacyTabs else const SizedBox.shrink(),
+          PersonalContent(
+            user: user,
+            loading: auth.isLoading,
+            error: auth.errorMessage,
+            onLogout: _confirmLogout,
+          ),
         ],
       ),
     );
@@ -708,12 +543,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 color: Color(0xFF0D9488),
               ),
               title: const Text('Kho lịch trình & mẫu'),
+              selected: _tab == 2,
+              selectedColor: AppColors.primary,
               onTap: () {
                 Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const PlanLibraryScreen()),
-                );
+                _select(2);
               },
             ),
             ListTile(
@@ -770,6 +604,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
               },
             ),
+            ListTile(
+              leading: const Icon(Icons.mail_outline),
+              title: const Text('Lời mời của tôi'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, AppRoutes.tripInvitations);
+              },
+            ),
             const Divider(height: 20),
             const Padding(
               padding: EdgeInsets.fromLTRB(20, 8, 20, 8),
@@ -808,7 +650,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ListTile(
               leading: const Icon(Icons.notifications_none_rounded),
               title: const Text('Thông báo'),
-              selected: _tab == 2,
+              selected: _tab == 3,
               selectedColor: AppColors.primary,
               trailing: _notifications.unreadCount > 0
                   ? Container(
@@ -832,7 +674,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   : null,
               onTap: () {
                 Navigator.pop(context);
-                _select(2);
+                _select(3);
               },
             ),
             if (user.isAdmin) ...[

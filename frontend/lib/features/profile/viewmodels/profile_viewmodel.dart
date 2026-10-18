@@ -32,6 +32,9 @@ class ProfileViewModel extends ChangeNotifier {
   bool _isCreatingBankLink = false;
 
   String? _errorMessage;
+  String? _profileErrorMessage;
+  String? _bankAccountsErrorMessage;
+  String? _bankLinkErrorMessage;
   bool _disposed = false;
 
   ProfileModel? get profile => _profile;
@@ -47,12 +50,16 @@ class ProfileViewModel extends ChangeNotifier {
 
   bool get hasBankAccounts => _bankAccounts.isNotEmpty;
   String? get errorMessage => _errorMessage;
+  String? get profileErrorMessage => _profileErrorMessage;
+  String? get bankAccountsErrorMessage => _bankAccountsErrorMessage;
+  String? get bankLinkErrorMessage => _bankLinkErrorMessage;
 
   Future<void> loadProfile() async {
     if (_disposed || _isLoadingProfile) return;
 
     _isLoadingProfile = true;
     _errorMessage = null;
+    _profileErrorMessage = null;
     _notify();
 
     try {
@@ -75,6 +82,7 @@ class ProfileViewModel extends ChangeNotifier {
       }
     } catch (error) {
       _errorMessage = _messageFor(error, 'Không thể tải hồ sơ cá nhân.');
+      _profileErrorMessage = _errorMessage;
     } finally {
       _isLoadingProfile = false;
       _notify();
@@ -104,13 +112,16 @@ class ProfileViewModel extends ChangeNotifier {
       if (_disposed) return false;
 
       _profile = updatedProfile;
+      _profileErrorMessage = null;
 
-      try {
-        _trustScore = await _repository
-            .getTrustScore(updatedProfile.id)
-            .timeout(const Duration(seconds: 20));
-      } catch (_) {
-        // Không chặn kết quả cập nhật hồ sơ nếu điểm tín nhiệm tải lỗi.
+      if (data.includePersonalFields) {
+        try {
+          _trustScore = await _repository
+              .getTrustScore(updatedProfile.id)
+              .timeout(const Duration(seconds: 20));
+        } catch (_) {
+          // Không chặn kết quả cập nhật hồ sơ nếu điểm tín nhiệm tải lỗi.
+        }
       }
 
       return true;
@@ -167,19 +178,23 @@ class ProfileViewModel extends ChangeNotifier {
     }
   }
 
-  Future<void> loadBankAccounts() async {
-    if (_disposed || _isLoadingBankAccounts) return;
+  Future<bool> loadBankAccounts() async {
+    if (_disposed || _isLoadingBankAccounts) return false;
 
     _isLoadingBankAccounts = true;
     _errorMessage = null;
+    _bankAccountsErrorMessage = null;
     _notify();
 
     try {
       _bankAccounts = await _repository.getBankAccounts().timeout(
         const Duration(seconds: 20),
       );
+      return !_disposed;
     } catch (error) {
       _errorMessage = _messageFor(error, 'Không thể tải tài khoản ngân hàng.');
+      _bankAccountsErrorMessage = _errorMessage;
+      return false;
     } finally {
       _isLoadingBankAccounts = false;
       _notify();
@@ -194,6 +209,7 @@ class ProfileViewModel extends ChangeNotifier {
 
     _isCreatingBankLink = true;
     _errorMessage = null;
+    _bankLinkErrorMessage = null;
     _notify();
 
     try {
@@ -202,6 +218,7 @@ class ProfileViewModel extends ChangeNotifier {
           .timeout(const Duration(seconds: 20));
     } catch (error) {
       _errorMessage = _messageFor(error, 'Không thể tạo liên kết Bank Hub.');
+      _bankLinkErrorMessage = _errorMessage;
       return null;
     } finally {
       _isCreatingBankLink = false;
@@ -209,20 +226,24 @@ class ProfileViewModel extends ChangeNotifier {
     }
   }
 
-  Future<void> refreshAfterBankReturn() async {
-    await loadBankAccounts();
+  Future<bool> refreshAfterBankReturn() async {
+    final accountsLoaded = await loadBankAccounts();
 
-    if (_disposed) return;
+    if (_disposed || !accountsLoaded) return false;
 
     try {
       _profile = await _repository.getProfile().timeout(
         const Duration(seconds: 20),
       );
+      _profileErrorMessage = null;
+      return !_disposed;
     } catch (error) {
       _errorMessage = _messageFor(
         error,
         'Chưa cập nhật được trạng thái liên kết ngân hàng.',
       );
+      _profileErrorMessage = _errorMessage;
+      return false;
     } finally {
       _notify();
     }

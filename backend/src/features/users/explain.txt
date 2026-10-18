@@ -39,7 +39,16 @@ PHÂN HỆ: USERS (HỒ SƠ CÁ NHÂN & eKYC CCCD) - src/features/users/
    - Không cho người dùng tự ghi verificationStatus, verificationRejectionReason
      hay is_verified bằng API cập nhật profile; các giá trị này do hệ thống quản lý.
 
-6. ẢNH VÀ LIÊN KẾT NGÂN HÀNG:
+6. HỒ SƠ CÔNG KHAI:
+   - GET /api/v1/users/trust-score/:id nhận ID người cần xem, không phải hồ sơ
+     của người đang đăng nhập. Chỉ trả whitelist thông tin công khai.
+   - age là số tuổi tính từ users.dob ở thời điểm truy vấn; thiếu ngày sinh
+     hoặc ngày sinh tương lai thì age = null. Không thêm cột hay migration DB.
+   - Không trả phone, dob, gender, email, role, ngân hàng hoặc giấy tờ eKYC.
+   - FE hiển thị họ tên, biệt danh, độ tuổi, giới thiệu, điểm và số đánh giá.
+     Chưa có cơ chế chủ tài khoản cho phép công khai các thông tin riêng tư.
+
+7. ẢNH VÀ LIÊN KẾT NGÂN HÀNG:
    - Dùng ../../shared/middlewares/upload.middleware.js khi triển khai route upload
      ảnh avatar/CCCD/selfie: multipart -> Cloudinary -> URL để lưu vào cột tương ứng.
      Middleware đã có; feature vẫn cần gắn route, kiểm tra quyền và trả URL cho client.

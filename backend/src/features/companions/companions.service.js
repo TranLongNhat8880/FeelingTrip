@@ -17,6 +17,7 @@ const createCompanionPost = async ({
     title,
     content,
     targetMembersCount,
+    recruitmentCount,
     minAge = null,
     maxAge = null,
     genderPreference = 'ANY',
@@ -46,6 +47,10 @@ const createCompanionPost = async ({
             throw apiError(403, 'Chỉ trưởng nhóm chuyến đi mới có quyền tạo bài tuyển bạn đồng hành');
         }
 
+        if (trip.privacy_type !== 'PUBLIC') {
+            throw apiError(400, 'Hãy chuyển chuyến đi sang công khai trước khi đăng tuyển bạn đồng hành');
+        }
+
         const existsPost = await companionsRepository.checkExistsPostByTripId(tripId, client);
         if (existsPost) {
             throw apiError(409, 'Chuyến đi này đã có bài viết đang hoạt động');
@@ -56,7 +61,13 @@ const createCompanionPost = async ({
             throw apiError(400, 'Chuyến đi phải có ít nhất 1 thành viên');
         }
 
-        if (targetMembersCount <= currentMembersCount) {
+        const effectiveTarget = recruitmentCount !== undefined
+            ? currentMembersCount + recruitmentCount
+            : targetMembersCount;
+        if (!Number.isInteger(effectiveTarget) || effectiveTarget > 50) {
+            throw apiError(400, 'Tổng số thành viên không được vượt quá 50 người');
+        }
+        if (effectiveTarget <= currentMembersCount) {
             throw apiError(400, 'Số lượng thành viên mục tiêu phải lớn hơn số thành viên hiện tại trong đoàn');
         }
 
@@ -66,7 +77,7 @@ const createCompanionPost = async ({
                 creatorId: userId,
                 title,
                 content,
-                targetMembersCount,
+                targetMembersCount: effectiveTarget,
                 currentMembersCount,
                 minAge,
                 maxAge,
@@ -89,6 +100,7 @@ const updateCompanionPost = async ({
     title,
     content,
     targetMembersCount,
+    recruitmentCount,
     minAge,
     maxAge,
     genderPreference,
@@ -133,7 +145,12 @@ const updateCompanionPost = async ({
         }
 
         const actualMembersCount = await companionsRepository.getTripMembersCount(post.trip_id, client);
-        const effectiveTarget = targetMembersCount !== undefined ? targetMembersCount : post.target_members_count;
+        const effectiveTarget = recruitmentCount !== undefined
+            ? actualMembersCount + recruitmentCount
+            : targetMembersCount !== undefined ? targetMembersCount : post.target_members_count;
+        if (!Number.isInteger(effectiveTarget) || effectiveTarget > 50) {
+            throw apiError(400, 'Tổng số thành viên không được vượt quá 50 người');
+        }
         if (effectiveTarget < actualMembersCount) {
             throw apiError(400, 'Số lượng thành viên mục tiêu không được nhỏ hơn số thành viên hiện có trong đoàn');
         }
@@ -145,7 +162,7 @@ const updateCompanionPost = async ({
             newCreatorId,
             title,
             content,
-            targetMembersCount,
+            targetMembersCount: effectiveTarget,
             currentMembersCount: actualMembersCount,
             status: newStatus,
             minAge,
@@ -256,6 +273,15 @@ const getCompanionPostDetail = async ({ postId, userId }) => {
         throw apiError(404, 'Bài viết không tồn tại');
     }
 
+    if (post.trip_privacy_type === 'PRIVATE') {
+        const isMember = userId
+            ? await companionsRepository.isTripMember(post.trip_id, userId)
+            : false;
+        if (!isMember && post.creator_id !== userId) {
+            throw apiError(403, 'Chuyến đi này ở chế độ riêng tư');
+        }
+    }
+
     const members = await tripRepository.findSafeMembers(post.trip_id);
     const myRequest = userId ? await companionsRepository.getExistingRequest(postId, userId) : null;
     // Yêu cầu đã duyệt chỉ còn hiệu lực khi người dùng vẫn trong nhóm.
@@ -339,6 +365,10 @@ const createJoinRequest = async ({ postId, userId, introduction }) => {
         const trip = await companionsRepository.getTripByIdForUpdate(post.trip_id, client);
         if (!trip || trip.status === 'CANCELLED' || trip.status === 'COMPLETED') {
             throw apiError(400, 'Không thể gửi yêu cầu cho chuyến đi đã kết thúc hoặc đã hủy');
+        }
+
+        if (trip.privacy_type === 'PRIVATE') {
+            throw apiError(400, 'Không thể gửi yêu cầu tham gia chuyến đi riêng tư');
         }
 
         // Đọc lại sau khi khóa chuyến để lấy sức chứa và trạng thái mới nhất.
@@ -628,11 +658,37 @@ const getMySentRequests = async ({ userId, page = 1, limit = 20, status }) => {
     };
 };
 
+const getPublicPostsByUser = async ({ userId, page = 1, limit = 20 }) => {
+    const user = await usersRepository.findTrustScoreByUserId(userId);
+    if (!user) {
+        throw apiError(404, 'Không tìm thấy người dùng');
+    }
+
+    const pageNum = parseInt(page, 10) || 1;
+    const limitNum = parseInt(limit, 10) || 20;
+    const { rows, total } = await companionsRepository.getPublicPostsByUser({
+        userId,
+        limit: limitNum,
+        offset: (pageNum - 1) * limitNum,
+    });
+
+    return {
+        posts: rows,
+        pagination: {
+            totalItems: total,
+            totalPages: Math.ceil(total / limitNum),
+            currentPage: pageNum,
+            limit: limitNum,
+        },
+    };
+};
+
 const getMyPosts = (userId, page, limit) => {
     return companionsRepository.getMyPosts(userId, page, limit);
 };
 
 module.exports = {
+    getPublicPostsByUser,
     getMyPosts,
     getMySentRequests,
     getPostedTripIds,

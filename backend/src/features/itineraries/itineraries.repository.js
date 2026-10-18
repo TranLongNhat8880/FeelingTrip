@@ -296,6 +296,22 @@ const reorderItems = async (client, dayId, orderedItemIds) => {
   return rows;
 };
 
+/**
+ * @description Cập nhật hàng loạt start_time/end_time cho các hoạt động sau khi sắp xếp lại.
+ * @param {Array<{id: string, startTime: string, endTime: string}>} updates
+ */
+const bulkUpdateItemTimes = async (client, updates) => {
+  if (!updates.length) return;
+  const ids = updates.map(u => u.id);
+  const starts = updates.map(u => u.startTime);
+  const ends = updates.map(u => u.endTime);
+  await client.query(`
+    UPDATE itinerary_items ii
+    SET start_time=u.st::time, end_time=u.et::time
+    FROM unnest($1::uuid[], $2::text[], $3::text[]) AS u(id, st, et)
+    WHERE ii.id=u.id`, [ids, starts, ends]);
+};
+
 const touchDayVersion = async (client, dayId, expectedVersion) => {
   const { rows: [row] } = await client.query(`
     UPDATE itineraries SET title=title
@@ -314,7 +330,7 @@ const listPublicTrips = async (client, query) => {
   if (query.durationDays) { params.push(query.durationDays); filters.push(`t.duration_days=$${params.length}`); }
   if (query.keyword) {
     params.push(`%${query.keyword}%`);
-    filters.push(`(t.name ILIKE $${params.length} OR t.description ILIKE $${params.length}
+    filters.push(`(t.name ILIKE $${params.length} OR t.destination ILIKE $${params.length} OR t.description ILIKE $${params.length}
       OR EXISTS (SELECT 1 FROM itineraries ki JOIN itinerary_items kii ON kii.itinerary_id=ki.id
         WHERE ki.trip_id=t.id AND kii.custom_name ILIKE $${params.length}))`);
   }
@@ -411,7 +427,7 @@ module.exports = {
   getMembership, findTrip, findTripForMember, findDays, findItemsForDays,
   findDay, findItem, createDay, updateDay, findPlace, hasOverlap, nextOrderIndex,
   createItem, updateItem, setCompletion, deleteItem, findDayItemsWithPlaces,
-  findSwapCandidates, applySmartSwap, notifyTripMembers, reorderItems, touchDayVersion,
-  listPublicTrips, findPublicTrip, createClonedTrip,
+  findSwapCandidates, applySmartSwap, notifyTripMembers, reorderItems, bulkUpdateItemTimes,
+  touchDayVersion, listPublicTrips, findPublicTrip, createClonedTrip,
   insertClonedDay, insertClonedItems, markClone,
 };

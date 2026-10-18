@@ -15,6 +15,43 @@ const version = Joi.date().iso();
 const page = Joi.number().integer().min(1).default(1);
 const limit = max => Joi.number().integer().min(1).max(max).default(20);
 
+const tagsValidator = Joi.any().custom((value, helpers) => {
+  if (value == null) return null;
+  let arr = value;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+      try {
+        arr = JSON.parse(trimmed);
+      } catch (_) {
+        return helpers.message('tags không đúng định dạng JSON');
+      }
+    } else {
+      arr = trimmed.split(',').map(s => s.trim()).filter(Boolean);
+    }
+  }
+  if (!Array.isArray(arr)) {
+    return helpers.message('tags phải là danh sách');
+  }
+  if (arr.length > 10) {
+    return helpers.message('Số lượng tags tối đa là 10');
+  }
+  const validated = [];
+  for (const item of arr) {
+    if (typeof item !== 'string') {
+      return helpers.message('Mỗi tag phải là chuỗi ký tự');
+    }
+    const t = item.trim();
+    if (!t) continue;
+    if (t.length > 30) {
+      return helpers.message('Mỗi tag không được vượt quá 30 ký tự');
+    }
+    validated.push(t);
+  }
+  return validated;
+});
+
 const createTripSchema = Joi.object({
   name: Joi.string().trim().min(2).max(255),
   destination: Joi.string().trim().min(2).max(255).required(),
@@ -28,6 +65,19 @@ const createTripSchema = Joi.object({
   destinationExternalId: Joi.string().trim().max(500).allow(null),
   destinationLatitude: Joi.number().min(-90).max(90).allow(null),
   destinationLongitude: Joi.number().min(-180).max(180).allow(null),
+  targetMembersCount: Joi.number().integer().min(1).max(50),
+  minAge: Joi.number().integer().min(16).max(100).allow(null),
+  maxAge: Joi.number().integer().min(16).max(100).allow(null),
+  genderPreference: Joi.string().valid('ANY', 'MALE', 'FEMALE').default('ANY'),
+  tags: tagsValidator,
+  postTitle: Joi.string().trim().min(5).max(255).allow(null, '').messages({
+    'string.min': 'Tiêu đề bài đăng phải có ít nhất 5 ký tự',
+    'string.max': 'Tiêu đề không được vượt quá 255 ký tự',
+  }),
+  postContent: Joi.string().trim().min(10).max(5000).allow(null, '').messages({
+    'string.min': 'Nội dung bài đăng phải có ít nhất 10 ký tự',
+    'string.max': 'Nội dung không được vượt quá 5000 ký tự',
+  }),
   status: Joi.forbidden(),
   creatorId: Joi.forbidden(),
   inviteCode: Joi.forbidden(),
@@ -37,6 +87,12 @@ const createTripSchema = Joi.object({
   // Tọa độ phải đi theo cặp
   if ((value.destinationLatitude == null) !== (value.destinationLongitude == null)) {
     return helpers.message('destinationLatitude và destinationLongitude phải đi theo cặp');
+  }
+  if (value.privacyType === 'PUBLIC' && value.targetMembersCount != null && value.targetMembersCount < 2) {
+    return helpers.message('targetMembersCount phải từ 2 trở lên khi tạo chuyến đi công khai');
+  }
+  if (value.minAge && value.maxAge && value.minAge > value.maxAge) {
+    return helpers.message('Độ tuổi tối thiểu không được lớn hơn độ tuổi tối đa');
   }
   return value;
 }).messages({ 'date.range': 'Ngày kết thúc không thể trước ngày khởi hành' });
@@ -54,6 +110,19 @@ const updateTripSchema = Joi.object({
   destinationExternalId: Joi.string().trim().max(500).allow(null),
   destinationLatitude: Joi.number().min(-90).max(90).allow(null),
   destinationLongitude: Joi.number().min(-180).max(180).allow(null),
+  targetMembersCount: Joi.number().integer().min(1).max(50),
+  minAge: Joi.number().integer().min(16).max(100).allow(null),
+  maxAge: Joi.number().integer().min(16).max(100).allow(null),
+  genderPreference: Joi.string().valid('ANY', 'MALE', 'FEMALE'),
+  tags: tagsValidator,
+  postTitle: Joi.string().trim().min(5).max(255).allow(null, '').messages({
+    'string.min': 'Tiêu đề bài đăng phải có ít nhất 5 ký tự',
+    'string.max': 'Tiêu đề không được vượt quá 255 ký tự',
+  }),
+  postContent: Joi.string().trim().min(10).max(5000).allow(null, '').messages({
+    'string.min': 'Nội dung bài đăng phải có ít nhất 10 ký tự',
+    'string.max': 'Nội dung không được vượt quá 5000 ký tự',
+  }),
   expectedUpdatedAt: version.required(),
   status: Joi.forbidden(),
   tripType: Joi.forbidden(),
@@ -62,6 +131,9 @@ const updateTripSchema = Joi.object({
     if ((value.destinationLatitude == null) !== (value.destinationLongitude == null)) {
       return helpers.message('destinationLatitude và destinationLongitude phải đi theo cặp');
     }
+  }
+  if (value.minAge && value.maxAge && value.minAge > value.maxAge) {
+    return helpers.message('Độ tuổi tối thiểu không được lớn hơn độ tuổi tối đa');
   }
   return value;
 });
