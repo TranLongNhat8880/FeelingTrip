@@ -299,48 +299,6 @@ class _HomeScreenState extends State<HomeScreen> {
                           const SizedBox(height: 12),
                           AppCard(
                             outlined: true,
-                            onTap: () => Navigator.pushNamed(
-                              context,
-                              AppRoutes.aiPlanner,
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(
-                                  Icons.auto_awesome_rounded,
-                                  color: Color(0xFF9333EA),
-                                  size: 24,
-                                ),
-                                const SizedBox(width: 14),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Lập lịch trình bằng AI (Gemini)',
-                                        style: text.titleSmall,
-                                      ),
-                                      const SizedBox(height: 3),
-                                      Text(
-                                        'Gợi ý lộ trình, dự toán ngân sách và tối ưu điểm đến',
-                                        style: text.bodySmall?.copyWith(
-                                          color: AppColors.textSecondary,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const Icon(
-                                  Icons.chevron_right,
-                                  color: AppColors.textSecondary,
-                                  size: 20,
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          AppCard(
-                            outlined: true,
                             onTap: () =>
                                 Navigator.pushNamed(context, AppRoutes.places),
                             child: Row(
@@ -670,17 +628,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   letterSpacing: 0.8,
                 ),
               ),
-            ),
-            ListTile(
-              leading: const Icon(
-                Icons.auto_awesome_rounded,
-                color: Color(0xFF9333EA),
-              ),
-              title: const Text('Lên lịch trình AI'),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pushNamed(context, AppRoutes.aiPlanner);
-              },
             ),
             ListTile(
               leading: const Icon(
