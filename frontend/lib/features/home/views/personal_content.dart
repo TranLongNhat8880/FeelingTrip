@@ -159,6 +159,15 @@ class PersonalContent extends StatelessWidget {
                     children: [
                       _entry(
                         context,
+                        'Lập lịch trình bằng AI',
+                        'Gợi ý lộ trình và tối ưu điểm đến bằng Gemini AI',
+                        Icons.auto_awesome_rounded,
+                        () => Navigator.pushNamed(context, AppRoutes.aiPlanner),
+                        iconColor: const Color(0xFF9333EA),
+                      ),
+                      const Divider(height: 1, indent: 60, endIndent: 16),
+                      _entry(
+                        context,
                         'Lịch trình mẫu',
                         'Gợi ý lịch trình cho chuyến đi tiếp theo',
                         Icons.route_outlined,
@@ -278,10 +287,11 @@ class PersonalContent extends StatelessWidget {
     String title,
     String subtitle,
     IconData icon,
-    VoidCallback onTap,
-  ) => ListTile(
+    VoidCallback onTap, {
+    Color? iconColor,
+  }) => ListTile(
     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-    leading: Icon(icon, color: AppColors.primary),
+    leading: Icon(icon, color: iconColor ?? AppColors.primary),
     title: Text(title, style: Theme.of(context).textTheme.titleSmall),
     subtitle: Text(
       subtitle,
