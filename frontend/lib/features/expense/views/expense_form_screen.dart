@@ -129,7 +129,10 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
       'expenseDate': DateUtils.dateOnly(_date).toIso8601String(),
       if (widget.plannedCost != null) 'itineraryItemId': widget.plannedCost!.id,
     });
-    if (mounted && saved) Navigator.pop(context, true);
+    if (mounted && saved) {
+      KoharuScope.maybeOf(context)?.complete('expense.save');
+      Navigator.pop(context, true);
+    }
   }
 
   @override
@@ -143,6 +146,7 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
       subtitle: vm.trip!.name,
       scrollable: true,
       bottomAction: CustomButton(
+        guideId: 'expense.save',
         text: 'Lưu và xem trả nợ tối ưu',
         isLoading: vm.saving,
         onPressed: vm.saving || members.isEmpty ? null : _save,
@@ -170,6 +174,7 @@ class _ExpenseFormScreenState extends State<ExpenseFormScreen> {
               const SizedBox(height: 16),
               CustomTextField(
                 label: 'Tên khoản chi',
+                guideId: 'expense.form',
                 hint: 'Ví dụ: Bữa tối tại Hội An',
                 controller: _title,
                 inputFormatters: [LengthLimitingTextInputFormatter(255)],

@@ -375,6 +375,7 @@ class _EkycScreenState extends State<EkycScreen> {
         final canSubmit = profile.canSubmitEkyc;
 
         return AppScaffold(
+          showKoharu: false,
           title: 'Xác minh danh tính',
           scrollable: true,
           bottomAction: canSubmit

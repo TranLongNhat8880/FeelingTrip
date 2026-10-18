@@ -8,8 +8,10 @@ class CompanionItineraryPreview extends StatelessWidget {
     super.key,
     required this.days,
     this.framed = true,
+    this.guideId,
   });
   final bool framed;
+  final String? guideId;
   final List<CompanionItineraryDay> days;
   @override
   Widget build(BuildContext context) =>
@@ -22,7 +24,7 @@ class CompanionItineraryPreview extends StatelessWidget {
         title: 'Lịch trình dự kiến',
         subtitle:
             'Xem điểm đến và giờ hoạt động trước khi gửi yêu cầu. Lịch trình có thể được nhóm điều chỉnh.',
-      ),
+      ).koharu(guideId),
       const SizedBox(height: 12),
       if (days.isEmpty)
         const AppInlineNotice(

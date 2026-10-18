@@ -973,6 +973,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
         const SizedBox(height: 14),
         CustomButton(
           text: trip.isEditable ? 'Lập và xem lịch trình' : 'Xem lịch trình',
+          guideId: 'trip.itinerary',
           icon: Icons.route_outlined,
           onPressed: () => Navigator.push(
             context,
@@ -990,6 +991,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
             Expanded(
               child: CustomButton(
                 text: 'Chi phí & Quỹ',
+                guideId: 'trip.expenses',
                 icon: Icons.account_balance_wallet_outlined,
                 variant: AppButtonVariant.secondary,
                 onPressed: () => Navigator.pushNamed(

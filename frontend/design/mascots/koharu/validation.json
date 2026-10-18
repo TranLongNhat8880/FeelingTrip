@@ -1,0 +1,18 @@
+{
+  "animations": 7,
+  "frames": 28,
+  "frame_size": [
+    96,
+    112
+  ],
+  "alpha": "binary 0/255",
+  "atlas_size": [
+    384,
+    784
+  ],
+  "checks": [
+    "28 nonempty equal-size RGBA frames",
+    "transparent padding present",
+    "atlas coordinates match manifest"
+  ]
+}

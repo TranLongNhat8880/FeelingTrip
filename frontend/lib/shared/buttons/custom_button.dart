@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_sizes.dart';
+import '../mascot/koharu_controller.dart';
 
 enum AppButtonVariant { primary, secondary, text, destructive }
 
@@ -17,8 +18,10 @@ class CustomButton extends StatelessWidget {
     this.icon,
     this.variant = AppButtonVariant.primary,
     this.fullWidth = true,
+    this.guideId,
   });
   final bool fullWidth;
+  final String? guideId;
   final String text;
   final VoidCallback? onPressed;
   final bool isLoading;
@@ -64,7 +67,12 @@ class CustomButton extends StatelessWidget {
         ),
       ],
     );
-    final callback = enabled ? onPressed : null;
+    void invoke() {
+      KoharuScope.maybeOf(context)?.tapped(guideId);
+      onPressed!();
+    }
+
+    final callback = enabled ? invoke : null;
     final button = switch (kind) {
       AppButtonVariant.secondary => OutlinedButton(
         onPressed: callback,
@@ -133,13 +141,17 @@ class CustomButton extends StatelessWidget {
         ),
       ),
     };
-    return Semantics(
-      button: true,
+    return KoharuTarget(
+      id: guideId,
       enabled: enabled,
-      liveRegion: isLoading,
-      child: SizedBox(
-        width: width ?? (fullWidth ? double.infinity : null),
-        child: button,
+      child: Semantics(
+        button: true,
+        enabled: enabled,
+        liveRegion: isLoading,
+        child: SizedBox(
+          width: width ?? (fullWidth ? double.infinity : null),
+          child: button,
+        ),
       ),
     );
   }

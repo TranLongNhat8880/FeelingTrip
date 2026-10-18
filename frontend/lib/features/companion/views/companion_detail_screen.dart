@@ -419,7 +419,7 @@ class _CompanionDetailScreenState extends State<CompanionDetailScreen> {
                   padding: EdgeInsets.symmetric(vertical: 22),
                   child: Divider(height: 1),
                 ),
-                CompanionItineraryPreview(days: trip.itinerary, framed: false),
+                CompanionItineraryPreview(days: trip.itinerary, framed: false, guideId: 'companion.plan'),
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 22),
                   child: Divider(height: 1),

@@ -135,6 +135,7 @@ class _PaymentScreenState extends State<PaymentScreen>
     final cancelled = payment?.status == 'CANCELLED';
     final creditor = AuthScope.of(context).user?.id == widget.settlement.toId;
     return AppScaffold(
+      showKoharu: false,
       title: paid ? 'Thanh toán thành công' : 'Thanh toán khoản nợ',
       scrollable: true,
       bottomAction: paid || cancelled

@@ -7,10 +7,11 @@ import '../../../profile/views/public_profile_screen.dart';
 import '../../models/companion_post_model.dart';
 
 class CompanionPostCard extends StatelessWidget {
-  const CompanionPostCard({super.key, required this.post, this.onTap});
+  const CompanionPostCard({super.key, required this.post, this.onTap, this.guideId});
 
   final CompanionPost post;
   final VoidCallback? onTap;
+  final String? guideId;
 
   @override
   Widget build(BuildContext context) {
@@ -171,7 +172,7 @@ class CompanionPostCard extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                     height: 1.3,
                   ),
-                ),
+                ).koharu(guideId),
 
                 if (post.content?.trim().isNotEmpty == true) ...[
                   const SizedBox(height: 8),

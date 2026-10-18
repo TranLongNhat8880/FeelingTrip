@@ -68,6 +68,8 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/
+    - assets/mascot/koharu/
+    - assets/mascot/koharu/spritesheets/
   fonts:
     - family: BeVietnamPro
       fonts:
