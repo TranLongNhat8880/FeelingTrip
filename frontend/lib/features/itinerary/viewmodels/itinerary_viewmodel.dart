@@ -209,7 +209,18 @@ class ItineraryViewModel extends ChangeNotifier {
 
   String _message(Object error, String fallback) {
     if (error is ApiException) return error.message;
-    final text = '$error'.replaceFirst('Exception: ', '').trim();
+    final raw = '$error';
+    if (raw.contains('SocketException') ||
+        raw.contains('ClientException') ||
+        raw.contains('TimeoutException') ||
+        raw.contains('Failed host lookup') ||
+        raw.contains('Connection refused')) {
+      return 'Không thể kết nối đến máy chủ. Vui lòng kiểm tra lại kết nối mạng.';
+    }
+    if (error is FormatException || raw.contains('FormatException')) {
+      return 'Dữ liệu phản hồi từ máy chủ không hợp lệ.';
+    }
+    final text = raw.replaceFirst('Exception: ', '').trim();
     return text.isEmpty ? fallback : text;
   }
 }

@@ -134,15 +134,6 @@ class PersonalContent extends StatelessWidget {
                       ),
                       _shortcut(
                         context,
-                        'Lời mời',
-                        Icons.mail_outline,
-                        () => Navigator.pushNamed(
-                          context,
-                          AppRoutes.tripInvitations,
-                        ),
-                      ),
-                      _shortcut(
-                        context,
                         'Chuyến đi',
                         Icons.luggage_outlined,
                         () => Navigator.pushNamed(context, AppRoutes.tripList),
@@ -215,17 +206,6 @@ class PersonalContent extends StatelessWidget {
                         'Thông tin, xác minh và tài khoản ngân hàng',
                         Icons.manage_accounts_outlined,
                         () => Navigator.pushNamed(context, AppRoutes.profile),
-                      ),
-                      const Divider(height: 1, indent: 60, endIndent: 16),
-                      _entry(
-                        context,
-                        'Lời mời của tôi',
-                        'Xem và phản hồi lời mời tham gia chuyến đi',
-                        Icons.mail_outline,
-                        () => Navigator.pushNamed(
-                          context,
-                          AppRoutes.tripInvitations,
-                        ),
                       ),
                       if (user.isAdmin) ...[
                         const Divider(height: 1, indent: 60, endIndent: 16),

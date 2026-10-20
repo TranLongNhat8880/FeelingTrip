@@ -64,7 +64,7 @@ class AppRoutes {
     terms: (context) => const TermsScreen(),
     tripList: (context) => const TripListScreen(),
     publicItineraries: (context) => const PublicItinerariesScreen(),
-    tripInvitations: (context) => const TripInvitationsScreen(),
+    tripInvitations: (context) => const CompanionRequestsScreen(initialIndex: 2),
     companionFeed: (context) => const CompanionFeedScreen(),
     companionRequests: (context) => const CompanionRequestsScreen(),
     places: (context) => const PlaceListScreen(),
