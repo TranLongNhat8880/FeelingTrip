@@ -150,6 +150,10 @@ const findUserById = async (userId) => {
  * Duyệt hồ sơ eKYC → VERIFIED
  */
 const approveUserEkyc = async (userId) => {
+  return db.transaction(async (client) => {
+  const {rows:documents}=await client.query('SELECT cccd_number FROM users WHERE id=$1',[userId]);
+  if (!documents[0]?.cccd_number) return null;
+  await require('../users/identity.repository').lockDocument(client,documents[0].cccd_number,userId);
   const query = `
     UPDATE users
     SET
@@ -160,8 +164,9 @@ const approveUserEkyc = async (userId) => {
     WHERE id = $1 AND verification_status = 'PENDING'
     RETURNING id, full_name, email, is_verified, verification_status, updated_at
   `;
-  const { rows } = await db.query(query, [userId]);
+  const { rows } = await client.query(query, [userId]);
   return rows[0] || null;
+  });
 };
 
 /**

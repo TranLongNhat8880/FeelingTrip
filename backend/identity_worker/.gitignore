@@ -1,0 +1,8 @@
+.venv/
+models/
+__pycache__/
+.env
+*.mp4
+*.mov
+*.jpg
+*.png

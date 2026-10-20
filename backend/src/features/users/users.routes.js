@@ -4,6 +4,8 @@ const usersController = require('./users.controller');
 const authenticate = require('../../shared/middlewares/auth.middleware');
 const validate = require('../../shared/middlewares/validate.middleware');
 const upload = require('../../shared/middlewares/upload.middleware');
+const identityUpload = require('./identity.upload');
+const rateLimit = require('../../shared/middlewares/rateLimit.middleware');
 
 const {
     updateProfileSchema,
@@ -56,18 +58,20 @@ router.put(
  *
  * Các field:
  * - cccdNumber: text
+ * - sessionId: phiên dùng một lần do /ekyc/session cấp
+ * - qrData: chuỗi QR gốc
  * - cccdFrontImage: file
  * - cccdBackImage: file
  * - selfieImage: file
+ * - livenessVideo: video trực tiếp không âm thanh (tối đa 20 MB)
  */
+router.post('/ekyc/session', authenticate, rateLimit('ekyc_session',15), usersController.createEkycSession);
+
 router.post(
     '/ekyc-verify',
     authenticate,
-    upload.fields([
-        { name: 'cccdFrontImage', maxCount: 1 },
-        { name: 'cccdBackImage', maxCount: 1 },
-        { name: 'selfieImage', maxCount: 1 },
-    ]),
+    rateLimit('ekyc_verify',15),
+    identityUpload,
     validate({ body: ekycVerifySchema }),
     usersController.submitEkyc
 );

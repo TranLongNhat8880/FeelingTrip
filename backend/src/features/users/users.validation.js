@@ -78,6 +78,8 @@ const updateProfileSchema = Joi.object({
  * không nhận URL ảnh do client tự gửi trong req.body.
  */
 const ekycVerifySchema = Joi.object({
+  sessionId: Joi.string().uuid({version:'uuidv4'}).required(),
+  qrData: Joi.string().trim().max(2048).required(),
   cccdNumber: Joi.string()
     .trim()
     .pattern(/^[0-9]{12}$/)
