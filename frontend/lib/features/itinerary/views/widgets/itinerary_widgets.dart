@@ -486,17 +486,26 @@ class ItineraryItemCard extends StatelessWidget {
     final categoryIcon = getCategoryIcon(item.category);
     final durationText = _formatDuration(item.startTime, item.endTime);
 
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Timeline Column
-          SizedBox(
-            width: 36,
-            child: Column(
-              children: [
-                // Avatar badge
-                InkWell(
+    return Stack(
+      children: [
+        // Connector vertical line stretching to bottom of card
+        Positioned(
+          left: 17,
+          top: 34,
+          bottom: 0,
+          child: Container(
+            width: 2,
+            color: AppColors.primaryBorder.withValues(alpha: 0.8),
+          ),
+        ),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Timeline Column
+            SizedBox(
+              width: 36,
+              child: Center(
+                child: InkWell(
                   onTap: canEdit ? onToggle : null,
                   borderRadius: BorderRadius.circular(18),
                   child: AnimatedContainer(
@@ -536,17 +545,9 @@ class ItineraryItemCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                // Connector vertical line stretching to bottom of card
-                Expanded(
-                  child: Container(
-                    width: 2,
-                    color: AppColors.primaryBorder.withValues(alpha: 0.8),
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
-          const SizedBox(width: 12),
+            const SizedBox(width: 12),
           // Content Card
           Expanded(
             child: Padding(
@@ -618,13 +619,20 @@ class ItineraryItemCard extends StatelessWidget {
                                         color: AppColors.successSurface,
                                         borderRadius: BorderRadius.circular(6),
                                       ),
-                                      child: const Text(
-                                        'Đã hoàn thành',
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w700,
-                                          color: AppColors.success,
-                                        ),
+                                      child: const Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.lock_rounded, size: 10, color: AppColors.success),
+                                          SizedBox(width: 3),
+                                          Text(
+                                            'Đã hoàn thành',
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w700,
+                                              color: AppColors.success,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   ],
@@ -752,48 +760,50 @@ class ItineraryItemCard extends StatelessWidget {
                                     ),
                                     const SizedBox(width: 8),
                                     Text(item.isCompleted
-                                        ? 'Đánh dấu chưa xong'
+                                        ? 'Bỏ hoàn thành (để chỉnh sửa)'
                                         : 'Đánh dấu đã đến'),
                                   ],
                                 ),
                               ),
-                              const PopupMenuItem(
-                                value: 'edit',
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.edit_outlined,
-                                        size: 18, color: AppColors.primary),
-                                    SizedBox(width: 8),
-                                    Text('Chỉnh sửa thông tin'),
-                                  ],
-                                ),
-                              ),
-                              if (onSmartSwap != null)
+                              if (!item.isCompleted) ...[
                                 const PopupMenuItem(
-                                  value: 'swap',
+                                  value: 'edit',
                                   child: Row(
                                     children: [
-                                      Icon(Icons.auto_awesome_rounded,
-                                          size: 18,
-                                          color: Color(0xFFF77F00)),
+                                      Icon(Icons.edit_outlined,
+                                          size: 18, color: AppColors.primary),
                                       SizedBox(width: 8),
-                                      Text('Đổi điểm AI thông minh'),
+                                      Text('Chỉnh sửa thông tin'),
                                     ],
                                   ),
                                 ),
-                              const PopupMenuItem(
-                                value: 'delete',
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.delete_outline_rounded,
-                                        size: 18, color: AppColors.error),
-                                    SizedBox(width: 8),
-                                    Text('Xóa điểm dừng',
-                                        style:
-                                            TextStyle(color: AppColors.error)),
-                                  ],
+                                if (onSmartSwap != null)
+                                  const PopupMenuItem(
+                                    value: 'swap',
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.auto_awesome_rounded,
+                                            size: 18,
+                                            color: Color(0xFFF77F00)),
+                                        SizedBox(width: 8),
+                                        Text('Đổi điểm AI thông minh'),
+                                      ],
+                                    ),
+                                  ),
+                                const PopupMenuItem(
+                                  value: 'delete',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.delete_outline_rounded,
+                                          size: 18, color: AppColors.error),
+                                      SizedBox(width: 8),
+                                      Text('Xóa điểm dừng',
+                                          style:
+                                              TextStyle(color: AppColors.error)),
+                                    ],
+                                  ),
                                 ),
-                              ),
+                              ],
                             ],
                           ),
                       ],
@@ -1043,7 +1053,8 @@ class ItineraryItemCard extends StatelessWidget {
           ),
         ],
       ),
-    );
+    ],
+  );
   }
 }
 
