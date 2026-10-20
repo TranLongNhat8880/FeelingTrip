@@ -279,7 +279,7 @@ const getItem = async (itemId, userId) => {
 const resolveItemInput = async (client, data) => {
   const source = data.locationSource || (data.placeId ? 'CATALOG' : 'MANUAL');
   if (source === 'CATALOG') {
-    if (!data.placeId) throw apiError(400, 'placeId bắt buộc cho CATALOG');
+    if (!data.placeId) throw apiError(400, 'Vui lòng chọn một địa điểm từ danh mục gợi ý.');
     const place = await repo.findPlace(client, data.placeId);
     if (!place || !place.is_active) throw apiError(404, 'Không tìm thấy địa điểm đang hoạt động');
     return {
@@ -295,7 +295,7 @@ const resolveItemInput = async (client, data) => {
     };
   }
   if (source === 'GEOAPIFY') {
-    if (!data.category) throw apiError(400, 'Category là bắt buộc cho hoạt động GEOAPIFY');
+    if (!data.category) throw apiError(400, 'Vui lòng chọn danh mục cho hoạt động từ bản đồ.');
     return {
       ...data,
       locationSource: 'GEOAPIFY',
@@ -304,7 +304,7 @@ const resolveItemInput = async (client, data) => {
     };
   }
   // MANUAL
-  if (!data.category) throw apiError(400, 'Category là bắt buộc cho hoạt động tùy chỉnh');
+  if (!data.category) throw apiError(400, 'Vui lòng chọn danh mục cho hoạt động tùy chỉnh.');
   return {
     ...data,
     locationSource: 'MANUAL',
@@ -490,7 +490,7 @@ const candidateRows = async (client, item, radiusKm, limit, withTokens) => {
   if (!item.place_id || item.location_source !== 'CATALOG'
       || item.place_latitude == null || item.place_longitude == null
       || !item.place_active || !item.place_duration || item.place_duration <= 0) {
-    throw apiError(422, 'Hoạt động không đủ điều kiện Smart Swap');
+    throw apiError(422, 'Điểm dừng không đủ điều kiện đổi thông minh (Smart Swap)');
   }
   const dayItems = await repo.findDayItemsWithPlaces(client, item.itinerary_id);
   const index = dayItems.findIndex(row => row.id === item.id);
@@ -597,7 +597,7 @@ const clonePlan = (sourceTripId, userId, data) => db.transaction(async client =>
 
   const durationDays = Number(source.duration_days);
   const target = await repo.createClonedTrip(client, userId, source, {
-    name: (data.name || `${source.name} (Bản sao)`).slice(0, 255),
+    name: (data.name || source.name).slice(0, 255),
     startDate: data.startDate,
     endDate: datePlus(data.startDate, durationDays - 1),
   });

@@ -132,7 +132,7 @@ const createTrip = (userId, data) => db.transaction(async client => {
   if (data.privacyType === 'PUBLIC') {
     const targetMembersCount = Number(data.targetMembersCount) || 3;
     if (targetMembersCount < 2) {
-      throw apiError(400, 'targetMembersCount phải từ 2 trở lên khi tạo chuyến đi công khai');
+      throw apiError(400, 'Số lượng thành viên mục tiêu (targetMembersCount) phải từ 2 trở lên khi tạo chuyến đi công khai');
     }
 
     const defaultTitle = `Tìm bạn đồng hành: ${normalized.name}`;
