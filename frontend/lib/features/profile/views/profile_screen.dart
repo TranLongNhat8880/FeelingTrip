@@ -3,13 +3,15 @@ import 'package:flutter/material.dart';
 import '../../../shared/ui_kit.dart';
 import '../../review/views/blocked_users_screen.dart';
 import '../models/profile_model.dart';
+import '../repositories/profile_repository.dart';
 import '../viewmodels/profile_viewmodel.dart';
 import 'bank_accounts_screen.dart';
 import 'edit_profile_screen.dart';
 import 'ekyc_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  const ProfileScreen({super.key, this.repository});
+  final ProfileRepository? repository;
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -22,10 +24,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void initState() {
     super.initState();
 
-    _viewModel = ProfileViewModel();
+    _viewModel = ProfileViewModel(repository: widget.repository);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _viewModel.loadProfile();
+      if (mounted) _viewModel.loadProfile();
     });
   }
 
@@ -114,53 +116,70 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildProfileHeader(ProfileModel profile) {
+    final text = Theme.of(context).textTheme;
     return AppCard(
       softShadow: true,
+      padding: const EdgeInsets.all(14),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              AvatarPlaceholder(
-                name: profile.displayName,
-                imageUrl: profile.avatarUrl,
-                radius: 42,
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      profile.displayName,
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(profile.email),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        AppStatusBadge(
-                          label: profile.verificationLabel,
-                          tone: _verificationTone(profile),
-                          icon: Icons.verified_user_outlined,
-                        ),
-                        if (profile.isEmailVerified)
-                          const AppStatusBadge(
-                            label: 'Email đã xác thực',
-                            tone: AppStatusTone.success,
-                            icon: Icons.mark_email_read_outlined,
-                          ),
-                      ],
-                    ),
-                  ],
+          LayoutBuilder(
+            builder: (context, constraints) => Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                AvatarPlaceholder(
+                  name: profile.displayName,
+                  imageUrl: profile.avatarUrl,
+                  radius: constraints.maxWidth < 360 ? 30 : 32,
                 ),
-              ),
-            ],
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        profile.displayName,
+                        style: text.titleLarge,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Tooltip(
+                        message: profile.email,
+                        child: Text(
+                          profile.email,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: text.bodySmall?.copyWith(fontSize: 13),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          AppStatusBadge(
+                            label: profile.verificationLabel,
+                            tone: _verificationTone(profile),
+                            icon: Icons.verified_user_outlined,
+                            compact: true,
+                          ),
+                          if (profile.isEmailVerified)
+                            const AppStatusBadge(
+                              label: 'Email đã xác thực',
+                              tone: AppStatusTone.success,
+                              icon: Icons.mark_email_read_outlined,
+                              compact: true,
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 14),
           CustomButton(
             text: 'Chỉnh sửa hồ sơ',
             icon: Icons.edit_outlined,
@@ -172,47 +191,99 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildStatistics() {
+  Widget _buildStatistics(ProfileModel profile) {
     final trustScore = _viewModel.trustScore;
+    final memberSince = trustScore?.memberSince ?? profile.createdAt;
+    final values = [
+      trustScore == null
+          ? '—'
+          : '${trustScore.trustScore.toStringAsFixed(1)}/5',
+      trustScore == null ? '—' : '${trustScore.reviewCount}',
+      memberSince == null ? '—' : _formatDate(memberSince),
+    ];
+    final baseStyle = Theme.of(context).textTheme.titleLarge!.copyWith(
+      fontSize: 22,
+      fontWeight: FontWeight.w700,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final availableWidth = constraints.maxWidth;
-        final itemWidth = availableWidth >= 600
-            ? (availableWidth - 24) / 3
-            : (availableWidth - 12) / 2;
+        // Every tile uses the same font size. Fitting each value separately
+        // makes dates smaller than the other statistics even with equal styles.
+        final valueWidth = (constraints.maxWidth - 16) / 3 - 20 - 0.5;
+        final painter = TextPainter(
+          textDirection: Directionality.of(context),
+          textScaler: MediaQuery.textScalerOf(context),
+          locale: Localizations.localeOf(context),
+          maxLines: 1,
+        );
+        bool fits(double size) {
+          for (final value in values) {
+            painter.text = TextSpan(
+              text: value,
+              style: baseStyle.copyWith(fontSize: size),
+            );
+            painter.layout();
+            if (painter.width > valueWidth) return false;
+          }
+          return true;
+        }
 
-        return Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: [
-            SizedBox(
-              width: itemWidth,
-              child: SummaryTile(
-                label: 'Điểm tín nhiệm',
-                value: trustScore == null
-                    ? '—'
-                    : '${trustScore.trustScore.toStringAsFixed(1)}/5',
-                icon: Icons.star_outline_rounded,
+        var fontSize = 22.0;
+        try {
+          if (!fits(fontSize)) {
+            var lower = 0.0;
+            var upper = fontSize;
+            for (var i = 0; i < 12; i++) {
+              final middle = (lower + upper) / 2;
+              if (fits(middle)) {
+                lower = middle;
+              } else {
+                upper = middle;
+              }
+            }
+            fontSize = lower;
+          }
+        } finally {
+          painter.dispose();
+        }
+        final valueStyle = baseStyle.copyWith(fontSize: fontSize);
+        return IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: SummaryTile(
+                  compact: true,
+                  label: 'Điểm tín nhiệm',
+                  value: values[0],
+                  valueStyle: valueStyle,
+                  icon: Icons.star_outline_rounded,
+                ),
               ),
-            ),
-            SizedBox(
-              width: itemWidth,
-              child: SummaryTile(
-                label: 'Lượt đánh giá',
-                value: trustScore == null ? '—' : '${trustScore.reviewCount}',
-                icon: Icons.rate_review_outlined,
+              const SizedBox(width: 8),
+              Expanded(
+                child: SummaryTile(
+                  compact: true,
+                  label: 'Lượt đánh giá',
+                  value: values[1],
+                  valueStyle: valueStyle,
+                  icon: Icons.rate_review_outlined,
+                ),
               ),
-            ),
-            SizedBox(
-              width: itemWidth,
-              child: SummaryTile(
-                label: 'Thành viên từ',
-                value: _formatDate(trustScore?.memberSince),
-                icon: Icons.calendar_month_outlined,
+              const SizedBox(width: 8),
+              Expanded(
+                child: SummaryTile(
+                  compact: true,
+                  label: 'Thành viên từ',
+                  value: values[2],
+                  valueStyle: valueStyle,
+                  icon: Icons.calendar_month_outlined,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         );
       },
     );
@@ -361,7 +432,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       children: [
         _buildProfileHeader(profile),
         const SizedBox(height: 16),
-        _buildStatistics(),
+        _buildStatistics(profile),
         const SizedBox(height: 24),
         _buildFeatureActions(profile),
         const SizedBox(height: 24),
@@ -395,6 +466,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
         return AppScaffold(
           title: 'Hồ sơ cá nhân',
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
           scrollable: true,
           actions: [
             IconButton(

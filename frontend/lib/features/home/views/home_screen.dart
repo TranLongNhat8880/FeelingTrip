@@ -204,45 +204,56 @@ class _HomeScreenState extends State<HomeScreen> {
                         if (_tab == 1) ...[
                           // ── TAB 1: KẾ HOẠCH & CHUYẾN ĐI CỦA TÔI ──
                           const SizedBox(height: 12),
-                          Row(
+                          Wrap(
+                            alignment: WrapAlignment.spaceBetween,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 12,
+                            runSpacing: 4,
                             children: [
-                              Expanded(
-                                child: Text(
-                                  'Kế hoạch của tôi',
-                                  style: text.titleMedium,
-                                ),
+                              Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Kế hoạch của tôi',
+                                    style: text.titleMedium,
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '${_myTrips.length} chuyến đi',
+                                    style: text.bodySmall?.copyWith(
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              Text(
-                                '${_myTrips.length} chuyến đi',
-                                style: text.bodySmall?.copyWith(
-                                  color: AppColors.textSecondary,
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              CustomButton(
-                                text: 'Quản lý',
-                                guideId: 'home.manage',
-                                onPressed: () => Navigator.pushNamed(
-                                  context,
-                                  AppRoutes.tripList,
-                                ),
-                                variant: AppButtonVariant.text,
-                                fullWidth: false,
-                              ),
-                              const SizedBox(width: 4),
-                              IconButton(
-                                padding: const EdgeInsets.all(4),
-                                constraints: const BoxConstraints(),
-                                tooltip: 'Khám phá địa điểm du lịch',
-                                icon: const Icon(
-                                  Icons.explore_outlined,
-                                  color: AppColors.primary,
-                                  size: 20,
-                                ),
-                                onPressed: () => Navigator.pushNamed(
-                                  context,
-                                  AppRoutes.places,
-                                ),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  CustomButton(
+                                    text: 'Quản lý',
+                                    guideId: 'home.manage',
+                                    onPressed: () => Navigator.pushNamed(
+                                      context,
+                                      AppRoutes.tripList,
+                                    ),
+                                    variant: AppButtonVariant.text,
+                                    fullWidth: false,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  IconButton(
+                                    tooltip: 'Khám phá địa điểm du lịch',
+                                    icon: const Icon(
+                                      Icons.explore_outlined,
+                                      color: AppColors.primary,
+                                      size: 20,
+                                    ),
+                                    onPressed: () => Navigator.pushNamed(
+                                      context,
+                                      AppRoutes.places,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),

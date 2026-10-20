@@ -132,24 +132,75 @@ class SummaryTile extends StatelessWidget {
     required this.value,
     this.icon,
     this.color = AppColors.surface,
+    this.compact = false,
+    this.valueStyle,
   });
   final String label;
   final String value;
   final IconData? icon;
   final Color color;
+  final bool compact;
+  final TextStyle? valueStyle;
   @override
   Widget build(BuildContext context) => AppCard(
     color: color,
+    padding: EdgeInsets.all(compact ? 10 : AppSizes.cardPadding),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (icon != null) ...[
-          Icon(icon, color: AppColors.primary),
-          const SizedBox(height: 12),
+          if (compact)
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: const BoxDecoration(
+                color: AppColors.primarySurface,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 20, color: AppColors.primary),
+            )
+          else
+            Icon(icon, color: AppColors.primary),
+          SizedBox(height: compact ? 10 : 12),
         ],
-        Text(label, style: const TextStyle(color: AppColors.textSecondary)),
+        ConstrainedBox(
+          constraints: BoxConstraints(
+            minHeight: compact
+                ? MediaQuery.textScalerOf(context).scale(11.5) * 2.8
+                : 0,
+          ),
+          child: Text(
+            label,
+            maxLines: compact ? 2 : null,
+            overflow: compact ? TextOverflow.ellipsis : TextOverflow.clip,
+            style: TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: compact ? 11.5 : null,
+              height: compact ? 1.4 : null,
+            ),
+          ),
+        ),
         const SizedBox(height: 6),
-        Text(value, style: Theme.of(context).textTheme.titleLarge),
+        if (compact)
+          Tooltip(
+            message: value,
+            child: SizedBox(
+              width: double.infinity,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  value,
+                  maxLines: 1,
+                  style: valueStyle ?? Theme.of(context).textTheme.titleLarge,
+                ),
+              ),
+            ),
+          )
+        else
+          Text(
+            value,
+            style: valueStyle ?? Theme.of(context).textTheme.titleLarge,
+          ),
       ],
     ),
   );
