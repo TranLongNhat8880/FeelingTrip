@@ -32,13 +32,18 @@ class AppStatusBadge extends StatelessWidget {
     required this.label,
     this.tone = AppStatusTone.neutral,
     this.icon,
+    this.compact = false,
   });
   final String label;
   final AppStatusTone tone;
   final IconData? icon;
+  final bool compact;
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+    padding: EdgeInsets.symmetric(
+      horizontal: compact ? 8 : 10,
+      vertical: compact ? 5 : 6,
+    ),
     decoration: BoxDecoration(
       color: tone.background,
       borderRadius: BorderRadius.circular(30),
@@ -46,14 +51,19 @@ class AppStatusBadge extends StatelessWidget {
     child: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon ?? tone.icon, color: tone.foreground, size: 15),
-        const SizedBox(width: 6),
+        Icon(
+          icon ?? tone.icon,
+          color: tone.foreground,
+          size: compact ? 13 : 15,
+        ),
+        SizedBox(width: compact ? 4 : 6),
         Flexible(
           child: Text(
             label,
-            style: Theme.of(
-              context,
-            ).textTheme.labelMedium?.copyWith(color: tone.foreground),
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: tone.foreground,
+              fontSize: compact ? 10.5 : null,
+            ),
           ),
         ),
       ],

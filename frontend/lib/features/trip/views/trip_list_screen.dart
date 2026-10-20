@@ -115,26 +115,45 @@ class _TripListScreenState extends State<TripListScreen> {
     body: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: CustomButton(
-                text: 'Tạo chuyến đi',
-                guideId: 'trip.create',
-                icon: Icons.add_rounded,
-                onPressed: _create,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final createButton = CustomButton(
+              text: 'Tạo chuyến đi',
+              guideId: 'trip.create',
+              icon: Icons.add_rounded,
+              onPressed: _create,
+            );
+            final joinButton = ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 54),
               child: CustomButton(
                 text: 'Tham gia bằng mã',
                 icon: Icons.key_outlined,
                 variant: AppButtonVariant.secondary,
                 onPressed: _join,
               ),
-            ),
-          ],
+            );
+            final textScale = MediaQuery.textScalerOf(context).scale(16) / 16;
+            if (constraints.maxWidth < 480 * textScale) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  createButton,
+                  const SizedBox(height: 10),
+                  joinButton,
+                ],
+              );
+            }
+            return IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(child: createButton),
+                  const SizedBox(width: 10),
+                  Expanded(child: joinButton),
+                ],
+              ),
+            );
+          },
         ),
         const SizedBox(height: 12),
         AppSearchField(
