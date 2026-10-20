@@ -59,6 +59,23 @@ class StorageHelper {
     }
   }
 
+  /// Update only the session that initiated a server refresh. A late response
+  /// must never restore a logged-out session or overwrite another account.
+  static Future<bool> updateSessionUser(String token, UserModel user) async {
+    final prefs = await SharedPreferences.getInstance();
+    final value = prefs.getString(_sessionKey);
+    if (value == null) return false;
+    final session = jsonDecode(value) as Map<String, dynamic>;
+    if (session['token'] != token ||
+        (session['user'] as Map<String, dynamic>)['id'] != user.id) {
+      return false;
+    }
+    return prefs.setString(
+      _sessionKey,
+      jsonEncode({'token': token, 'user': user.toJson()}),
+    );
+  }
+
   // === Token ===
   static Future<void> saveToken(String token) async {
     final prefs = await SharedPreferences.getInstance();

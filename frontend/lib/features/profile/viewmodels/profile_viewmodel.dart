@@ -142,6 +142,9 @@ class ProfileViewModel extends ChangeNotifier {
     required String backImageFileName,
     required List<int> selfieImageBytes,
     required String selfieImageFileName,
+    String? sessionId,
+    String? qrData,
+    List<int>? livenessVideoBytes,
   }) async {
     if (_disposed || _isSubmittingEkyc) return false;
 
@@ -159,8 +162,11 @@ class ProfileViewModel extends ChangeNotifier {
             backImageFileName: backImageFileName,
             selfieImageBytes: selfieImageBytes,
             selfieImageFileName: selfieImageFileName,
+            sessionId: sessionId,
+            qrData: qrData,
+            livenessVideoBytes: livenessVideoBytes,
           )
-          .timeout(const Duration(seconds: 45));
+          .timeout(const Duration(seconds: 150));
 
       if (_disposed) return false;
 
@@ -168,9 +174,30 @@ class ProfileViewModel extends ChangeNotifier {
         const Duration(seconds: 20),
       );
 
+      if (_disposed) return false;
+      if (_profile?.isEkycVerified != true) {
+        _errorMessage =
+            'Máy chủ chưa xác nhận danh tính thành công. Vui lòng tải lại hồ sơ và kiểm tra phiên bản backend hỗ trợ xác minh tự động.';
+        return false;
+      }
       return true;
     } catch (error) {
-      _errorMessage = _messageFor(error, 'Không thể gửi hồ sơ xác minh.');
+      // A lost response must not turn a committed verification into a failure.
+      if (!_disposed) {
+        try {
+          final current = await _repository.getProfile().timeout(
+            const Duration(seconds: 15),
+          );
+          if (current.isEkycVerified) {
+            _profile = current;
+            return true;
+          }
+        } catch (_) {}
+      }
+      _errorMessage = _messageFor(
+        error,
+        'Không thể xác minh. Vui lòng quét lại khuôn mặt và thử lại.',
+      );
       return false;
     } finally {
       _isSubmittingEkyc = false;

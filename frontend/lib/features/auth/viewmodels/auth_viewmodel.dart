@@ -38,6 +38,7 @@ class AuthViewModel extends ChangeNotifier {
   String? _errorMessage;
   String? _blockedEmail;
   bool _sessionInvalidated = false;
+  bool _disposed = false;
   bool get sessionInvalidated => _sessionInvalidated;
   String? get blockedEmail => _blockedEmail;
   String? _pendingVerificationEmail;
@@ -47,6 +48,38 @@ class AuthViewModel extends ChangeNotifier {
   bool get initialized => _initialized;
   String? get errorMessage => _errorMessage;
   bool get isLoggedIn => _user != null;
+
+  /// Re-read verification from the API; never infer it from a client check.
+  Future<bool> refreshUser() async {
+    final original = _user;
+    if (_disposed || original == null || _isLoading) return false;
+    try {
+      final token = await StorageHelper.getToken();
+      if (token == null || _disposed || !identical(_user, original)) {
+        return false;
+      }
+      final response = await ApiClient.get(ApiEndpoints.profile);
+      final current = UserModel.fromJson(
+        response['data'] as Map<String, dynamic>,
+      );
+      if (_disposed ||
+          _isLoading ||
+          !identical(_user, original) ||
+          current.id != original.id) {
+        return false;
+      }
+      final saved = await StorageHelper.updateSessionUser(token, current);
+      if (!saved || _disposed || _isLoading || !identical(_user, original)) {
+        return false;
+      }
+      _user = current;
+      notifyListeners();
+      return true;
+    } catch (_) {
+      // A refresh failure cannot undo a verification committed by the server.
+      return false;
+    }
+  }
 
   Future<void> restoreSession() async {
     try {
@@ -217,6 +250,7 @@ class AuthViewModel extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     if (ApiClient.onAuthError == _sessionError) ApiClient.onAuthError = null;
     super.dispose();
   }
