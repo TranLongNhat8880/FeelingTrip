@@ -1,11 +1,11 @@
 ================================================================================
 TÀI LIỆU CHI TIẾT CƠ SỞ DỮ LIỆU POSTGRESQL (SUPABASE) - FEELINGTRIP
 Mã nguồn DDL: backend/database/schema.sql
-Migrations: backend/database/migrations/ (001_backend_integrity, 002_bankhub, 003_invite_code_status, 004_member_feature_contracts, 005_registration_terms, 006_trip_invitation_membership, 007_itinerary_expense_link, 008_itinerary_location_coordinates, 009_admin_itinerary_templates)
+Migrations: backend/database/migrations/ (001_backend_integrity, 002_bankhub, 003_invite_code_status, 004_member_feature_contracts, 005_registration_terms, 006_trip_invitation_membership, 007_itinerary_expense_link, 008_itinerary_location_coordinates, 009_admin_itinerary_templates, 010_zero_amount_expenses, 011_automatic_ekyc)
 ================================================================================
 
 Dự án sử dụng chung 1 cơ sở dữ liệu PostgreSQL trên Supabase. Toàn bộ hệ thống
-gồm 28 bảng chính và 1 bảng quản lý migration (tổng cộng 29 bảng), được chia theo 7 phân hệ nghiệp vụ.
+gồm 29 bảng chính và 1 bảng quản lý migration (tổng cộng 30 bảng), được chia theo 7 phân hệ nghiệp vụ.
 
 ================================================================================
 DANH SÁCH CHI TIẾT CÁC BẢNG VÀ Ý NGHĨA TỪNG TRƯỜNG DỮ LIỆU (FIELDS)
@@ -45,6 +45,21 @@ PHÂN HỆ I: TÀI KHOẢN, XÁC THỰC & BẢO MẬT HỆ THỐNG
     - status (VARCHAR): Trạng thái tài khoản ('ACTIVE' - hoạt động, 'BANNED' - bị khóa).
     - token_version (INTEGER): Số phiên JWT, tự động tăng khi đổi mật khẩu/bị khóa để vô hiệu hóa ngay toàn bộ JWT cũ.
     - created_at, updated_at (TIMESTAMPTZ): Mốc thời gian tạo tài khoản và cập nhật hồ sơ gần nhất.
+
+[1b] BẢNG ekyc_sessions (Phiên thử thách và kết quả xác minh eKYC tự động)
+    - id (UUID, PK): Khóa chính định danh phiên xác minh eKYC.
+    - user_id (UUID, FK -> users ON DELETE CASCADE): Người dùng thực hiện xác minh danh tính.
+    - actions (JSONB): Mảng danh sách các thử thách liveness ngẫu nhiên (chớp mắt, quay trái/phải...).
+    - status (VARCHAR(20)): Trạng thái phiên ('CREATED', 'PROCESSING', 'VERIFIED', 'FAILED', 'ERROR').
+    - result (JSONB, NULLABLE): Kết quả chi tiết đối chiếu QR, OCR, so khớp khuôn mặt SFace và video liveness từ worker.
+    - created_at (TIMESTAMPTZ): Thời điểm khởi tạo phiên.
+    - expires_at (TIMESTAMPTZ): Thời điểm hết hạn phiên (mặc định 5 phút sau khi tạo).
+    - consumed_at (TIMESTAMPTZ, NULLABLE): Thời điểm bắt đầu xử lý request verify (ngăn chặn replay attack).
+    - completed_at (TIMESTAMPTZ, NULLABLE): Thời điểm hoàn tất đối soát xác minh.
+    - Ràng buộc & Index:
+      + Partial unique index idx_ekyc_sessions_processing: Chống tấn công race-condition, mỗi user chỉ có tối đa 1 phiên PROCESSING đồng thời.
+      + Index idx_ekyc_sessions_user_created: Tối ưu truy vấn lịch sử phiên theo user.
+      + Bật Row Level Security (RLS) bảo vệ bảng; backend kết nối bằng privileged role.
 
 [2] BẢNG auth_otps (Quản lý mã OTP gửi qua Email)
     - user_id (UUID, FK -> users): Định danh người dùng nhận mã OTP.
@@ -438,4 +453,20 @@ Cho phép ghi nhận hoạt động miễn phí hoặc chi tiêu 0 đồng trong
 1. expenses:
    - Sửa ràng buộc CHECK (amount > 0) thành CHECK (amount >= 0).
    - Hỗ trợ lưu trữ các hoạt động/chi tiêu không tốn phí mà không phát sinh công nợ quyết toán rác.
+================================================================================
+LƯU Ý HỢP ĐỒNG DỮ LIỆU SAU MIGRATION 011 (011_automatic_ekyc)
+================================================================================
+Bổ sung bảng ekyc_sessions phục vụ quy trình xác minh danh tính eKYC tự động:
+1. Cơ chế phiên eKYC (ekyc_sessions):
+   - Cấp phiên ngắn hạn (5 phút), mỗi phiên cấp 1 chuỗi hành động ngẫu nhiên (actions) và chỉ dùng được 1 lần (consumed_at).
+   - Ngăn chặn tấn công Replay Attack và chống gửi đồng thời (Partial UNIQUE index idx_ekyc_sessions_processing).
+2. Quy tắc tự động duyệt tích xanh:
+   - Worker chạy độc lập đối soát đa tầng:
+     + Quét mã QR thẻ CCCD và đối chiếu chéo số thẻ/họ tên/ngày sinh với kết quả OCR mặt trước.
+     + Trích xuất vector embedding SFace để so khớp khuôn mặt trên ảnh thẻ CCCD với ảnh chân dung/video.
+     + Phân tích video liveness (MediaPipe Face Mesh + MiniFASNetV2) kiểm tra đúng thứ tự hành động yêu cầu và chống giả mạo màn hình.
+   - Chỉ khi TOÀN BỘ các kiểm tra đạt chuẩn, backend mới tự động cập nhật is_verified = TRUE, verification_status = 'VERIFIED' ngay trong transaction.
+   - Cập nhật trạng thái xác minh trực tiếp tức thì trên app, không cần đăng xuất đăng nhập lại.
+   - Nếu bất kỳ kiểm tra nào thất bại hoặc nghi ngờ giả mạo, phiên đánh dấu FAILED/ERROR và từ chối cấp tích xanh, yêu cầu người dùng thực hiện lại.
+   - Bảo toàn 100% dữ liệu tài khoản và các hồ sơ xác minh cũ trước migration 011.
 ================================================================================

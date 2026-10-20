@@ -65,6 +65,15 @@ THƯ MỤC: DATABASE & MIGRATIONS - backend/database/
      + Tạo bảng admin_template_uses: Lưu lịch sử áp dụng mẫu của người dùng vào chuyến đi.
      + Bổ sung index tìm kiếm theo destination, lọc is_active và thống kê lượt sử dụng.
 
+   - migrations/010_zero_amount_expenses.sql:
+     + Nới lỏng ràng buộc CHECK của bảng expenses cho phép amount >= 0 để hỗ trợ các hoạt động miễn phí hoặc chi tiêu 0 đồng.
+
+   - migrations/011_automatic_ekyc.sql:
+     + Tạo bảng ekyc_sessions quản lý phiên xác minh eKYC tự động (chống replay attack, giới hạn 5 phút).
+     + Lưu chuỗi thử thách hành động ngẫu nhiên (actions), trạng thái phiên và kết quả đối soát chi tiết (result JSONB).
+     + Index idx_ekyc_sessions_processing chặn chạy trùng lặp nhiều phiên xác minh đồng thời của cùng 1 user.
+     + Kích hoạt RLS bảo vệ bảng, backend kết nối thông qua role có quyền truy cập.
+
 3. HƯỚNG DẪN CHẠY MIGRATION:
    - Chạy lệnh sau tại thư mục `backend/`:
      ```bash
