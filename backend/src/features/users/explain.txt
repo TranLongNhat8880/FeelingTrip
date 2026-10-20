@@ -50,7 +50,7 @@ PHÂN HỆ: USERS (HỒ SƠ CÁ NHÂN & eKYC CCCD) - src/features/users/
 
 7. ẢNH VÀ LIÊN KẾT NGÂN HÀNG:
    - Dùng ../../shared/middlewares/upload.middleware.js khi triển khai route upload
-     ảnh avatar/CCCD/selfie: multipart -> Cloudinary -> URL để lưu vào cột tương ứng.
+     ảnh avatar: multipart -> Cloudinary -> URL. eKYC tự động dùng identity.upload.js riêng.
      Middleware đã có; feature vẫn cần gắn route, kiểm tra quyền và trả URL cho client.
    - Các trường URL trong JSON và các trường multipart phải được feature thống
      nhất, không coi dữ liệu URL là ảnh đã được upload trong cùng request.
@@ -62,3 +62,12 @@ PHÂN HỆ: USERS (HỒ SƠ CÁ NHÂN & eKYC CCCD) - src/features/users/
      thủ công rồi coi đó là liên kết đã xác thực. Thanh toán tự động phải dựa trên
      bankhub_accounts.active và thông tin liên kết hợp lệ.
 ================================================================================
+
+8. XÁC MINH TỰ ĐỘNG (migration 011_automatic_ekyc.sql):
+   - POST /users/ekyc/session: cấp phiên 5 phút, gắn user và thứ tự thao tác; mỗi phiên dùng một lần.
+   - POST /users/ekyc-verify: sessionId, cccdNumber, qrData, 3 ảnh và livenessVideo. Không nhận điểm AI từ FE.
+   - Worker private đọc QR/OCR, so embedding SFace, kiểm tra video MediaPipe và MiniFASNetV2.
+   - Chỉ đủ toàn bộ điều kiện mới chuyển VERIFIED trong transaction; chặn CCCD đã dùng ở tài khoản khác.
+   - Ảnh lưu Cloudinary authenticated sau khi đã kiểm tra. Không lưu video hoặc embedding.
+   - Thiếu bằng chứng, điểm thấp hoặc lỗi worker không được tự cấp tích xanh; FE yêu cầu thực hiện lại.
+   - Luồng admin ở mục 5 chỉ còn xử lý hồ sơ PENDING cũ. Xem identity_worker/README.md để cấu hình.

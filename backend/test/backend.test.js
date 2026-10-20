@@ -1170,6 +1170,49 @@ test('public author posts require authentication, a valid user and valid paginat
   assert.equal((await request(`/companions/users/${userB}/posts`)).status, 404);
 });
 
+const identityRepository = require('../src/features/users/identity.repository');
+test('identity sessions belong to their user, expire and can only be consumed once', async () => {
+  const session=await identityRepository.createSession(userA);
+  assert.deepEqual(new Set(session.actions),new Set(['blink','turnLeft','turnRight']));
+  await assert.rejects(identityRepository.consumeSession(userB,session.sessionId),{statusCode:409});
+  const raced=await Promise.allSettled([identityRepository.consumeSession(userA,session.sessionId),identityRepository.consumeSession(userA,session.sessionId)]);
+  assert.equal(raced.filter(x=>x.status==='fulfilled').length,1);
+  await identityRepository.finishSession(session.sessionId,'FAILED',{code:'TEST_FAILED'});
+  const expired=await identityRepository.createSession(userA);
+  await db.query("UPDATE ekyc_sessions SET expires_at=NOW()-INTERVAL '1 minute' WHERE id=$1",[expired.sessionId]);
+  await assert.rejects(identityRepository.consumeSession(userA,expired.sessionId),{statusCode:409});
+});
+test('identity replaces unused sessions, recovers abandoned jobs and throttles retries',async()=>{
+  const old=await identityRepository.createSession(userA);
+  const current=await identityRepository.createSession(userA);
+  await assert.rejects(identityRepository.consumeSession(userA,old.sessionId),{statusCode:409});
+  await identityRepository.consumeSession(userA,current.sessionId);
+  await assert.rejects(identityRepository.createSession(userA),{statusCode:409});
+  await db.query("UPDATE ekyc_sessions SET consumed_at=NOW()-INTERVAL '4 minutes' WHERE id=$1",[current.sessionId]);
+  await identityRepository.createSession(userA);
+  assert.equal((await db.query('SELECT status FROM ekyc_sessions WHERE id=$1',[current.sessionId])).rows[0].status,'ERROR');
+  await identityRepository.createSession(userA);await identityRepository.createSession(userA);
+  await assert.rejects(identityRepository.createSession(userA),{statusCode:429});
+});
+test('auto identity approval is atomic and a document cannot verify two concurrent accounts',async()=>{
+  const sessions=await Promise.all([identityRepository.createSession(userA),identityRepository.createSession(userB)]);
+  await Promise.all(sessions.map((s,i)=>identityRepository.consumeSession([userA,userB][i],s.sessionId)));
+  const outcomes=await Promise.allSettled(sessions.map((s,i)=>identityRepository.approve({userId:[userA,userB][i],sessionId:s.sessionId,
+    cccdNumber:'999999999999',images:{cccdFrontImage:'private/front',cccdBackImage:'private/back',selfieImage:'private/selfie'},result:{verified:true}})));
+  assert.equal(outcomes.filter(x=>x.status==='fulfilled').length,1);
+  assert.equal(outcomes.find(x=>x.status==='rejected').reason.statusCode,409);
+  const verified=await db.query("SELECT id FROM users WHERE cccd_number='999999999999' AND is_verified=TRUE AND verification_status='VERIFIED'");
+  assert.equal(verified.rowCount,1);
+});
+test('blocked accounts and expired/replaced sessions cannot acquire automatic verified status',async()=>{
+  const session=await identityRepository.createSession(userA);
+  await identityRepository.consumeSession(userA,session.sessionId);
+  await db.query("UPDATE users SET status='BANNED' WHERE id=$1",[userA]);
+  await assert.rejects(identityRepository.approve({userId:userA,sessionId:session.sessionId,cccdNumber:'999999999999',images:{},result:{verified:true}}),{statusCode:409});
+  assert.equal((await db.query('SELECT is_verified FROM users WHERE id=$1',[userA])).rows[0].is_verified,false);
+  await assert.rejects(identityRepository.createSession(userA),{statusCode:403});
+});
+
 test('ending a trip closes its displayed recruitment status in both lists and detail', async () => {
   const completed = await createPublicProfilePost({ tripStatus: 'COMPLETED' });
   const cancelled = await createPublicProfilePost({ tripStatus: 'CANCELLED' });

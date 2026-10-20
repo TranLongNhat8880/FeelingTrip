@@ -1,6 +1,7 @@
 ﻿const usersService = require('./users.service');
 const { sendSuccess } = require('../../shared/utils/response.util');
 const HTTP_STATUS = require('../../shared/constants/httpStatus');
+const identityService = require('./identity.service');
 
 // ============================================================================
 // CONTROLLER: User Profile & eKYC
@@ -63,22 +64,18 @@ const updateProfile = async (req, res, next) => {
  */
 const submitEkyc = async (req, res, next) => {
     try {
-        const cccdFrontImage = req.files?.cccdFrontImage?.[0]?.path;
-        const cccdBackImage = req.files?.cccdBackImage?.[0]?.path;
-        const selfieImage = req.files?.selfieImage?.[0]?.path;
-
-        const result = await usersService.submitEkyc({
+        const result = await identityService.verify({
             userId: req.user.id,
             cccdNumber: req.body.cccdNumber,
-            cccdFrontImage,
-            cccdBackImage,
-            selfieImage,
+            sessionId: req.body.sessionId,
+            qrData: req.body.qrData,
+            files: req.files,
         });
 
         return sendSuccess(
             res,
             result,
-            'Đã gửi hồ sơ eKYC, vui lòng chờ Admin xét duyệt',
+            'Xác minh danh tính tự động thành công',
             HTTP_STATUS.OK
         );
     } catch (error) {
@@ -105,9 +102,15 @@ const getTrustScore = async (req, res, next) => {
     }
 };
 
+const createEkycSession = async (req,res,next) => {
+    try { return sendSuccess(res,await identityService.createSession(req.user.id),'Đã tạo phiên xác minh',HTTP_STATUS.OK); }
+    catch(error) {next(error);}
+};
+
 module.exports = {
     getProfile,
     updateProfile,
     submitEkyc,
+    createEkycSession,
     getTrustScore,
 };
