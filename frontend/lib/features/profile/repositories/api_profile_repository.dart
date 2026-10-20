@@ -5,6 +5,7 @@ import '../models/profile_form_data.dart';
 import '../models/profile_model.dart';
 import '../models/trust_score_model.dart';
 import 'profile_repository.dart';
+import '../models/identity_session.dart';
 
 // ============================================================================
 // API REPOSITORY: Profile
@@ -12,6 +13,13 @@ import 'profile_repository.dart';
 // ============================================================================
 
 class ApiProfileRepository implements ProfileRepository {
+  @override
+  Future<IdentitySession> createIdentitySession() async =>
+      IdentitySession.fromJson(
+        _requireDataMap(
+          await ApiClient.post('${ApiEndpoints.users}/ekyc/session'),
+        ),
+      );
   @override
   Future<ProfileModel> getProfile() async {
     final response = await ApiClient.get(ApiEndpoints.profile);
@@ -59,11 +67,18 @@ class ApiProfileRepository implements ProfileRepository {
     required String backImageFileName,
     required List<int> selfieImageBytes,
     required String selfieImageFileName,
+    String? sessionId,
+    String? qrData,
+    List<int>? livenessVideoBytes,
   }) async {
     await ApiClient.multipart(
       'POST',
       '${ApiEndpoints.users}/ekyc-verify',
-      fields: {'cccdNumber': cccdNumber.trim()},
+      fields: {
+        'cccdNumber': cccdNumber.trim(),
+        'sessionId': ?sessionId,
+        'qrData': ?qrData,
+      },
       files: [
         MultipartFileData(
           fieldName: 'cccdFrontImage',
@@ -80,6 +95,12 @@ class ApiProfileRepository implements ProfileRepository {
           fileName: selfieImageFileName,
           bytes: selfieImageBytes,
         ),
+        if (livenessVideoBytes != null)
+          MultipartFileData(
+            fieldName: 'livenessVideo',
+            fileName: 'liveness.mp4',
+            bytes: livenessVideoBytes,
+          ),
       ],
     );
   }

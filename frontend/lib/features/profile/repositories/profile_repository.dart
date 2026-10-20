@@ -2,6 +2,7 @@ import '../models/bank_account_model.dart';
 import '../models/profile_form_data.dart';
 import '../models/profile_model.dart';
 import '../models/trust_score_model.dart';
+import '../models/identity_session.dart';
 
 // ============================================================================
 // REPOSITORY CONTRACT: Profile
@@ -10,6 +11,8 @@ import '../models/trust_score_model.dart';
 // ============================================================================
 
 abstract class ProfileRepository {
+  Future<IdentitySession> createIdentitySession();
+
   /// Lấy hồ sơ đầy đủ của người dùng đang đăng nhập.
   Future<ProfileModel> getProfile();
 
@@ -29,6 +32,9 @@ abstract class ProfileRepository {
     required String backImageFileName,
     required List<int> selfieImageBytes,
     required String selfieImageFileName,
+    String? sessionId,
+    String? qrData,
+    List<int>? livenessVideoBytes,
   });
 
   /// Lấy điểm tín nhiệm công khai của một người dùng.
