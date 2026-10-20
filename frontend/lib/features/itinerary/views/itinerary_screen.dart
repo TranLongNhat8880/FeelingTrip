@@ -55,6 +55,14 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
   }
 
   Future<void> _openItemForm(ItineraryDay day, {ItineraryItem? item}) async {
+    if (item != null && item.isCompleted) {
+      AppFeedback.show(
+        context,
+        'Không thể chỉnh sửa điểm dừng đã hoàn thành. Vui lòng bỏ hoàn thành trước.',
+        tone: AppStatusTone.warning,
+      );
+      return;
+    }
     if (item == null) KoharuScope.maybeOf(context)?.tapped('itinerary.add');
     final result = await Navigator.push<ItineraryItemDraft>(
       context,
@@ -132,9 +140,9 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
     AppFeedback.show(
       context,
       success
-          ? 'Thứ tự điểm đến đã thay đổi. Vui lòng kiểm tra lại khung giờ hoạt động.'
+          ? 'Đã hoán đổi vị trí và khung giờ hoạt động.'
           : _viewModel.errorMessage ?? 'Không sắp xếp lại được lịch trình.',
-      tone: success ? AppStatusTone.warning : AppStatusTone.error,
+      tone: success ? AppStatusTone.success : AppStatusTone.error,
     );
   }
 
@@ -159,13 +167,21 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
           onToggle: () => _viewModel.toggleCompletion(item),
           onEdit: () => _openItemForm(day, item: item),
           onDelete: () => _deleteItem(item),
-          onMoveUp: index == 0 || _viewModel.isSubmitting
+          onMoveUp: index == 0 ||
+                  _viewModel.isSubmitting ||
+                  item.isCompleted ||
+                  (index > 0 && day.items[index - 1].isCompleted)
               ? null
               : () => _moveItem(day, index, index - 1),
-          onMoveDown: index == day.items.length - 1 || _viewModel.isSubmitting
+          onMoveDown: index == day.items.length - 1 ||
+                  _viewModel.isSubmitting ||
+                  item.isCompleted ||
+                  (index < day.items.length - 1 &&
+                      day.items[index + 1].isCompleted)
               ? null
               : () => _moveItem(day, index, index + 1),
-          onSmartSwap: item.supportsSmartSwap ? () => _smartSwap(item) : null,
+          onSmartSwap:
+              item.supportsSmartSwap && !item.isCompleted ? () => _smartSwap(item) : null,
           onRecordExpense: () async {
             await Navigator.pushNamed(
               context,
@@ -174,7 +190,7 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
             );
             if (mounted) await _viewModel.load(widget.tripId);
           },
-          reorderHandle: draggable
+          reorderHandle: draggable && !item.isCompleted
               ? ReorderableDragStartListener(
                   index: index,
                   enabled: !_viewModel.isSubmitting,
@@ -256,6 +272,14 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
   }
 
   Future<void> _deleteItem(ItineraryItem item) async {
+    if (item.isCompleted) {
+      AppFeedback.show(
+        context,
+        'Không thể xóa điểm dừng đã hoàn thành. Vui lòng bỏ hoàn thành trước.',
+        tone: AppStatusTone.warning,
+      );
+      return;
+    }
     final confirmed = await AppConfirmDialog.show(
       context,
       title: 'Xóa ${item.customName}?',
@@ -274,6 +298,14 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
   }
 
   Future<void> _smartSwap(ItineraryItem item) async {
+    if (item.isCompleted) {
+      AppFeedback.show(
+        context,
+        'Không thể đổi điểm dừng đã hoàn thành. Vui lòng bỏ hoàn thành trước.',
+        tone: AppStatusTone.warning,
+      );
+      return;
+    }
     final candidates = await _viewModel.getSwapCandidates(item);
     if (!mounted) return;
     if (candidates == null) {
