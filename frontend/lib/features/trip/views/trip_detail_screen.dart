@@ -38,6 +38,8 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
   bool _checkingPost = false;
   bool _hasReviewedTrip = false;
   final Set<String> _reviewedMemberIds = {};
+  bool _hasReportedTrip = false;
+  final Set<String> _reportedMemberIds = {};
   Timer? _errorDismissTimer;
 
   @override
@@ -303,6 +305,15 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
   }
 
   Future<void> _reportMember(TripModel trip, TripMember member) async {
+    if (_reportedMemberIds.contains(member.userId)) {
+      AppFeedback.show(
+        context,
+        'Bạn đã gửi báo cáo cho thành viên này và đang chờ quản trị viên xử lý.',
+        tone: AppStatusTone.warning,
+      );
+      return;
+    }
+
     final submitted = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
@@ -316,6 +327,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     );
 
     if (!mounted || submitted != true) return;
+    setState(() => _reportedMemberIds.add(member.userId));
     AppFeedback.show(
       context,
       'Báo cáo đã được gửi tới quản trị viên.',
@@ -324,6 +336,15 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
   }
 
   Future<void> _reportTrip(TripModel trip) async {
+    if (_hasReportedTrip) {
+      AppFeedback.show(
+        context,
+        'Bạn đã gửi báo cáo cho chuyến đi này và đang chờ quản trị viên xử lý.',
+        tone: AppStatusTone.warning,
+      );
+      return;
+    }
+
     final submitted = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
@@ -333,6 +354,7 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
     );
 
     if (!mounted || submitted != true) return;
+    setState(() => _hasReportedTrip = true);
     AppFeedback.show(
       context,
       'Báo cáo chuyến đi đã được gửi tới quản trị viên.',
@@ -1120,15 +1142,21 @@ class _TripDetailScreenState extends State<TripDetailScreen> {
             children: [
               if (!trip.isLeader)
                 TextButton.icon(
-                  icon: const Icon(
-                    Icons.report_outlined,
+                  icon: Icon(
+                    _hasReportedTrip
+                        ? Icons.check_circle_outline
+                        : Icons.report_outlined,
                     size: 16,
-                    color: AppColors.textSecondary,
+                    color: _hasReportedTrip
+                        ? AppColors.success
+                        : AppColors.textSecondary,
                   ),
-                  label: const Text(
-                    'Báo cáo chuyến đi',
+                  label: Text(
+                    _hasReportedTrip ? 'Đã báo cáo' : 'Báo cáo chuyến đi',
                     style: TextStyle(
-                      color: AppColors.textSecondary,
+                      color: _hasReportedTrip
+                          ? AppColors.success
+                          : AppColors.textSecondary,
                       fontSize: 13,
                     ),
                   ),

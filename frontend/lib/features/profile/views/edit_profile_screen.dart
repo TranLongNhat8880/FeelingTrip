@@ -129,12 +129,21 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
   }
 
+  DateTime _maxAllowedDob() {
+    final now = DateTime.now();
+    return DateTime(now.year - 18, now.month, now.day);
+  }
+
   Future<void> _pickDob() async {
+    final maxDob = _maxAllowedDob();
+    final initialDate = _dob ?? DateTime(2000);
+    final effectiveInitial = initialDate.isAfter(maxDob) ? maxDob : initialDate;
+
     final selected = await AppPickers.date(
       context,
-      initial: _dob ?? DateTime(2000),
+      initial: effectiveInitial,
       first: DateTime(1900),
-      last: DateTime.now(),
+      last: maxDob,
     );
 
     if (selected == null || !mounted) return;
@@ -143,6 +152,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       _dob = selected;
       _dobController.text = _formatDate(selected);
     });
+    _formKey.currentState?.validate();
   }
 
   Future<void> _submit() async {
@@ -222,10 +232,25 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
     if (text.isEmpty) return null;
 
-    final phonePattern = RegExp(r'^(?:0|\+84)[35789][0-9]{8}$');
+    if (text.length != 10) {
+      return 'Số điện thoại phải gồm đúng 10 chữ số';
+    }
+
+    final phonePattern = RegExp(r'^0[35789][0-9]{8}$');
 
     if (!phonePattern.hasMatch(text)) {
-      return 'Số điện thoại Việt Nam không hợp lệ';
+      return 'Số điện thoại không đúng định dạng (VD: 0912345678)';
+    }
+
+    return null;
+  }
+
+  String? _validateDob(String? value) {
+    if (_dob == null) return null;
+
+    final maxDob = _maxAllowedDob();
+    if (_dob!.isAfter(maxDob)) {
+      return 'Người dùng phải từ 18 tuổi trở lên';
     }
 
     return null;
@@ -331,8 +356,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       enabled: !isSaving,
                       validator: _validatePhone,
                       inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp(r'[0-9+]')),
-                        LengthLimitingTextInputFormatter(12),
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(10),
                       ],
                       textInputAction: TextInputAction.next,
                     ),
@@ -346,6 +371,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       readOnly: true,
                       enabled: !isSaving,
                       onTap: _pickDob,
+                      validator: _validateDob,
                       suffixIcon: IconButton(
                         tooltip: _dob == null
                             ? 'Chọn ngày sinh'
@@ -362,6 +388,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                   _dob = null;
                                   _dobController.clear();
                                 });
+                                _formKey.currentState?.validate();
                               },
                         icon: Icon(
                           _dob == null

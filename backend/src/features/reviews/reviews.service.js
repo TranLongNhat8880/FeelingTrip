@@ -1,4 +1,4 @@
-﻿const reviewsRepository = require('./reviews.repository');
+const reviewsRepository = require('./reviews.repository');
 const apiError = require('../../shared/utils/apiError.util');
 const HTTP_STATUS = require('../../shared/constants/httpStatus');
 
@@ -232,6 +232,35 @@ const createReport = async ({
             throw apiError(HTTP_STATUS.FORBIDDEN,
                 'Chỉ người đang hoặc từng tham gia mới được báo cáo chuyến đi riêng tư chưa có bài tuyển công khai');
         }
+    }
+
+    // Chặn spam số lượng: tối đa 5 báo cáo đang chờ xử lý (PENDING) trên một tài khoản
+    const MAX_PENDING_REPORTS = 5;
+    const pendingCount = await reviewsRepository.countPendingReportsByReporter(reporterId);
+    if (pendingCount >= MAX_PENDING_REPORTS) {
+        throw apiError(
+            429,
+            'Bạn đã đạt giới hạn tối đa 5 báo cáo đang chờ xử lý. Vui lòng chờ quản trị viên xử lý trước khi gửi thêm.'
+        );
+    }
+
+    // Kiểm tra trùng lặp: không gửi trùng báo cáo khi báo cáo trước đó cho cùng đối tượng đang chờ xử lý (PENDING)
+    const existingReport = await reviewsRepository.findExistingReport({
+        reporterId,
+        reportedUserId: reportedUserId || null,
+        reportedTripId: reportedTripId || null,
+    });
+
+    if (existingReport) {
+        let duplicateMessage = 'Bạn đã gửi báo cáo cho đối tượng này và đang chờ quản trị viên xử lý';
+        if (reportedTripId && reportedUserId) {
+            duplicateMessage = 'Bạn đã gửi báo cáo thành viên này trong chuyến đi và đang chờ quản trị viên xử lý';
+        } else if (reportedTripId) {
+            duplicateMessage = 'Bạn đã gửi báo cáo chuyến đi này và đang chờ quản trị viên xử lý';
+        } else if (reportedUserId) {
+            duplicateMessage = 'Bạn đã gửi báo cáo người dùng này và đang chờ quản trị viên xử lý';
+        }
+        throw apiError(HTTP_STATUS.CONFLICT, duplicateMessage);
     }
 
     const report = await reviewsRepository.createReport({

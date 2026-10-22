@@ -163,7 +163,7 @@ class _ReportScreenState extends State<ReportScreen> {
                   ],
                   const AppInlineNotice(
                     message:
-                        'Chỉ gửi thông tin đúng sự thật. Nội dung báo cáo phải có ít nhất 5 ký tự.',
+                        'Chỉ gửi thông tin đúng sự thật. Không gửi trùng lặp báo cáo khi đang chờ xử lý. Nội dung báo cáo phải có ít nhất 5 ký tự.',
                     tone: AppStatusTone.warning,
                   ),
                   const SizedBox(height: AppSizes.spaceL),
