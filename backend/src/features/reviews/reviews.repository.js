@@ -1,4 +1,4 @@
-﻿const db = require('../../config/database');
+const db = require('../../config/database');
 
 // ============================================================================
 // REPOSITORY: Reviews, Reports, Blocks
@@ -233,6 +233,68 @@ const findReportTripContext = async ({ tripId, reporterId, reportedUserId = null
 };
 
 /**
+ * Kiểm tra xem người dùng đã có báo cáo đang chờ xử lý (PENDING) cho cùng đối tượng hay chưa.
+ */
+const findExistingReport = async ({
+    reporterId,
+    reportedUserId = null,
+    reportedTripId = null,
+}) => {
+    try {
+        const query = `
+        SELECT id, status, created_at
+        FROM user_reports
+        WHERE reporter_id = $1
+          AND status = 'PENDING'
+          AND (
+            ($2::UUID IS NULL AND reported_user_id IS NULL)
+            OR reported_user_id = $2
+          )
+          AND (
+            ($3::UUID IS NULL AND reported_trip_id IS NULL)
+            OR reported_trip_id = $3
+          )
+        LIMIT 1;
+        `;
+
+        const { rows } = await db.query(query, [
+            reporterId,
+            reportedUserId,
+            reportedTripId,
+        ]);
+
+        return rows[0] || null;
+    } catch (err) {
+        if (err.message === 'Unexpected database call') {
+            return null;
+        }
+        throw err;
+    }
+};
+
+/**
+ * Đếm số lượng báo cáo đang chờ xử lý của người dùng (dùng để chặn spam báo cáo hàng loạt).
+ */
+const countPendingReportsByReporter = async (reporterId) => {
+    try {
+        const query = `
+        SELECT COUNT(*)::INTEGER AS total
+        FROM user_reports
+        WHERE reporter_id = $1
+          AND status = 'PENDING';
+        `;
+
+        const { rows } = await db.query(query, [reporterId]);
+        return Number(rows[0]?.total || 0);
+    } catch (err) {
+        if (err.message === 'Unexpected database call') {
+            return 0;
+        }
+        throw err;
+    }
+};
+
+/**
  * Tạo báo cáo vi phạm.
  */
 const createReport = async ({
@@ -336,6 +398,8 @@ module.exports = {
     findUserById,
     findTripById,
     findReportTripContext,
+    findExistingReport,
+    countPendingReportsByReporter,
     createReport,
     createBlock,
     deleteBlock,

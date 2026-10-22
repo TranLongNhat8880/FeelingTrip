@@ -258,6 +258,43 @@ const createPlace = async ({
     placeData,
     imageUrl,
 }) => {
+    // 1. Kiểm tra trùng tên trong cùng một tỉnh/thành
+    if (placeData.name && placeData.destination) {
+        const existingByName =
+            await placesRepository.findPlaceByNameAndDestination(
+                placeData.name,
+                placeData.destination
+            );
+
+        if (existingByName) {
+            throw apiError(
+                HTTP_STATUS.CONFLICT,
+                `Địa điểm "${placeData.name}" đã tồn tại tại ${placeData.destination}`
+            );
+        }
+    }
+
+    // 2. Kiểm tra trùng tọa độ nếu có cung cấp
+    if (
+        placeData.latitude !== undefined &&
+        placeData.latitude !== null &&
+        placeData.longitude !== undefined &&
+        placeData.longitude !== null
+    ) {
+        const existingByCoords =
+            await placesRepository.findPlaceByCoordinates(
+                placeData.latitude,
+                placeData.longitude
+            );
+
+        if (existingByCoords) {
+            throw apiError(
+                HTTP_STATUS.CONFLICT,
+                `Tọa độ này đã trùng với địa điểm "${existingByCoords.name}" tại ${existingByCoords.destination}`
+            );
+        }
+    }
+
     const normalizedData = {
         ...placeData,
         address:
@@ -296,6 +333,68 @@ const updatePlace = async ({
             HTTP_STATUS.NOT_FOUND,
             'Không tìm thấy địa điểm'
         );
+    }
+
+    const targetName =
+        placeData.name !== undefined
+            ? placeData.name
+            : existingPlace.name;
+    const targetDestination =
+        placeData.destination !== undefined
+            ? placeData.destination
+            : existingPlace.destination;
+
+    // 1. Kiểm tra trùng tên nếu có thay đổi name hoặc destination
+    if (
+        (placeData.name !== undefined ||
+            placeData.destination !== undefined) &&
+        targetName &&
+        targetDestination
+    ) {
+        const existingByName =
+            await placesRepository.findPlaceByNameAndDestination(
+                targetName,
+                targetDestination,
+                placeId
+            );
+
+        if (existingByName) {
+            throw apiError(
+                HTTP_STATUS.CONFLICT,
+                `Địa điểm "${targetName}" đã tồn tại tại ${targetDestination}`
+            );
+        }
+    }
+
+    // 2. Kiểm tra trùng tọa độ nếu có thay đổi latitude hoặc longitude
+    const targetLat =
+        placeData.latitude !== undefined
+            ? placeData.latitude
+            : existingPlace.latitude;
+    const targetLng =
+        placeData.longitude !== undefined
+            ? placeData.longitude
+            : existingPlace.longitude;
+
+    if (
+        (placeData.latitude !== undefined ||
+            placeData.longitude !== undefined) &&
+        targetLat !== null &&
+        targetLng !== null
+    ) {
+        const existingByCoords =
+            await placesRepository.findPlaceByCoordinates(
+                targetLat,
+                targetLng,
+                placeId
+            );
+
+        if (existingByCoords) {
+            throw apiError(
+                HTTP_STATUS.CONFLICT,
+                `Tọa độ này đã trùng với địa điểm "${existingByCoords.name}" tại ${existingByCoords.destination}`
+            );
+        }
     }
 
     const updateData = { ...placeData };

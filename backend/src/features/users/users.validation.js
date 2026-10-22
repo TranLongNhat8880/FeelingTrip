@@ -26,11 +26,11 @@ const updateProfileSchema = Joi.object({
 
   phone: Joi.string()
     .trim()
-    .pattern(/^(?:0|\+84)[35789][0-9]{8}$/)
+    .pattern(/^0[35789][0-9]{8}$/)
     .allow(null, '')
     .messages({
       'string.pattern.base':
-        'Số điện thoại không đúng định dạng Việt Nam (VD: 0912345678 hoặc +84912345678)',
+        'Số điện thoại phải gồm đúng 10 chữ số (VD: 0912345678)',
     }),
 
   bio: Joi.string().trim().max(500).allow(null, '').messages({
@@ -44,11 +44,25 @@ const updateProfileSchema = Joi.object({
       'any.only': 'Giới tính phải là MALE, FEMALE hoặc OTHER',
     }),
 
-  dob: Joi.date().iso().max('now').allow(null, '').messages({
-    'date.base': 'Ngày sinh không hợp lệ',
-    'date.format': 'Ngày sinh phải theo định dạng ISO YYYY-MM-DD',
-    'date.max': 'Ngày sinh không thể là ngày trong tương lai',
-  }),
+  dob: Joi.date()
+    .iso()
+    .max('now')
+    .custom((value, helpers) => {
+      if (!value) return value;
+      const now = new Date();
+      const maxDob = new Date(now.getFullYear() - 18, now.getMonth(), now.getDate());
+      if (value > maxDob) {
+        return helpers.error('dob.minAge');
+      }
+      return value;
+    })
+    .allow(null, '')
+    .messages({
+      'date.base': 'Ngày sinh không hợp lệ',
+      'date.format': 'Ngày sinh phải theo định dạng ISO YYYY-MM-DD',
+      'date.max': 'Ngày sinh không thể là ngày trong tương lai',
+      'dob.minAge': 'Người dùng phải từ 18 tuổi trở lên',
+    }),
 
   bankBin: Joi.string()
     .trim()
