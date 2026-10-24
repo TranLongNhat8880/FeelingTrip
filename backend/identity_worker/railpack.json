@@ -1,0 +1,32 @@
+{
+  "$schema": "https://schema.railpack.com",
+  "provider": "python",
+  "buildAptPackages": ["...", "libgl1", "libglib2.0-0", "libgomp1"],
+  "exclude": [
+    ".git",
+    ".env",
+    ".env.*",
+    ".venv",
+    "models",
+    "**/__pycache__",
+    "test*",
+    "fetch_test_fixtures.py",
+    "*.mp4",
+    "*.mov",
+    "*.jpg",
+    "*.png"
+  ],
+  "steps": {
+    "build": {
+      "commands": ["...", "python prepare.py"]
+    }
+  },
+  "deploy": {
+    "aptPackages": ["...", "libgl1", "libglib2.0-0", "libgomp1"],
+    "startCommand": "python app.py",
+    "variables": {
+      "HOST": "*",
+      "PYTHONUNBUFFERED": "1"
+    }
+  }
+}

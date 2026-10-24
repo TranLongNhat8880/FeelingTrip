@@ -2,6 +2,7 @@
 
 Worker riêng chạy CPU; Node.js API gọi worker qua mạng riêng bằng `EKYC_WORKER_KEY`.
 Ảnh/video không gửi đến dịch vụ AI bên ngoài. Không commit `.env`, model, ảnh hoặc video.
+Worker build bằng Python + Railpack, không cần Dockerfile hay cài Docker trên máy.
 
 ## Luồng
 
@@ -32,12 +33,48 @@ App dùng API trên máy: `flutter run --dart-define=API_BASE_URL=http://<IP má
 
 ## Railway
 
-Tạo service riêng với root directory `backend/identity_worker`, dùng Dockerfile ở đây.
-Đặt `HOST=0.0.0.0`, cùng `EKYC_WORKER_KEY`; đặt worker URL trong Node API bằng private domain + cổng worker.
-Không trỏ Railway về `127.0.0.1` của máy cá nhân. Không cần public domain cho worker.
-Chạy migration 011 trước khi deploy API/app mới. Backend Node vẫn build riêng; không nhét mô hình vào image Node.
+Luồng sau khi triển khai: **app điện thoại → Node API Railway → worker AI qua mạng riêng Railway → Node cập nhật kết quả**. Không cần mở máy tính hay chạy worker local.
 
-Ứng dụng hiện mặc định gọi Railway. Nếu chỉ chạy worker trên máy, cần chạy cả Node API trên máy và truyền `API_BASE_URL` như trên; bản Railway cũ chưa có worker sẽ chưa dùng được luồng mới.
+1. Trong **cùng project và environment** với Node API, tạo service `identity-worker` từ cùng repository/branch đã có code này.
+2. Settings → Source → Root Directory: `/backend/identity_worker`. Settings → Build → Builder: **Railpack**. Xóa Custom Build Command / Custom Start Command cũ nếu có; cấu hình `railpack.json` trong thư mục worker đã đặt lệnh build/start. Giữ Node API ở root và builder hiện tại của nó.
+   - `.python-version` cố định Python 3.11; Railway tự cài `requirements.txt`.
+   - `railpack.json` cài thư viện hệ thống `libgl1`, `libglib2.0-0`, `libgomp1` ở cả build và runtime, rồi chạy `python prepare.py` để tải/kiểm tra model. Khi khởi động dùng `python app.py` (Waitress).
+   - `.env`, `.venv`, model local, ảnh/video và test được loại khỏi nguồn build bằng `exclude`. Model phục vụ được tải lại từ nguồn công khai có checksum lúc build.
+   - Settings → Deploy → Healthcheck Path: `/ready`, timeout 120 giây; giữ 1 replica và Restart Policy: On Failure (3 lần).
+   - `railpack.json` là cấu hình **builder Railpack**, khác với `railway.json`/`railway.toml` (Config as Code cũ đã bị Railway ngừng cho service mới).
+3. Variables của worker:
+
+   ```dotenv
+   HOST=*
+   PORT=5101
+   EKYC_WORKER_KEY=<chuỗi ngẫu nhiên >=32 ký tự>
+   ```
+
+   `HOST=*` là wildcard của Waitress, nghe cả IPv4 và IPv6 để hỗ trợ mạng riêng Railway. Không cần Generate Domain, không cần database/Cloudinary credentials ở worker.
+4. Variables của **Node API** (giả sử tên service chính xác là `identity-worker`):
+
+   ```dotenv
+   EKYC_WORKER_URL=http://${{identity-worker.RAILWAY_PRIVATE_DOMAIN}}:5101
+   EKYC_WORKER_KEY=${{identity-worker.EKYC_WORKER_KEY}}
+   ```
+
+   Hai biến dùng Railway reference; không đưa khóa vào app hoặc commit `.env`. Nếu đổi tên service hoặc cổng thì sửa reference/URL tương ứng.
+5. Deploy worker, chờ build và health check `/ready` đạt. Endpoint này chỉ trả `ready`; `/health` và `/verify` vẫn yêu cầu `X-Worker-Key`. Model được tải và kiểm tra checksum lúc build; startup chỉ tải vào RAM.
+6. Chạy migration 011 bằng quy trình migration của backend trước khi dùng API mới (migration đã áp dụng thì không cần chạy SQL lại). Deploy Node API có các route eKYC mới. Từ Railway shell của Node có thể kiểm tra kết nối mà không in khóa:
+
+   ```sh
+   node -e 'fetch(process.env.EKYC_WORKER_URL+"/health",{headers:{"X-Worker-Key":process.env.EKYC_WORKER_KEY},signal:AbortSignal.timeout(10000)}).then(async r=>{console.log(r.status,await r.json());if(!r.ok)process.exitCode=1}).catch(()=>{console.error("Worker unreachable");process.exitCode=1})'
+   ```
+
+7. Cài/chạy bản app Android mới dùng API Railway mặc định. Thử QR → ảnh thẻ → thử thách camera → xác minh; kiểm tra cả người đúng, khác người và ảnh tĩnh. Chưa coi health check hoặc test tự động là bằng chứng luồng camera thật đã đạt.
+
+Lần build đầu sẽ tải Python dependencies và model nên có thể lâu hơn Node API. Worker là service tính tài nguyên riêng; theo dõi RAM/CPU trong Metrics khi test để đặt giới hạn phù hợp. Không bật sleep cho worker nếu muốn tạo phiên xác minh ngay (Node chỉ chờ health 4 giây).
+
+Chỉ cần commit mã nguồn và cấu hình rồi deploy service Python. Không có bước build image, chạy Docker CLI hay quản lý container thủ công. Railway vẫn đóng gói ứng dụng trên hạ tầng của họ qua Railpack; việc này không cần thao tác Docker trong project.
+
+Tài liệu: [Railpack Python](https://railpack.com/languages/python), [cấu hình Railpack](https://railpack.com/config/file), [thư viện hệ thống](https://railpack.com/guides/installing-packages/).
+
+Ứng dụng hiện mặc định gọi Railway. Chỉ khi chủ động kiểm thử local mới cần truyền `API_BASE_URL` như trên; thay `.env` trên máy không cập nhật Variables hay triển khai trên Railway.
 
 ## Model và giới hạn
 
@@ -58,7 +95,7 @@ Model có thể sai và chất lượng ảnh thẻ ảnh hưởng mạnh; khôn
 
 ```powershell
 .venv/Scripts/python.exe fetch_test_fixtures.py
-.venv/Scripts/python.exe -m unittest test_checks test_engine -v
+.venv/Scripts/python.exe -m unittest test_deployment test_checks test_engine -v
 ```
 
 Các ảnh mẫu công khai chỉ nằm trong `backend/.tmp/identity-fixtures` đã được Git ignore; không dùng ảnh CCCD cá nhân. Test ảnh thẻ tổng hợp chạy thật QR/OCR/SFace; riêng phần video trong ca thành công được mock. Ca video đứng yên chạy MediaPipe/SFace/MiniFASNet thật và phải bị từ chối. Đây chưa phải ca xác minh thành công quay bằng điện thoại thật.

@@ -20,8 +20,15 @@ capacity=threading.BoundedSemaphore(1)
 
 @app.before_request
 def authenticate():
+    # Railway probes cannot send our worker key. This endpoint contains no
+    # identity data; the API health and verification endpoints stay protected.
+    if request.endpoint == 'readiness' and request.method in ('GET', 'HEAD'):
+        return None
     if not hmac.compare_digest(request.headers.get('X-Worker-Key',''),key):
         return jsonify(error='Unauthorized'),401
+
+@app.get('/ready')
+def readiness(): return jsonify(ready=True)
 
 @app.get('/health')
 def health(): return jsonify(ready=True,model='SFace-2021dec')
@@ -47,7 +54,13 @@ def verify():
         return jsonify(error='Identity processing failed'),503
     finally: capacity.release()
 
-if __name__=='__main__':
+def run():
     from waitress import serve
-    serve(app,host=os.environ.get('HOST','127.0.0.1'),port=int(os.environ.get('PORT','5101')),threads=4,
+    host=os.environ.get('HOST','127.0.0.1')
+    # Waitress wildcard listens on IPv4 and IPv6, including older Railway
+    # private networks whose internal DNS resolves only to IPv6.
+    if ':' in host and not host.startswith('['): host=f'[{host}]'
+    serve(app,listen=f"{host}:{int(os.environ.get('PORT','5101'))}",threads=4,
           max_request_body_size=36*1024*1024,channel_timeout=120)
+
+if __name__=='__main__': run()
