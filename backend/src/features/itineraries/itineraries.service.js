@@ -124,6 +124,42 @@ const ensureEditable = trip => {
  * @param {Array} orderedItems - danh sách item theo thứ tự mới (từ DB row)
  * @returns {Array<{id, startTime, endTime}>} chỉ trả về item có thay đổi
  */
+/**
+ * Hoán đổi / gán khung giờ theo vị trí slot mới.
+ * Mỗi vị trí slot i giữ nguyên khung giờ (start_time, end_time) của vị trí đó trong thứ tự gốc.
+ * Item được đặt vào vị trí i sẽ nhận khung giờ của vị trí i.
+ * @param {Array} currentItems - danh sách item theo thứ tự ban đầu
+ * @param {Array<string>} orderedItemIds - danh sách id theo thứ tự mới
+ * @returns {Array<{id, startTime, endTime}>} các item có thay đổi giờ
+ */
+const assignSlotTimes = (currentItems, orderedItemIds) => {
+  if (!currentItems.length || currentItems.length !== orderedItemIds.length) return [];
+  const itemMap = new Map(currentItems.map(item => [item.id, item]));
+  const updates = [];
+
+  for (let i = 0; i < orderedItemIds.length; i++) {
+    const targetId = orderedItemIds[i];
+    const targetItem = itemMap.get(targetId);
+    const slotTemplate = currentItems[i];
+    if (!targetItem || !slotTemplate) continue;
+
+    const slotStart = asTime(slotTemplate.start_time);
+    const slotEnd = asTime(slotTemplate.end_time);
+    const curStart = asTime(targetItem.start_time);
+    const curEnd = asTime(targetItem.end_time);
+
+    if (slotStart && slotEnd && (curStart !== slotStart || curEnd !== slotEnd)) {
+      updates.push({
+        id: targetId,
+        startTime: slotStart,
+        endTime: slotEnd,
+      });
+    }
+  }
+
+  return updates;
+};
+
 const recalculateSequentialTimes = orderedItems => {
   if (!orderedItems.length) return [];
   const firstStart = asTime(orderedItems[0]?.start_time);
@@ -243,7 +279,7 @@ const getItem = async (itemId, userId) => {
 const resolveItemInput = async (client, data) => {
   const source = data.locationSource || (data.placeId ? 'CATALOG' : 'MANUAL');
   if (source === 'CATALOG') {
-    if (!data.placeId) throw apiError(400, 'placeId bắt buộc cho CATALOG');
+    if (!data.placeId) throw apiError(400, 'Vui lòng chọn một địa điểm từ danh mục gợi ý.');
     const place = await repo.findPlace(client, data.placeId);
     if (!place || !place.is_active) throw apiError(404, 'Không tìm thấy địa điểm đang hoạt động');
     return {
@@ -259,7 +295,7 @@ const resolveItemInput = async (client, data) => {
     };
   }
   if (source === 'GEOAPIFY') {
-    if (!data.category) throw apiError(400, 'Category là bắt buộc cho hoạt động GEOAPIFY');
+    if (!data.category) throw apiError(400, 'Vui lòng chọn danh mục cho hoạt động từ bản đồ.');
     return {
       ...data,
       locationSource: 'GEOAPIFY',
@@ -268,7 +304,7 @@ const resolveItemInput = async (client, data) => {
     };
   }
   // MANUAL
-  if (!data.category) throw apiError(400, 'Category là bắt buộc cho hoạt động tùy chỉnh');
+  if (!data.category) throw apiError(400, 'Vui lòng chọn danh mục cho hoạt động tùy chỉnh.');
   return {
     ...data,
     locationSource: 'MANUAL',
@@ -308,6 +344,7 @@ const updateItem = (itemId, userId, data) => db.transaction(async client => {
   const item = await repo.findItem(client, itemId, true);
   if (!item) throw apiError(404, 'Không tìm thấy hoạt động');
   ensureEditable(trip);
+  if (item.is_completed) throw apiError(400, 'Không thể chỉnh sửa điểm dừng đã hoàn thành. Vui lòng bỏ đánh dấu hoàn thành trước.');
   if (!sameVersion(item.row_version, data.expectedVersion)) throw apiError(409, 'Hoạt động đã được cập nhật');
   const startTime = data.startTime || asTime(item.start_time);
   const endTime = data.endTime || asTime(item.end_time);
@@ -336,6 +373,7 @@ const deleteItem = (itemId, userId, data = {}) => db.transaction(async client =>
   const item = await repo.findItem(client, itemId, true);
   if (!item) throw apiError(404, 'Không tìm thấy hoạt động');
   ensureEditable(trip);
+  if (item.is_completed) throw apiError(400, 'Không thể xóa điểm dừng đã hoàn thành. Vui lòng bỏ đánh dấu hoàn thành trước.');
   if (!sameVersion(item.row_version, data.expectedVersion)) {
     throw apiError(409, 'Hoạt động đã được cập nhật');
   }
@@ -378,14 +416,18 @@ const reorderItems = (dayId, userId, data) => db.transaction(async client => {
       || data.orderedItemIds.some(id => !currentIds.has(id))) {
     throw apiError(400, 'Danh sách sắp xếp phải chứa đúng toàn bộ hoạt động của ngày');
   }
+  for (let i = 0; i < currentItems.length; i++) {
+    const it = currentItems[i];
+    if (it.is_completed && data.orderedItemIds[i] !== it.id) {
+      throw apiError(400, 'Không thể thay đổi vị trí của điểm dừng đã hoàn thành. Vui lòng bỏ đánh dấu hoàn thành trước.');
+    }
+  }
 
   await repo.reorderItems(client, dayId, data.orderedItemIds);
 
-  // Phương án A: tự động tính lại start_time/end_time theo thứ tự mới,
-  // giữ nguyên duration (khoảng thời gian) của từng hoạt động.
-  const itemMap = new Map(currentItems.map(item => [item.id, item]));
-  const orderedItems = data.orderedItemIds.map(id => itemMap.get(id));
-  const timeUpdates = recalculateSequentialTimes(orderedItems);
+  // Hoán đổi khung giờ theo slot: mỗi vị trí slot i giữ nguyên khung giờ ban đầu,
+  // item được chuyển vào slot i sẽ nhận khung giờ của vị trí đó.
+  const timeUpdates = assignSlotTimes(currentItems, data.orderedItemIds);
   if (timeUpdates.length > 0) {
     await repo.bulkUpdateItemTimes(client, timeUpdates);
   }
@@ -448,7 +490,7 @@ const candidateRows = async (client, item, radiusKm, limit, withTokens) => {
   if (!item.place_id || item.location_source !== 'CATALOG'
       || item.place_latitude == null || item.place_longitude == null
       || !item.place_active || !item.place_duration || item.place_duration <= 0) {
-    throw apiError(422, 'Hoạt động không đủ điều kiện Smart Swap');
+    throw apiError(422, 'Điểm dừng không đủ điều kiện đổi thông minh (Smart Swap)');
   }
   const dayItems = await repo.findDayItemsWithPlaces(client, item.itinerary_id);
   const index = dayItems.findIndex(row => row.id === item.id);
@@ -504,6 +546,7 @@ const applySmartSwap = (itemId, userId, data) => db.transaction(async client => 
   const item = await repo.findItem(client, itemId, true);
   if (!item) throw apiError(404, 'Không tìm thấy hoạt động');
   ensureEditable(trip);
+  if (item.is_completed) throw apiError(400, 'Không thể đổi điểm dừng đã hoàn thành. Vui lòng bỏ đánh dấu hoàn thành trước.');
   if (!sameVersion(item.row_version, data.expectedVersion)) throw apiError(409, 'Hoạt động đã được cập nhật');
   const token = verifyCandidate(data.candidateToken);
   const currentVersion = String(item.row_version);
@@ -554,7 +597,7 @@ const clonePlan = (sourceTripId, userId, data) => db.transaction(async client =>
 
   const durationDays = Number(source.duration_days);
   const target = await repo.createClonedTrip(client, userId, source, {
-    name: (data.name || `${source.name} (Bản sao)`).slice(0, 255),
+    name: (data.name || source.name).slice(0, 255),
     startDate: data.startDate,
     endDate: datePlus(data.startDate, durationDays - 1),
   });
@@ -570,5 +613,5 @@ const clonePlan = (sourceTripId, userId, data) => db.transaction(async client =>
 module.exports = {
   getItineraries, createDay, getDay, updateDay, getItem, addItem, updateItem,
   deleteItem, setCompletion, reorderItems, getSwapCandidates, applySmartSwap,
-  listPublic, getPublic, clonePlan, resolveItemInput, recalculateSequentialTimes,
+  listPublic, getPublic, clonePlan, resolveItemInput, recalculateSequentialTimes, assignSlotTimes,
 };

@@ -7,15 +7,19 @@ import '../models/trip_model.dart';
 import '../repositories/trip_repository.dart';
 import '../viewmodels/trip_viewmodel.dart';
 
-class TripInvitationsScreen extends StatefulWidget {
-  const TripInvitationsScreen({super.key, this.repository});
+class TripInvitationsContent extends StatefulWidget {
+  const TripInvitationsContent({super.key, this.repository});
   final TripRepository? repository;
 
   @override
-  State<TripInvitationsScreen> createState() => _TripInvitationsScreenState();
+  State<TripInvitationsContent> createState() => _TripInvitationsContentState();
 }
 
-class _TripInvitationsScreenState extends State<TripInvitationsScreen> {
+class _TripInvitationsContentState extends State<TripInvitationsContent>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   late final TripViewModel _viewModel;
 
   @override
@@ -47,18 +51,16 @@ class _TripInvitationsScreenState extends State<TripInvitationsScreen> {
       context,
       success
           ? accept
-                ? 'Đã tham gia chuyến đi.'
-                : 'Đã từ chối lời mời.'
+              ? 'Đã tham gia chuyến đi.'
+              : 'Đã từ chối lời mời.'
           : _viewModel.errorMessage!,
       tone: success ? AppStatusTone.success : AppStatusTone.error,
     );
   }
 
   @override
-  Widget build(BuildContext context) =>
-      AppScaffold(title: 'Lời mời của tôi', body: _content());
-
-  Widget _content() {
+  Widget build(BuildContext context) {
+    super.build(context);
     if (_viewModel.isLoading && _viewModel.invitations.isEmpty) {
       return const Center(
         child: LoadingIndicator(message: 'Đang tải lời mời...'),
@@ -80,6 +82,7 @@ class _TripInvitationsScreenState extends State<TripInvitationsScreen> {
     return RefreshIndicator(
       onRefresh: _viewModel.loadMyInvitations,
       child: ListView.separated(
+        padding: const EdgeInsets.all(16),
         itemCount: _viewModel.invitations.length,
         separatorBuilder: (_, _) => const SizedBox(height: 14),
         itemBuilder: (_, index) {
@@ -163,4 +166,15 @@ class _TripInvitationsScreenState extends State<TripInvitationsScreen> {
       ),
     );
   }
+}
+
+class TripInvitationsScreen extends StatelessWidget {
+  const TripInvitationsScreen({super.key, this.repository});
+  final TripRepository? repository;
+
+  @override
+  Widget build(BuildContext context) => AppScaffold(
+        title: 'Lời mời của tôi',
+        body: TripInvitationsContent(repository: repository),
+      );
 }

@@ -436,7 +436,7 @@ void main() {
       expect(cloned!.trip.id, isNotEmpty);
     });
 
-    test('MockItineraryRepository reorders items and recalculates sequential times (Approach A)', () async {
+    test('MockItineraryRepository reorders items and swaps slot times directly without cascading', () async {
       final repo = MockItineraryRepository();
       final plan = await repo.getItinerary('trip-reorder-test');
       final day = plan.days.first;
@@ -474,20 +474,117 @@ void main() {
         [item2.id, item3.id, item1.id],
       );
 
-      // Item 2 starts at 10:00, dur 90m -> 10:00 - 11:30
-      // Item 3 starts at 11:30, dur 60m -> 11:30 - 12:30
-      // Item 1 starts at 12:30, dur 120m -> 12:30 - 14:30
+      // Item 2 placed at slot 0 receives 08:00 - 10:00
+      // Item 3 placed at slot 1 receives 10:00 - 11:30
+      // Item 1 placed at slot 2 receives 11:30 - 12:30
       expect(reorderedDay.items[0].id, item2.id);
-      expect(reorderedDay.items[0].startTime, '10:00');
-      expect(reorderedDay.items[0].endTime, '11:30');
+      expect(reorderedDay.items[0].startTime, '08:00');
+      expect(reorderedDay.items[0].endTime, '10:00');
 
       expect(reorderedDay.items[1].id, item3.id);
-      expect(reorderedDay.items[1].startTime, '11:30');
-      expect(reorderedDay.items[1].endTime, '12:30');
+      expect(reorderedDay.items[1].startTime, '10:00');
+      expect(reorderedDay.items[1].endTime, '11:30');
 
       expect(reorderedDay.items[2].id, item1.id);
-      expect(reorderedDay.items[2].startTime, '12:30');
-      expect(reorderedDay.items[2].endTime, '14:30');
+      expect(reorderedDay.items[2].startTime, '11:30');
+      expect(reorderedDay.items[2].endTime, '12:30');
+    });
+
+    test('MockItineraryRepository blocks editing, deleting, swapping, and reordering completed stops', () async {
+      final repo = MockItineraryRepository();
+      final plan = await repo.getItinerary('trip-lock-test');
+      final day = plan.days.first;
+
+      final item2 = await repo.addItem(
+        day.id!,
+        const ItineraryItemDraft(
+          customName: 'Điểm thứ hai',
+          startTime: '10:00',
+          endTime: '11:30',
+          category: 'ATTRACTION',
+          estimatedCost: 0,
+        ),
+      );
+
+      final currentPlan = await repo.getItinerary('trip-lock-test');
+      final currentDay = currentPlan.days.first;
+      final completedItem = await repo.setCompletion(currentDay.items.first, isCompleted: true);
+      expect(completedItem.isCompleted, isTrue);
+
+      // Cannot update completed item
+      expect(
+        () => repo.updateItem(
+          completedItem,
+          const ItineraryItemDraft(
+            customName: 'Sửa tên',
+            startTime: '08:00',
+            endTime: '09:00',
+            category: 'ATTRACTION',
+            estimatedCost: 0,
+          ),
+        ),
+        throwsA(predicate((e) => e.toString().contains('Không thể chỉnh sửa điểm dừng đã hoàn thành'))),
+      );
+
+      // Cannot delete completed item
+      expect(
+        () => repo.deleteItem(completedItem),
+        throwsA(predicate((e) => e.toString().contains('Không thể xóa điểm dừng đã hoàn thành'))),
+      );
+
+      // Cannot swap completed item
+      expect(
+        () => repo.applySmartSwap(
+          completedItem,
+          const SwapCandidate(
+            placeId: 'cand-1',
+            name: 'Điểm thay thế',
+            address: 'Hà Nội',
+            category: 'ATTRACTION',
+            rating: 4.5,
+            distanceFromOriginalKm: 1.0,
+            routeDeltaKm: 0.2,
+            candidateToken: 'token',
+          ),
+        ),
+        throwsA(predicate((e) => e.toString().contains('Không thể đổi điểm dừng đã hoàn thành'))),
+      );
+
+      // Cannot reorder displacing completed item
+      final refreshedPlan = await repo.getItinerary('trip-lock-test');
+      final refreshedDay = refreshedPlan.days.first;
+      expect(
+        () => repo.reorderItems(refreshedDay, [item2.id, completedItem.id]),
+        throwsA(predicate((e) => e.toString().contains('Không thể thay đổi vị trí của điểm dừng đã hoàn thành'))),
+      );
+
+      // Uncompleted item CAN be updated freely
+      final updatedUncompleted = await repo.updateItem(
+        item2,
+        const ItineraryItemDraft(
+          customName: 'Điểm thứ hai đã đổi tên',
+          startTime: '10:00',
+          endTime: '11:30',
+          category: 'ATTRACTION',
+          estimatedCost: 0,
+        ),
+      );
+      expect(updatedUncompleted.customName, 'Điểm thứ hai đã đổi tên');
+
+      // Unmarking completion unlocks the item
+      final unlockedItem = await repo.setCompletion(completedItem, isCompleted: false);
+      expect(unlockedItem.isCompleted, isFalse);
+      final updatedUnlocked = await repo.updateItem(
+        unlockedItem,
+        const ItineraryItemDraft(
+          customName: 'Điểm một sau khi mở khóa',
+          startTime: '08:00',
+          endTime: '09:30',
+          category: 'ATTRACTION',
+          estimatedCost: 0,
+        ),
+      );
+      expect(updatedUnlocked.customName, 'Điểm một sau khi mở khóa');
     });
 
     test('MockItineraryRepository searchPlaces filters places by destination and keyword', () async {

@@ -54,11 +54,17 @@ class ItineraryViewModel extends ChangeNotifier {
 
   Future<bool> updateItem(ItineraryItem item, ItineraryItemDraft draft) async =>
       _action(() async {
+        if (item.isCompleted) {
+          throw Exception('Không thể chỉnh sửa điểm dừng đã hoàn thành. Vui lòng bỏ đánh dấu hoàn thành trước.');
+        }
         await repository.updateItem(item, draft);
         await _reload();
       });
 
   Future<bool> deleteItem(ItineraryItem item) async => _action(() async {
+    if (item.isCompleted) {
+      throw Exception('Không thể xóa điểm dừng đã hoàn thành. Vui lòng bỏ đánh dấu hoàn thành trước.');
+    }
     await repository.deleteItem(item);
     await _reload();
   });
@@ -97,6 +103,26 @@ class ItineraryViewModel extends ChangeNotifier {
     final originalItems = List<ItineraryItem>.of(day.items);
     final moved = day.items.removeAt(oldIndex);
     day.items.insert(newIndex, moved);
+
+    for (int i = 0; i < originalItems.length; i++) {
+      if (originalItems[i].isCompleted && day.items[i].id != originalItems[i].id) {
+        day.items
+          ..clear()
+          ..addAll(originalItems);
+        _errorMessage = 'Không thể thay đổi vị trí của điểm dừng đã hoàn thành.';
+        notifyListeners();
+        return false;
+      }
+    }
+
+    // Gán ngay khung giờ của slot tương ứng để UI cập nhật tức thì
+    for (int i = 0; i < day.items.length; i++) {
+      day.items[i] = day.items[i].copyWith(
+        startTime: originalItems[i].startTime,
+        endTime: originalItems[i].endTime,
+      );
+    }
+
     final ids = day.items.map((item) => item.id).toList(growable: false);
     notifyListeners();
 
@@ -115,6 +141,11 @@ class ItineraryViewModel extends ChangeNotifier {
 
   Future<List<SwapCandidate>?> getSwapCandidates(ItineraryItem item) async {
     if (_isSubmitting) return null;
+    if (item.isCompleted) {
+      _errorMessage = 'Không thể đổi điểm dừng đã hoàn thành.';
+      notifyListeners();
+      return null;
+    }
     _setSubmitting(true);
     try {
       final result = await repository.getSwapCandidates(item.id);
@@ -132,6 +163,9 @@ class ItineraryViewModel extends ChangeNotifier {
     ItineraryItem item,
     SwapCandidate candidate,
   ) async => _action(() async {
+    if (item.isCompleted) {
+      throw Exception('Không thể đổi điểm dừng đã hoàn thành.');
+    }
     await repository.applySmartSwap(item, candidate);
     await _reload();
   });
@@ -175,7 +209,18 @@ class ItineraryViewModel extends ChangeNotifier {
 
   String _message(Object error, String fallback) {
     if (error is ApiException) return error.message;
-    final text = '$error'.replaceFirst('Exception: ', '').trim();
+    final raw = '$error';
+    if (raw.contains('SocketException') ||
+        raw.contains('ClientException') ||
+        raw.contains('TimeoutException') ||
+        raw.contains('Failed host lookup') ||
+        raw.contains('Connection refused')) {
+      return 'Không thể kết nối đến máy chủ. Vui lòng kiểm tra lại kết nối mạng.';
+    }
+    if (error is FormatException || raw.contains('FormatException')) {
+      return 'Dữ liệu phản hồi từ máy chủ không hợp lệ.';
+    }
+    final text = raw.replaceFirst('Exception: ', '').trim();
     return text.isEmpty ? fallback : text;
   }
 }

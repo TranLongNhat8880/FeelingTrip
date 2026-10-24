@@ -141,6 +141,52 @@ class ItineraryItem {
 
   bool get supportsSmartSwap => canSmartSwap;
 
+  ItineraryItem copyWith({
+    String? id,
+    String? itineraryId,
+    String? placeId,
+    String? customName,
+    String? customAddress,
+    double? latitude,
+    double? longitude,
+    String? locationSource,
+    String? externalProvider,
+    String? externalPlaceId,
+    String? category,
+    String? startTime,
+    String? endTime,
+    String? note,
+    int? estimatedCost,
+    bool? isCompleted,
+    DateTime? createdAt,
+    String? version,
+    String? expenseId,
+    int? actualAmount,
+  }) =>
+      ItineraryItem(
+        id: id ?? this.id,
+        itineraryId: itineraryId ?? this.itineraryId,
+        placeId: placeId ?? this.placeId,
+        customName: customName ?? this.customName,
+        customAddress: customAddress ?? this.customAddress,
+        latitude: latitude ?? this.latitude,
+        longitude: longitude ?? this.longitude,
+        locationSource: locationSource ?? this.locationSource,
+        externalProvider: externalProvider ?? this.externalProvider,
+        externalPlaceId: externalPlaceId ?? this.externalPlaceId,
+        category: category ?? this.category,
+        startTime: startTime ?? this.startTime,
+        endTime: endTime ?? this.endTime,
+        note: note ?? this.note,
+        estimatedCost: estimatedCost ?? this.estimatedCost,
+        isCompleted: isCompleted ?? this.isCompleted,
+        createdAt: createdAt ?? this.createdAt,
+        version: version ?? this.version,
+        expenseId: expenseId ?? this.expenseId,
+        actualAmount: actualAmount ?? this.actualAmount,
+      );
+
+
   factory ItineraryItem.fromJson(Map<String, dynamic> json) => ItineraryItem(
     id: '${json['id'] ?? ''}',
     itineraryId: '${json['itineraryId'] ?? ''}',

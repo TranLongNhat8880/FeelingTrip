@@ -826,7 +826,7 @@ class _PublicItineraryDetailScreenState
 
   Future<void> _clone() async {
     final name = TextEditingController(
-      text: '${widget.summary.name} (Bản sao)',
+      text: widget.summary.name,
     );
     var startDate = DateTime.now().add(const Duration(days: 7));
     final data = await AppBottomSheet.show<({String name, DateTime startDate})>(

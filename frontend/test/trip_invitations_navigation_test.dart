@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:feeling_trip/features/auth/models/user_model.dart';
+import 'package:feeling_trip/features/companion/views/companion_requests_screen.dart';
 import 'package:feeling_trip/features/home/views/personal_content.dart';
 import 'package:feeling_trip/features/trip/repositories/mock_trip_repository.dart';
 import 'package:feeling_trip/features/trip/views/trip_invitations_screen.dart';
@@ -13,8 +14,8 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  group('Trip invitations location tests', () {
-    testWidgets('TripListScreen no longer contains Lời mời của tôi button', (tester) async {
+  group('Trip invitations location and unified requests tests', () {
+    testWidgets('TripListScreen does not contain Lời mời của tôi button', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
           home: TripListScreen(repository: MockTripRepository()),
@@ -22,15 +23,12 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // "Tạo chuyến đi" and "Tham gia bằng mã" should be present
       expect(find.text('Tạo chuyến đi'), findsOneWidget);
       expect(find.text('Tham gia bằng mã'), findsOneWidget);
-
-      // "Lời mời của tôi" button should NOT be in TripListScreen
       expect(find.text('Lời mời của tôi'), findsNothing);
     });
 
-    testWidgets('PersonalContent contains Lời mời shortcut and Lời mời của tôi entry', (tester) async {
+    testWidgets('PersonalContent unifies Lời mời into Yêu cầu shortcut and removes separate entry', (tester) async {
       final user = UserModel(
         id: 'test-user-id',
         email: 'test@feelingtrip.com',
@@ -49,90 +47,64 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Quick shortcut 'Lời mời'
+      // Quick shortcut 'Yêu cầu' is present
+      expect(find.text('Yêu cầu'), findsOneWidget);
+
+      // Separate list entry 'Lời mời của tôi' in Account section is removed
+      expect(find.text('Lời mời của tôi'), findsNothing);
+    });
+
+    testWidgets('Tapping Yêu cầu shortcut opens unified screen with Lời mời tab', (tester) async {
+      final user = UserModel(
+        id: 'test-user-id',
+        email: 'test@feelingtrip.com',
+        fullName: 'Nguyen Van Test',
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: PersonalContent(
+              user: user,
+              onLogout: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Tap shortcut 'Yêu cầu'
+      await tester.tap(find.text('Yêu cầu'));
+      await tester.pumpAndSettle();
+
+      // We should now be on CompanionRequestsScreen with 3 tabs
+      expect(find.byType(CompanionRequestsScreen), findsOneWidget);
+      expect(find.text('Đã gửi'), findsOneWidget);
+      expect(find.text('Nhận được'), findsOneWidget);
       expect(find.text('Lời mời'), findsOneWidget);
 
-      // Scroll to find list entry 'Lời mời của tôi'
-      await tester.scrollUntilVisible(
-        find.text('Lời mời của tôi'),
-        200,
-      );
-      await tester.pumpAndSettle();
-
-      // List entry 'Lời mời của tôi'
-      expect(find.text('Lời mời của tôi'), findsOneWidget);
-      expect(find.text('Xem và phản hồi lời mời tham gia chuyến đi'), findsOneWidget);
-    });
-
-    testWidgets('Tapping Lời mời shortcut in PersonalContent navigates to TripInvitationsScreen', (tester) async {
-      final user = UserModel(
-        id: 'test-user-id',
-        email: 'test@feelingtrip.com',
-        fullName: 'Nguyen Van Test',
-      );
-
-      await tester.pumpWidget(
-        MaterialApp(
-          routes: {
-            '/': (context) => Scaffold(
-                  body: PersonalContent(
-                    user: user,
-                    onLogout: () {},
-                  ),
-                ),
-            AppRoutes.tripInvitations: (context) => TripInvitationsScreen(
-                  repository: MockTripRepository(),
-                ),
-          },
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      // Tap shortcut 'Lời mời'
+      // Tapping 'Lời mời' tab switches to invitations content
       await tester.tap(find.text('Lời mời'));
       await tester.pumpAndSettle();
-
-      // We should now be on TripInvitationsScreen which has title 'Lời mời của tôi' in its app bar
-      expect(find.byType(TripInvitationsScreen), findsOneWidget);
+      expect(find.byType(TripInvitationsContent), findsOneWidget);
     });
 
-    testWidgets('Tapping Lời mời của tôi list entry navigates to TripInvitationsScreen', (tester) async {
-      final user = UserModel(
-        id: 'test-user-id',
-        email: 'test@feelingtrip.com',
-        fullName: 'Nguyen Van Test',
-      );
-
+    testWidgets('AppRoutes.tripInvitations navigates to unified screen with Lời mời selected', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
           routes: {
-            '/': (context) => Scaffold(
-                  body: PersonalContent(
-                    user: user,
-                    onLogout: () {},
-                  ),
-                ),
-            AppRoutes.tripInvitations: (context) => TripInvitationsScreen(
-                  repository: MockTripRepository(),
-                ),
+            '/': (context) => const SizedBox(),
+            AppRoutes.tripInvitations: (context) =>
+                const CompanionRequestsScreen(initialIndex: 2),
           },
+          initialRoute: AppRoutes.tripInvitations,
         ),
       );
       await tester.pumpAndSettle();
 
-      // Scroll to make sure the entry is visible
-      await tester.scrollUntilVisible(
-        find.text('Lời mời của tôi'),
-        200,
-      );
-      await tester.pumpAndSettle();
-
-      // Tap list entry 'Lời mời của tôi'
-      await tester.tap(find.text('Lời mời của tôi'));
-      await tester.pumpAndSettle();
-
-      // We should now be on TripInvitationsScreen
-      expect(find.byType(TripInvitationsScreen), findsOneWidget);
+      // Should be on CompanionRequestsScreen with Lời mời tab active
+      expect(find.byType(CompanionRequestsScreen), findsOneWidget);
+      expect(find.byType(TripInvitationsContent), findsOneWidget);
     });
   });
 }

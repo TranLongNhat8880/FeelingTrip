@@ -49,43 +49,67 @@ class AppFeedback {
     BuildContext context,
     String message, {
     AppStatusTone tone = AppStatusTone.info,
+    Duration? duration,
   }) {
     final messenger = ScaffoldMessenger.of(context);
     messenger.hideCurrentSnackBar();
+
+    final isHighContrastTone =
+        tone == AppStatusTone.success || tone == AppStatusTone.info;
+    final fg = isHighContrastTone ? Colors.white : tone.foreground;
+    final bg = isHighContrastTone ? AppColors.primary : tone.background;
+
+    // Tính toán thời gian hiển thị thông minh theo độ dài và mức độ ưu tiên:
+    // Thông báo lỗi hoặc thông tin dài (> 60 ký tự) sẽ có thời gian đọc lâu hơn (4-6 giây)
+    final displayDuration = duration ??
+        switch (tone) {
+          AppStatusTone.error => message.length > 60
+              ? const Duration(seconds: 6)
+              : const Duration(seconds: 4),
+          AppStatusTone.warning => message.length > 60
+              ? const Duration(seconds: 5)
+              : const Duration(seconds: 4),
+          _ => const Duration(seconds: 3),
+        };
+
     messenger.showSnackBar(
       SnackBar(
-        backgroundColor:
-            tone == AppStatusTone.success || tone == AppStatusTone.info
-            ? AppColors.primary
-            : tone.background,
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.only(left: 16, right: 16, bottom: 20),
+        elevation: 4,
+        duration: displayDuration,
+        backgroundColor: bg,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(
+            color: isHighContrastTone
+                ? Colors.transparent
+                : tone.foreground.withValues(alpha: 0.25),
+          ),
+        ),
         content: Row(
           children: [
             Icon(
               tone.icon,
-              color: tone == AppStatusTone.success || tone == AppStatusTone.info
-                  ? Colors.white
-                  : tone.foreground,
+              color: fg,
+              size: 20,
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
                 message,
                 style: TextStyle(
-                  color:
-                      tone == AppStatusTone.success ||
-                          tone == AppStatusTone.info
-                      ? Colors.white
-                      : tone.foreground,
+                  color: fg,
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w600,
+                  height: 1.35,
                 ),
               ),
             ),
           ],
         ),
         showCloseIcon: true,
-        closeIconColor:
-            tone == AppStatusTone.success || tone == AppStatusTone.info
-            ? Colors.white
-            : tone.foreground,
+        closeIconColor: fg,
       ),
     );
   }

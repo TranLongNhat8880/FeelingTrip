@@ -6,16 +6,35 @@ import '../../../shared/ui_kit.dart';
 import '../models/companion_request_model.dart';
 import '../viewmodels/companion_requests_viewmodel.dart';
 import 'companion_sent_requests_screen.dart';
+import '../../trip/repositories/trip_repository.dart';
+import '../../trip/views/trip_invitations_screen.dart';
 
 class CompanionRequestsScreen extends StatelessWidget {
-  const CompanionRequestsScreen({super.key, this.initialReceived = false});
+  const CompanionRequestsScreen({
+    super.key,
+    this.initialIndex,
+    this.initialReceived = false,
+    this.title,
+    this.repository,
+  });
+
+  final int? initialIndex;
   final bool initialReceived;
+  final String? title;
+  final TripRepository? repository;
+
+  int get _effectiveIndex {
+    if (initialIndex != null) return initialIndex!.clamp(0, 2);
+    if (initialReceived) return 1;
+    return 0;
+  }
+
   @override
   Widget build(BuildContext context) => DefaultTabController(
-    length: 2,
-    initialIndex: initialReceived ? 1 : 0,
+    length: 3,
+    initialIndex: _effectiveIndex,
     child: AppScaffold(
-      title: 'Yêu cầu tham gia',
+      title: title ?? 'Yêu cầu & Lời mời',
       padding: EdgeInsets.zero,
       appBarBottom: TabBar(
         labelColor: AppColors.primary,
@@ -31,12 +50,14 @@ class CompanionRequestsScreen extends StatelessWidget {
         tabs: const [
           Tab(text: 'Đã gửi'),
           Tab(text: 'Nhận được'),
+          Tab(text: 'Lời mời'),
         ],
       ),
-      body: const TabBarView(
+      body: TabBarView(
         children: [
-          CompanionSentRequestsContent(),
-          CompanionReceivedRequestsContent(),
+          const CompanionSentRequestsContent(),
+          const CompanionReceivedRequestsContent(),
+          TripInvitationsContent(repository: repository),
         ],
       ),
     ),

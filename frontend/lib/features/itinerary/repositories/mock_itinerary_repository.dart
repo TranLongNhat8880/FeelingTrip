@@ -100,6 +100,9 @@ class MockItineraryRepository implements ItineraryRepository {
     ItineraryItemDraft draft,
   ) async {
     await _delay();
+    if (item.isCompleted) {
+      throw Exception('Không thể chỉnh sửa điểm dừng đã hoàn thành.');
+    }
     final updated = ItineraryItem(
       id: item.id,
       itineraryId: item.itineraryId,
@@ -125,6 +128,9 @@ class MockItineraryRepository implements ItineraryRepository {
 
   @override
   Future<void> deleteItem(ItineraryItem item) async {
+    if (item.isCompleted) {
+      throw Exception('Không thể xóa điểm dừng đã hoàn thành.');
+    }
     final day = _findDay(item.itineraryId);
     _replaceDay(
       _copyDay(
@@ -153,19 +159,22 @@ class MockItineraryRepository implements ItineraryRepository {
     ItineraryDay day,
     List<String> orderedItemIds,
   ) async {
+    for (int i = 0; i < day.items.length; i++) {
+      final it = day.items[i];
+      if (it.isCompleted && (orderedItemIds.length <= i || orderedItemIds[i] != it.id)) {
+        throw Exception('Không thể thay đổi vị trí của điểm dừng đã hoàn thành.');
+      }
+    }
     final byId = {for (final item in day.items) item.id: item};
     final ordered = orderedItemIds.map((id) => byId[id]!).toList();
-    if (ordered.isNotEmpty) {
-      int cursor = _toMinutes(ordered.first.startTime);
+    if (ordered.isNotEmpty && ordered.length == day.items.length) {
       for (int i = 0; i < ordered.length; i++) {
-        final item = ordered[i];
-        final dur = _toMinutes(item.endTime) - _toMinutes(item.startTime);
-        if (dur > 0) {
-          final newStart = _toTimeString(cursor);
-          final newEnd = _toTimeString(cursor + dur);
-          ordered[i] = _copyItem(item, startTime: newStart, endTime: newEnd);
-          cursor += dur;
-        }
+        final slotTemplate = day.items[i];
+        ordered[i] = _copyItem(
+          ordered[i],
+          startTime: slotTemplate.startTime,
+          endTime: slotTemplate.endTime,
+        );
       }
     }
     final updated = _copyDay(
@@ -177,19 +186,7 @@ class MockItineraryRepository implements ItineraryRepository {
     return updated;
   }
 
-  static int _toMinutes(String time) {
-    final parts = time.split(':').map(int.parse).toList();
-    return parts[0] * 60 + parts[1];
-  }
-
-  static String _toTimeString(int minutes) {
-    final clamped = minutes.clamp(0, 23 * 60 + 59);
-    final h = (clamped ~/ 60).toString().padLeft(2, '0');
-    final m = (clamped % 60).toString().padLeft(2, '0');
-    return '$h:$m';
-  }
-
-  @override
+@override
   Future<List<SwapCandidate>> getSwapCandidates(
     String itemId, {
     double radiusKm = 3,
@@ -212,6 +209,9 @@ class MockItineraryRepository implements ItineraryRepository {
     ItineraryItem item,
     SwapCandidate candidate,
   ) async {
+    if (item.isCompleted) {
+      throw Exception('Không thể đổi điểm dừng đã hoàn thành.');
+    }
     final updated = ItineraryItem(
       id: item.id,
       itineraryId: item.itineraryId,

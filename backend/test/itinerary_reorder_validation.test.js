@@ -1,7 +1,7 @@
 const { test, describe, beforeEach, afterEach } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { recalculateSequentialTimes } = require('../src/features/itineraries/itineraries.service');
+const { recalculateSequentialTimes, assignSlotTimes } = require('../src/features/itineraries/itineraries.service');
 const { validateItineraryBeforeStart } = require('../src/features/trips/trips.service');
 const itineraryRepo = require('../src/features/itineraries/itineraries.repository');
 
@@ -76,6 +76,34 @@ describe('Itinerary Time Auto-Recalculation on Reorder (Approach A)', () => {
   });
 });
 
+
+describe('Itinerary Slot-based Time Swap on Reorder', () => {
+  test('returns empty array when lists are empty or lengths do not match', () => {
+    assert.deepEqual(assignSlotTimes([], []), []);
+    assert.deepEqual(assignSlotTimes([{ id: '1' }], []), []);
+  });
+
+  test('swaps times between two swapped items and preserves other items untouched', () => {
+    const current = [
+      { id: 'A', start_time: '08:00', end_time: '09:30' },
+      { id: 'B', start_time: '10:00', end_time: '11:30' },
+      { id: 'C', start_time: '13:00', end_time: '14:00' },
+    ];
+    const updates = assignSlotTimes(current, ['B', 'A', 'C']);
+    assert.equal(updates.length, 2);
+    assert.deepEqual(updates[0], { id: 'B', startTime: '08:00', endTime: '09:30' });
+    assert.deepEqual(updates[1], { id: 'A', startTime: '10:00', endTime: '11:30' });
+  });
+
+  test('does not return updates when items are in the same order', () => {
+    const current = [
+      { id: 'A', start_time: '08:00', end_time: '09:30' },
+      { id: 'B', start_time: '10:00', end_time: '11:30' },
+    ];
+    const updates = assignSlotTimes(current, ['A', 'B']);
+    assert.deepEqual(updates, []);
+  });
+});
 describe('Trip Itinerary Validation Gate Before Start (Approach C)', () => {
   let origFindDays;
   let origFindItemsForDays;

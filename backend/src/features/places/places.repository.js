@@ -312,10 +312,78 @@ const updatePlaceStatus = async ({
     return rows[0] || null;
 };
 
+/**
+ * Kiểm tra địa điểm trùng tên trong cùng một tỉnh/thành.
+ * So sánh không phân biệt hoa/thường và khoảng trắng thừa.
+ */
+const findPlaceByNameAndDestination = async (
+    name,
+    destination,
+    excludeId = null
+) => {
+    let query = `
+    SELECT ${PLACE_COLUMNS}
+    FROM places
+    WHERE LOWER(TRIM(name)) = LOWER(TRIM($1))
+      AND LOWER(TRIM(destination)) = LOWER(TRIM($2))
+  `;
+    const values = [name, destination];
+
+    if (excludeId) {
+        values.push(excludeId);
+        query += ` AND id != $${values.length}`;
+    }
+
+    query += ' LIMIT 1;';
+
+    const { rows } = await db.query(query, values);
+    return rows[0] || null;
+};
+
+/**
+ * Kiểm tra địa điểm trùng tọa độ (dung sai khoảng 1 mét: ~0.00001 độ).
+ */
+const findPlaceByCoordinates = async (
+    latitude,
+    longitude,
+    excludeId = null
+) => {
+    if (
+        latitude === null ||
+        latitude === undefined ||
+        longitude === null ||
+        longitude === undefined
+    ) {
+        return null;
+    }
+
+    let query = `
+    SELECT ${PLACE_COLUMNS}
+    FROM places
+    WHERE latitude IS NOT NULL
+      AND longitude IS NOT NULL
+      AND ABS(latitude - $1) < 0.00001
+      AND ABS(longitude - $2) < 0.00001
+  `;
+    const values = [Number(latitude), Number(longitude)];
+
+    if (excludeId) {
+        values.push(excludeId);
+        query += ` AND id != $${values.length}`;
+    }
+
+    query += ' LIMIT 1;';
+
+    const { rows } = await db.query(query, values);
+    return rows[0] || null;
+};
+
 module.exports = {
     findPlaces,
     findPlaceById,
     findActivePlacesByIds,
+    findPlaceByNameAndDestination,
+    findPlaceByCoordinates,
     createPlace,
     updatePlace,
     updatePlaceStatus,
