@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../shared/ui_kit.dart';
 import '../../review/views/blocked_users_screen.dart';
@@ -115,6 +116,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return '$day/$month/${local.year}';
   }
 
+  Future<void> _copyUserId(String userId) async {
+    final text = userId.trim();
+    if (text.isEmpty) return;
+
+    try {
+      await Clipboard.setData(ClipboardData(text: text));
+      if (!mounted) return;
+      AppFeedback.show(
+        context,
+        'Đã sao chép User ID.',
+        tone: AppStatusTone.success,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      AppFeedback.show(
+        context,
+        'Không thể sao chép User ID.',
+        tone: AppStatusTone.error,
+      );
+    }
+  }
+
   Widget _buildProfileHeader(ProfileModel profile) {
     final text = Theme.of(context).textTheme;
     return AppCard(
@@ -153,6 +176,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           style: text.bodySmall?.copyWith(fontSize: 13),
                         ),
                       ),
+                      if (profile.id.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        InkWell(
+                          onTap: () => _copyUserId(profile.id),
+                          borderRadius: BorderRadius.circular(4),
+                          child: Tooltip(
+                            message: 'Sao chép User ID (${profile.id})',
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    'ID: ${profile.id}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: text.bodySmall?.copyWith(
+                                      fontSize: 12,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant,
+                                      fontFamily: 'monospace',
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Icon(
+                                  Icons.copy_rounded,
+                                  size: 13,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 8),
                       Wrap(
                         spacing: 6,
@@ -300,6 +358,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: 10),
+          InfoRow(
+            label: 'User ID',
+            value: _displayValue(profile.id),
+            icon: Icons.fingerprint_rounded,
+            onTap: profile.id.trim().isNotEmpty
+                ? () => _copyUserId(profile.id)
+                : null,
+            trailing: profile.id.trim().isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.copy_rounded, size: 16),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    tooltip: 'Sao chép User ID',
+                    color: Theme.of(context).colorScheme.primary,
+                    onPressed: () => _copyUserId(profile.id),
+                  )
+                : null,
+          ),
           InfoRow(
             label: 'Họ và tên',
             value: _displayValue(profile.fullName),
