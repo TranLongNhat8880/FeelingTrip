@@ -6,6 +6,8 @@ import '../../../core/constants/app_sizes.dart';
 import '../../../core/utils/app_utils.dart';
 import '../../../shared/ui_kit.dart';
 import '../../admin/models/admin_content_model.dart';
+import '../../trip/models/trip_model.dart';
+import '../../trip/repositories/api_trip_repository.dart';
 import '../../admin/repositories/admin_content_repository.dart';
 import '../../admin/views/plan_library_screen.dart';
 import '../../review/repositories/trip_reviews_repository.dart';
@@ -881,6 +883,34 @@ class _PublicItineraryDetailScreenState
     );
     name.dispose();
     if (data == null || !mounted) return;
+
+    final durationDays = widget.summary.durationDays;
+    final endDate = data.startDate.add(Duration(days: durationDays - 1));
+    try {
+      final tripRepo = ApiTripRepository();
+      final myTripsPage = await tripRepo.getMyTrips();
+      final conflict = myTripsPage.items.cast<TripModel?>().firstWhere(
+        (t) {
+          if (t == null) return false;
+          if (t.membershipStatus != 'ACTIVE') return false;
+          if (t.status != 'UPCOMING' && t.status != 'ONGOING') return false;
+          final s = DateUtils.dateOnly(t.startDate);
+          final e = DateUtils.dateOnly(t.endDate);
+          return !s.isAfter(endDate) && !e.isBefore(data.startDate);
+        },
+        orElse: () => null,
+      );
+      if (conflict != null) {
+        if (!mounted) return;
+        AppFeedback.show(
+          context,
+          'Bạn đã có chuyến đi "${conflict.name}" từ ${AppUtils.formatDate(conflict.startDate)} đến ${AppUtils.formatDate(conflict.endDate)} trùng với khoảng thời gian này.',
+          tone: AppStatusTone.error,
+        );
+        return;
+      }
+    } catch (_) {}
+
     final cloned = await _viewModel.clone(
       sourceTripId: widget.summary.sourceTripId,
       startDate: data.startDate,
