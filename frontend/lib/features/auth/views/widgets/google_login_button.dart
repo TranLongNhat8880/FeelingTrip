@@ -170,34 +170,67 @@ class _GoogleLoginButtonState extends State<GoogleLoginButton> {
         ),
       );
     }
-    return OutlinedButton(
-      onPressed: disabled ? null : _nativeSignIn,
-      style: OutlinedButton.styleFrom(
-        minimumSize: const Size(double.infinity, 52),
-        backgroundColor: Colors.white,
-        side: const BorderSide(color: Color(0xFFDEE4EF)),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      ),
-      child: _busy
-          ? const SizedBox.square(
-              dimension: 22,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Image.asset(AppAssets.googleLogo, width: 22, height: 22),
-                const SizedBox(width: 12),
-                const Text(
-                  'Tiếp tục với Google',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF09143B),
-                  ),
-                ),
-              ],
+    return Opacity(
+      opacity: disabled ? 0.55 : 1.0,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFDEE4EF)),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x12000000),
+              blurRadius: 10,
+              offset: Offset(0, 3),
             ),
+            BoxShadow(
+              color: Color(0x0A1A73E8),
+              blurRadius: 4,
+              offset: Offset(0, 1),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: disabled ? null : _nativeSignIn,
+            splashColor: const Color(0x0D1A73E8),
+            highlightColor: const Color(0x061A73E8),
+            child: SizedBox(
+              height: 54,
+              width: double.infinity,
+              child: Center(
+                child: _busy
+                    ? const SizedBox.square(
+                        dimension: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Image.asset(
+                            AppAssets.googleLogo,
+                            width: 22,
+                            height: 22,
+                          ),
+                          const SizedBox(width: 12),
+                          const Text(
+                            'Tiếp tục với Google',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF09143B),
+                            ),
+                          ),
+                        ],
+                      ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
