@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../../../../core/constants/app_assets.dart';
+import '../../../../core/constants/app_sizes.dart';
 import '../../../../shared/feedback/app_feedback.dart';
 import '../../../../shared/widgets/app_status_badge.dart';
 import '../../viewmodels/auth_viewmodel.dart';
@@ -175,7 +176,7 @@ class _GoogleLoginButtonState extends State<GoogleLoginButton> {
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppSizes.primaryButtonRadius),
           border: Border.all(color: const Color(0xFFDEE4EF)),
           boxShadow: const [
             BoxShadow(
@@ -192,14 +193,14 @@ class _GoogleLoginButtonState extends State<GoogleLoginButton> {
         ),
         child: Material(
           color: Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppSizes.primaryButtonRadius),
           child: InkWell(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(AppSizes.primaryButtonRadius),
             onTap: disabled ? null : _nativeSignIn,
             splashColor: const Color(0x0D1A73E8),
             highlightColor: const Color(0x061A73E8),
             child: SizedBox(
-              height: 54,
+              height: AppSizes.primaryButtonHeight,
               width: double.infinity,
               child: Center(
                 child: _busy

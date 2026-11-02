@@ -96,7 +96,7 @@ class CustomButton extends StatelessWidget {
       ),
       _ => DecoratedBox(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(AppSizes.primaryButtonRadius),
           gradient: enabled || isLoading
               ? LinearGradient(
                   begin: Alignment.topLeft,
@@ -126,7 +126,10 @@ class CustomButton extends StatelessWidget {
         child: ElevatedButton(
           onPressed: callback,
           style: ElevatedButton.styleFrom(
-            minimumSize: const Size(AppSizes.touchTarget, 54),
+            minimumSize: const Size(
+              AppSizes.touchTarget,
+              AppSizes.primaryButtonHeight,
+            ),
             backgroundColor: Colors.transparent,
             disabledBackgroundColor: Colors.transparent,
             foregroundColor: foreground,
@@ -134,7 +137,7 @@ class CustomButton extends StatelessWidget {
             shadowColor: Colors.transparent,
             elevation: 0,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(AppSizes.primaryButtonRadius),
             ),
           ),
           child: content,
