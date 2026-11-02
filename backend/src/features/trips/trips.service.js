@@ -101,6 +101,25 @@ const durationDays = (startDate, endDate) => {
   return Math.round((end - start) / 86400000) + 1;
 };
 
+const formatShortDate = value => {
+  const d = asDateOnly(value);
+  if (!d) return value;
+  const parts = d.split('-');
+  return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : d;
+};
+
+const assertNoConflictingTrip = async (client, userId, startDate, endDate, excludeTripId = null) => {
+  const normalizedStart = asDateOnly(startDate);
+  const normalizedEnd = asDateOnly(endDate);
+  if (!normalizedStart || !normalizedEnd) return;
+  const conflict = await repo.findConflictingTrip(client, userId, normalizedStart, normalizedEnd, excludeTripId);
+  if (conflict) {
+    const s = formatShortDate(conflict.start_date);
+    const e = formatShortDate(conflict.end_date);
+    throw apiError(409, `Bạn đã có chuyến đi "${conflict.name}" từ ${s} đến ${e} trùng với khoảng thời gian này`);
+  }
+};
+
 const requireMember = async (client, tripId, userId, leaderOnly = false) => {
   const membership = await repo.getMembership(client, tripId, userId, true);
   if (!membership || membership.membership_status !== 'ACTIVE') {
@@ -123,6 +142,7 @@ const createTrip = (userId, data) => db.transaction(async client => {
   if (data.privacyType === 'PUBLIC' && !(await repo.isUserVerified(client, userId))) {
     throw apiError(403, 'Người tạo phải xác minh danh tính trước khi công khai chuyến đi');
   }
+  await assertNoConflictingTrip(client, userId, data.startDate, data.endDate);
   const normalized = {
     ...data,
     name: data.name || `Chuyến đi ${data.destination}`.slice(0, 255),
@@ -209,6 +229,9 @@ const updateTrip = (tripId, userId, data) => db.transaction(async client => {
   const endDate = data.endDate || trip.end_date;
   const duration = durationDays(startDate, endDate);
   if (!Number.isFinite(duration) || duration < 1) throw apiError(400, 'Khoảng ngày không hợp lệ');
+  if (data.startDate !== undefined || data.endDate !== undefined) {
+    await assertNoConflictingTrip(client, userId, startDate, endDate, tripId);
+  }
   if (await repo.hasItineraryOutsideRange(client, tripId, duration)) {
     throw apiError(409, 'Khoảng ngày mới loại bỏ ngày lịch trình đã tồn tại');
   }
@@ -412,6 +435,7 @@ const joinTrip = async (userId, inviteCode, expectedTripId = null) => {
     if (current && current.membership_status === 'REMOVED') {
       throw apiError(403, 'Bạn cần lời mời trực tiếp mới từ trưởng nhóm để tham gia lại');
     }
+    await assertNoConflictingTrip(client, userId, trip.start_date, trip.end_date);
     await repo.activateMembership(client, trip.id, userId);
     await repo.consumeInviteCode(client, trip.id);
     const joined = await repo.findTripForMember(trip.id, userId, client);
@@ -531,8 +555,14 @@ const sendInvitation = (tripId, userId, data) => db.transaction(async client => 
     if (error.code === '23505') throw apiError(409, 'Lời mời đang chờ đã tồn tại');
     throw error;
   }
-  await repo.notify(client, data.inviteeUserId, 'Lời mời tham gia chuyến đi', trip.name,
-    { tripId, invitationId: created.id });
+  await repo.notify(
+    client,
+    data.inviteeUserId,
+    'Lời mời tham gia chuyến đi',
+    `Bạn nhận được lời mời tham gia chuyến đi "${trip.name}"`,
+    { tripId, invitationId: created.id, tripName: trip.name },
+    'INVITE'
+  );
   return formatInvitation(await repo.findInvitation(client, created.id));
 });
 
@@ -576,6 +606,7 @@ const actOnInvitation = async (invitationId, userId, action) => {
       throw apiError(409, 'Chuyến đi không còn nhận thành viên');
     }
     if (membership && membership.membership_status === 'ACTIVE') throw apiError(409, 'Bạn đã là thành viên');
+    await assertNoConflictingTrip(client, userId, trip.start_date, trip.end_date);
     await repo.activateMembership(client, trip.id, userId);
     const accepted = await repo.setInvitationStatus(client, invitationId, 'ACCEPTED');
     await repo.notify(client, invitation.inviter_id, 'Lời mời đã được chấp nhận', trip.name,

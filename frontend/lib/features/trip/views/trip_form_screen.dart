@@ -491,6 +491,31 @@ class _TripFormScreenState extends State<TripFormScreen> {
       );
       return;
     }
+    try {
+      final myTripsPage = await _viewModel.repository.getMyTrips();
+      final conflict = myTripsPage.items.cast<TripModel?>().firstWhere(
+        (t) {
+          if (t == null) return false;
+          if (t.id == widget.trip?.id) return false;
+          if (t.membershipStatus != 'ACTIVE') return false;
+          if (t.status != 'UPCOMING' && t.status != 'ONGOING') return false;
+          final s = DateUtils.dateOnly(t.startDate);
+          final e = DateUtils.dateOnly(t.endDate);
+          return !s.isAfter(_endDate) && !e.isBefore(_startDate);
+        },
+        orElse: () => null,
+      );
+      if (conflict != null) {
+        if (!mounted) return;
+        AppFeedback.show(
+          context,
+          'Bạn đã có chuyến đi "${conflict.name}" từ ${AppUtils.formatDate(conflict.startDate)} đến ${AppUtils.formatDate(conflict.endDate)} trùng với khoảng thời gian này.',
+          tone: AppStatusTone.error,
+        );
+        return;
+      }
+    } catch (_) {}
+    if (!mounted) return;
     if (_isConvertingToPublic) {
       final minAge = int.tryParse(_minAgeController.text.trim());
       final maxAge = int.tryParse(_maxAgeController.text.trim());

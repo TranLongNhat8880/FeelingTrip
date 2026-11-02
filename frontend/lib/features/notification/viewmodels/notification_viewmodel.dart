@@ -10,6 +10,8 @@ class NotificationItem {
     required this.type,
     required this.createdAt,
     this.postId,
+    this.invitationId,
+    this.tripId,
     this.isRead = false,
   });
   final String id;
@@ -18,17 +20,24 @@ class NotificationItem {
   final String type;
   final DateTime createdAt;
   final String? postId;
+  final String? invitationId;
+  final String? tripId;
   bool isRead;
-  factory NotificationItem.fromJson(Map<String, dynamic> json) =>
-      NotificationItem(
-        id: json['id'].toString(),
-        title: json['title'] ?? '',
-        message: json['message'] ?? '',
-        type: json['type'] ?? 'SYSTEM',
-        createdAt: DateTime.parse(json['created_at']).toLocal(),
-        isRead: json['is_read'] == true,
-        postId: (json['data'] as Map?)?['postId'] as String?,
-      );
+
+  factory NotificationItem.fromJson(Map<String, dynamic> json) {
+    final data = json['data'] as Map?;
+    return NotificationItem(
+      id: json['id'].toString(),
+      title: json['title'] ?? '',
+      message: json['message'] ?? '',
+      type: json['type'] ?? 'SYSTEM',
+      createdAt: DateTime.parse(json['created_at']).toLocal(),
+      isRead: json['is_read'] == true,
+      postId: data?['postId'] as String?,
+      invitationId: data?['invitationId'] as String?,
+      tripId: data?['tripId'] as String?,
+    );
+  }
 }
 
 abstract class NotificationRepository {
