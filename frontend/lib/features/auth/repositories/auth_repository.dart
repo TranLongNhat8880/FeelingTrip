@@ -31,5 +31,9 @@ abstract class AuthRepository {
   Future<String> resendOtp(String email);
 
   /// Đăng nhập bằng Google (gửi idToken từ Google SDK)
-  Future<({UserModel user, String token})> googleLogin(String idToken);
+  Future<({UserModel user, String token})> googleLogin(
+    String idToken, {
+    bool termsAccepted = false,
+    String? termsVersion,
+  });
 }

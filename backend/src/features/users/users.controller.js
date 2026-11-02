@@ -2,6 +2,7 @@
 const { sendSuccess } = require('../../shared/utils/response.util');
 const HTTP_STATUS = require('../../shared/constants/httpStatus');
 const identityService = require('./identity.service');
+const manualIdentity = require('./manual-identity.service');
 
 // ============================================================================
 // CONTROLLER: User Profile & eKYC
@@ -107,10 +108,18 @@ const createEkycSession = async (req,res,next) => {
     catch(error) {next(error);}
 };
 
+const submitManualEkyc = async (req, res, next) => {
+    try {
+        const result = await manualIdentity.submit({ userId: req.user.id, cccdNumber: req.body.cccdNumber, files: req.files });
+        return sendSuccess(res, result, 'Đã gửi hồ sơ. Quản trị viên sẽ kiểm tra và thông báo kết quả.', HTTP_STATUS.OK);
+    } catch (error) { next(error); }
+};
+
 module.exports = {
     getProfile,
     updateProfile,
     submitEkyc,
+    submitManualEkyc,
     createEkycSession,
     getTrustScore,
 };

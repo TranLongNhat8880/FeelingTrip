@@ -73,7 +73,7 @@ class ApiProfileRepository implements ProfileRepository {
   }) async {
     await ApiClient.multipart(
       'POST',
-      '${ApiEndpoints.users}/ekyc-verify',
+      '${ApiEndpoints.users}/${sessionId != null || livenessVideoBytes != null ? 'ekyc-verify' : 'ekyc-submit'}',
       fields: {
         'cccdNumber': cccdNumber.trim(),
         'sessionId': ?sessionId,

@@ -48,6 +48,7 @@ const getPendingEkycList = async (req, res, next) => {
   try {
     const { page, limit } = req.query;
     const result = await adminService.getPendingEkycList({ page, limit });
+    res.set('Cache-Control', 'no-store');
     return sendSuccess(res, result, 'Lấy danh sách hồ sơ eKYC chờ duyệt thành công', HTTP_STATUS.OK);
   } catch (error) {
     console.log(error);

@@ -21,7 +21,7 @@ import 'package:feeling_trip/features/profile/viewmodels/ekyc_verification_viewm
 import 'package:feeling_trip/features/profile/models/profile_model.dart';
 import 'package:feeling_trip/features/profile/repositories/profile_repository.dart';
 import 'package:feeling_trip/features/profile/viewmodels/profile_viewmodel.dart';
-import 'package:feeling_trip/features/profile/views/ekyc_screen.dart';
+import 'package:feeling_trip/features/profile/views/automatic_ekyc_screen.dart';
 
 class _FakeProfileRepository extends Fake implements ProfileRepository {
   bool verified = false,
@@ -187,7 +187,7 @@ Future<ProfileViewModel> _guided(
 }) async {
   final profile = ProfileViewModel(repository: repository);
   final app = MaterialApp(
-    home: EkycScreen(
+    home: AutomaticEkycScreen(
       viewModel: profile,
       initialProfile: _dummyProfile,
       verificationViewModel: EkycVerificationViewModel(
@@ -382,6 +382,7 @@ void main() {
       expect(
         await profile.submitEkyc(
           cccdNumber: '001201012345',
+          sessionId: 'automatic-test-session',
           frontImageBytes: _image,
           frontImageFileName: 'front.png',
           backImageBytes: _image,
@@ -402,7 +403,10 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
-          home: EkycScreen(viewModel: viewModel, initialProfile: _dummyProfile),
+          home: AutomaticEkycScreen(
+            viewModel: viewModel,
+            initialProfile: _dummyProfile,
+          ),
         ),
       );
       await tester.pumpAndSettle();

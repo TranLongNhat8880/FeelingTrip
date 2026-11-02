@@ -9,15 +9,16 @@ const { sendError } = require('../utils/response.util');
  * @param {string} scope - Rate limit namespace (e.g. 'auth_login', 'auth_resend_otp')
  * @param {number} limit - Maximum allowed requests within the time window
  * @param {number} [windowSeconds=900] - Sliding time window in seconds (defaults to 15 mins)
+ * @param {Function} [identityForRequest] - Optional identity for authenticated per-user limits
  * @returns {import('express').RequestHandler}
  */
-const rateLimit = (scope, limit, windowSeconds = 900) => async (req, res, next) => {
+const rateLimit = (scope, limit, windowSeconds = 900, identityForRequest) => async (req, res, next) => {
   try {
-    // Generate deterministic hash key based on scope and client IP
+    // Preserve IP limits by default; authenticated upload routes can use user ID.
     const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
     const key = crypto
       .createHash('sha256')
-      .update(`${scope}:${clientIp}`)
+      .update(`${scope}:${identityForRequest?.(req) || clientIp}`)
       .digest('hex');
 
     const query = `

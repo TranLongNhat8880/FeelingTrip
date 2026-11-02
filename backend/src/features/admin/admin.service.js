@@ -1,6 +1,7 @@
 const adminRepository = require('./admin.repository');
 const notificationsService = require('../notifications/notifications.service');
 const apiError = require('../../shared/utils/apiError.util');
+const { adminDocumentUrl } = require('../users/manual-identity.service');
 
 // ============================================================================
 // SERVICE: Admin Portal
@@ -126,9 +127,9 @@ const getPendingEkycList = async ({ page = 1, limit = 20 }) => {
     avatarUrl: u.avatar_url,
     verificationStatus: u.verification_status,
     cccdNumber: u.cccd_number,
-    cccdFrontImage: u.cccd_front_image,
-    cccdBackImage: u.cccd_back_image,
-    selfieImage: u.selfie_image,
+    cccdFrontImage: adminDocumentUrl(u.cccd_front_image),
+    cccdBackImage: adminDocumentUrl(u.cccd_back_image),
+    selfieImage: adminDocumentUrl(u.selfie_image),
     submittedAt: u.ekyc_submitted_at,
   }));
 
@@ -156,6 +157,11 @@ const approveUserEkyc = async (userId) => {
 
   if (target.verification_status !== 'PENDING') {
     throw apiError(400, `Hồ sơ này không ở trạng thái chờ duyệt (hiện tại: ${target.verification_status})`);
+  }
+
+  if (target.status !== 'ACTIVE') throw apiError(409, 'Không thể duyệt hồ sơ của tài khoản đang bị khóa.');
+  if (![target.cccd_number, target.cccd_front_image, target.cccd_back_image, target.selfie_image].every(Boolean)) {
+    throw apiError(400, 'Hồ sơ thiếu ảnh hoặc số CCCD. Vui lòng từ chối kèm lý do để người dùng bổ sung.');
   }
 
   const updated = await adminRepository.approveUserEkyc(userId);

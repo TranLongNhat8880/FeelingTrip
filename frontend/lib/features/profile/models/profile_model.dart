@@ -74,8 +74,7 @@ class ProfileModel {
 
   bool get canSubmitEkyc {
     final status = verificationStatus.toUpperCase();
-    return !isEkycVerified &&
-        (status == 'UNVERIFIED' || status == 'REJECTED' || status == 'PENDING');
+    return !isEkycVerified && (status == 'UNVERIFIED' || status == 'REJECTED');
   }
 
   String get verificationLabel {

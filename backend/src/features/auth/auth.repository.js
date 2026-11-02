@@ -1,4 +1,5 @@
 const db = require('../../config/database');
+const apiError = require('../../shared/utils/apiError.util');
 
 // ============================================================================
 // REPOSITORY: Authentication
@@ -81,10 +82,67 @@ const updatePassword = async (userId, passwordHash) => {
   return rows[0];
 };
 
+const googleError = (status, message, code) => Object.assign(apiError(status, message), { code });
+
+const findOrCreateGoogleUser = async (identity, { termsAccepted, termsVersion }) => {
+  try {
+    return await db.transaction(async client => {
+      // Lock absent identities too, so simultaneous first sign-ins create one user.
+      const keys = [`google:${identity.googleId}`, `email:${identity.email}`].sort();
+      for (const key of keys) {
+        await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [key]);
+      }
+      const { rows } = await client.query(
+        'SELECT * FROM users WHERE google_id=$1 OR LOWER(email)=$2 FOR UPDATE',
+        [identity.googleId, identity.email],
+      );
+      let user = rows.find(row => row.google_id === identity.googleId) || rows[0];
+      if (user && user.status !== 'ACTIVE') {
+        throw googleError(403, 'Tài khoản đã bị khóa', 'ACCOUNT_BANNED');
+      }
+      if (user && user.google_id !== identity.googleId) {
+        if (user.google_id || !user.is_email_verified || !identity.authoritativeEmail) {
+          throw googleError(409,
+            'Email này đã có tài khoản. Vui lòng đăng nhập bằng mật khẩu và xác thực email trước; email ngoài Gmail/Google Workspace cần liên kết riêng.',
+            'GOOGLE_ACCOUNT_CONFLICT');
+        }
+      }
+      if (!user && !identity.authoritativeEmail) {
+        throw googleError(409,
+          'Email ngoài Gmail/Google Workspace cần đăng ký và xác thực email bằng OTP. Vui lòng dùng đăng ký bằng email.',
+          'GOOGLE_EMAIL_VERIFICATION_REQUIRED');
+      }
+      if (!user || !user.terms_accepted_at || !user.terms_version) {
+        if (termsAccepted !== true || termsVersion !== '1.0') {
+          throw googleError(409, 'Vui lòng đồng ý Điều khoản sử dụng để tiếp tục.', 'GOOGLE_TERMS_REQUIRED');
+        }
+      }
+      if (!user) {
+        const created = await client.query(`
+          INSERT INTO users(email,google_id,full_name,is_email_verified,terms_version,terms_accepted_at)
+          VALUES($1,$2,$3,true,$4,NOW()) RETURNING *`,
+        [identity.email, identity.googleId, identity.fullName, termsVersion]);
+        return created.rows[0];
+      }
+      const updated = await client.query(`UPDATE users SET google_id=$2,
+        terms_version=COALESCE(terms_version,$3),
+        terms_accepted_at=COALESCE(terms_accepted_at,NOW()), updated_at=NOW()
+        WHERE id=$1 RETURNING *`, [user.id, identity.googleId, termsVersion || '1.0']);
+      return updated.rows[0];
+    });
+  } catch (error) {
+    if (error.code === '23505') {
+      throw googleError(409, 'Thông tin tài khoản vừa thay đổi. Vui lòng thử đăng nhập lại.', 'GOOGLE_ACCOUNT_CONFLICT');
+    }
+    throw error;
+  }
+};
+
 module.exports = {
   findUserByEmail,
   findUserById,
   createUser,
   updateEmailVerified,
   updatePassword,
+  findOrCreateGoogleUser,
 };

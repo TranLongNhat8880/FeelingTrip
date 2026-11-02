@@ -1,5 +1,7 @@
 # Xác minh danh tính tự động cho đồ án FeelingTrip
 
+**Trạng thái hiện tại:** app mặc định dùng xét duyệt thủ công qua `POST /api/v1/users/ekyc-submit`. Không cần chạy worker Python cho luồng này. Mã worker và màn hình `automatic_ekyc_screen.dart` được giữ để nghiên cứu; API tạo phiên và tự xác minh chỉ hoạt động khi backend có `EKYC_AUTO_ENABLED=true`. Xem `../MANUAL_CCCD_REVIEW.md` về luồng đang sử dụng.
+
 Worker riêng chạy CPU; Node.js API gọi worker qua mạng riêng bằng `EKYC_WORKER_KEY`.
 Ảnh/video không gửi đến dịch vụ AI bên ngoài. Không commit `.env`, model, ảnh hoặc video.
 Worker build bằng Python + Railpack, không cần Dockerfile hay cài Docker trên máy.

@@ -11,6 +11,7 @@ const {
   resendOtpSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
+  googleLoginSchema,
 } = require('./auth.validation');
 
 // ============================================================================
@@ -26,6 +27,7 @@ router.post('/send-otp', validate(resendOtpSchema), authController.resendOtp); /
 
 // Đăng nhập
 router.post('/login', validate(loginSchema), authController.login);
+router.post('/google', validate(googleLoginSchema), authController.googleLogin);
 
 // Quên mật khẩu & Đặt lại mật khẩu
 router.post('/forgot-password', validate(forgotPasswordSchema), authController.forgotPassword);

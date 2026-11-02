@@ -142,11 +142,16 @@ class _AdminScreenState extends State<AdminScreen> {
         child: Icon(Icons.image_outlined, size: 48, color: AppColors.textHint),
       );
     }
-    return Image.network(
-      url,
-      fit: BoxFit.contain,
-      errorBuilder: (_, _, _) =>
-          const Center(child: Text('Không tải được ảnh')),
+    return InteractiveViewer(
+      minScale: 1,
+      maxScale: 4,
+      child: Image.network(
+        url,
+        fit: BoxFit.contain,
+        errorBuilder: (_, _, _) => const Center(
+          child: Text('Không tải được ảnh. Hãy tải lại danh sách hồ sơ.'),
+        ),
+      ),
     );
   }
 

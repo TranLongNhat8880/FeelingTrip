@@ -137,7 +137,8 @@ const getPendingEkycList = async ({ limit = 20, offset = 0 }) => {
  */
 const findUserById = async (userId) => {
   const query = `
-    SELECT id, full_name, email, role, status, is_verified, verification_status
+    SELECT id, full_name, email, role, status, is_verified, verification_status,
+           cccd_number, cccd_front_image, cccd_back_image, selfie_image
     FROM users
     WHERE id = $1
     LIMIT 1
@@ -161,7 +162,7 @@ const approveUserEkyc = async (userId) => {
       is_verified = TRUE,
       verification_rejection_reason = NULL,
       updated_at = NOW()
-    WHERE id = $1 AND verification_status = 'PENDING'
+    WHERE id = $1 AND verification_status = 'PENDING' AND status = 'ACTIVE'
     RETURNING id, full_name, email, is_verified, verification_status, updated_at
   `;
   const { rows } = await client.query(query, [userId]);

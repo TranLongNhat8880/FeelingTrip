@@ -6,10 +6,13 @@ const validate = require('../../shared/middlewares/validate.middleware');
 const upload = require('../../shared/middlewares/upload.middleware');
 const identityUpload = require('./identity.upload');
 const rateLimit = require('../../shared/middlewares/rateLimit.middleware');
+const manualIdentityUpload = require('./manual-identity.upload');
+const apiError = require('../../shared/utils/apiError.util');
 
 const {
     updateProfileSchema,
     ekycVerifySchema,
+    manualEkycSchema,
     userIdParamSchema,
 } = require('./users.validation');
 
@@ -65,11 +68,18 @@ router.put(
  * - selfieImage: file
  * - livenessVideo: video trực tiếp không âm thanh (tối đa 20 MB)
  */
-router.post('/ekyc/session', authenticate, rateLimit('ekyc_session',15), usersController.createEkycSession);
+router.post('/ekyc-submit', authenticate, rateLimit('ekyc_manual', 5, 900, req => req.user.id),
+    manualIdentityUpload, validate({ body: manualEkycSchema }), usersController.submitManualEkyc);
+
+// Automatic verification remains available for future research, off by default.
+const requireAutoEkyc = (req, res, next) => process.env.EKYC_AUTO_ENABLED === 'true'
+    ? next() : next(Object.assign(apiError(503, 'Xác minh tự động đang tạm dừng. Vui lòng gửi hồ sơ để quản trị viên xét duyệt.'), { expose: true }));
+router.post('/ekyc/session', authenticate, requireAutoEkyc, rateLimit('ekyc_session',15), usersController.createEkycSession);
 
 router.post(
     '/ekyc-verify',
     authenticate,
+    requireAutoEkyc,
     rateLimit('ekyc_verify',15),
     identityUpload,
     validate({ body: ekycVerifySchema }),

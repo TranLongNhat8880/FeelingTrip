@@ -118,8 +118,13 @@ const userIdParamSchema = Joi.object({
     }),
 });
 
+const manualEkycSchema = Joi.object({
+  cccdNumber: ekycVerifySchema.extract('cccdNumber'),
+});
+
 module.exports = {
   updateProfileSchema,
   ekycVerifySchema,
+  manualEkycSchema,
   userIdParamSchema,
 };

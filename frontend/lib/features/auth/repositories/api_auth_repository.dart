@@ -95,10 +95,18 @@ class ApiAuthRepository implements AuthRepository {
   }
 
   @override
-  Future<({UserModel user, String token})> googleLogin(String idToken) async {
+  Future<({UserModel user, String token})> googleLogin(
+    String idToken, {
+    bool termsAccepted = false,
+    String? termsVersion,
+  }) async {
     final response = await ApiClient.post(
       ApiEndpoints.googleLogin,
-      body: {'idToken': idToken},
+      body: {
+        'idToken': idToken,
+        if (termsAccepted) 'termsAccepted': true,
+        'termsVersion': ?termsVersion,
+      },
     );
 
     final data = response['data'];
