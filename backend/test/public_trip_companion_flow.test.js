@@ -109,6 +109,7 @@ describe('createTrip Fallback Validation & Transaction Rollback', () => {
   test('createTrip falls back to safe default content when description is < 10 chars', async (t) => {
     let capturedPost = null;
 
+    t.mock.method(tripsRepo, 'findConflictingTrip', async () => null);
     t.mock.method(tripsRepo, 'isUserVerified', async () => true);
     t.mock.method(tripsRepo, 'createTrip', async (client, uid, data) => ({
       id: 'trip-uuid-1',
@@ -347,6 +348,7 @@ describe('Privacy Visibility & Access Restrictions for Companion Posts', () => {
 
   test('createTrip generates an active single-use invite code for PRIVATE trips', async (t) => {
     let generatedTripId = null;
+    t.mock.method(tripsRepo, 'findConflictingTrip', async () => null);
     t.mock.method(tripsRepo, 'createTrip', async (client, uid, data) => ({
       id: 'private-trip-1',
       name: data.name,
