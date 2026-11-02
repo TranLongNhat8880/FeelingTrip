@@ -166,7 +166,7 @@ class _GoogleLoginButtonState extends State<GoogleLoginButton> {
         absorbing: disabled,
         child: Opacity(
           opacity: disabled ? .5 : 1,
-          child: Center(child: buildGoogleWebButton()),
+          child: buildGoogleWebButton(),
         ),
       );
     }
