@@ -32,6 +32,8 @@ class AppSizes {
   static const double buttonRadius = 16;
   static const double touchTarget = 48;
   static const double buttonHeight = 52;
+  static const double primaryButtonHeight = 54;
+  static const double primaryButtonRadius = 18;
   static const double screenPadding = 24;
   static const double cardPadding = 18;
   static const double formMaxWidth = 440;
