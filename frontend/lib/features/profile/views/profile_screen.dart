@@ -193,9 +193,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     overflow: TextOverflow.ellipsis,
                                     style: text.bodySmall?.copyWith(
                                       fontSize: 12,
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onSurfaceVariant,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
                                       fontFamily: 'monospace',
                                     ),
                                   ),
@@ -463,7 +463,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         const SizedBox(height: 14),
 
         _buildFeatureTile(
-          title: 'Xác minh danh tính eKYC',
+          title: 'Xác minh CCCD',
           subtitle: profile.verificationLabel,
           icon: Icons.verified_user_outlined,
           onTap: () => _openEkyc(profile),

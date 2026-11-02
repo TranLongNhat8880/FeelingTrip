@@ -144,6 +144,12 @@ const resetPasswordSchema = Joi.object({
   newPassword: passwordSchema,
 });
 
+const googleLoginSchema = Joi.object({
+  idToken: Joi.string().max(16000).required(),
+  termsAccepted: Joi.boolean().strict(),
+  termsVersion: Joi.string().valid('1.0'),
+});
+
 module.exports = {
   registerSchema,
   verifyOtpSchema,
@@ -151,4 +157,5 @@ module.exports = {
   resendOtpSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
+  googleLoginSchema,
 };

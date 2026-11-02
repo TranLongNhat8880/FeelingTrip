@@ -134,6 +134,7 @@ const submitEkyc = async ({
       updated_at = CURRENT_TIMESTAMP
     WHERE id = $1
       AND verification_status IN ('UNVERIFIED', 'REJECTED')
+      AND status = 'ACTIVE' AND is_email_verified = TRUE
     RETURNING
       id,
       verification_status,

@@ -231,6 +231,51 @@ class AuthViewModel extends ChangeNotifier {
     return (success: false, message: _errorMessage);
   }
 
+  Future<bool> googleLogin(
+    String idToken, {
+    required Future<bool> Function() acceptTerms,
+    required String termsVersion,
+  }) async {
+    if (_isLoading || _disposed) return false;
+    _isLoading = true;
+    _errorMessage = null;
+    _pendingVerificationEmail = null;
+    _blockedEmail = null;
+    _sessionInvalidated = false;
+    notifyListeners();
+    try {
+      ({UserModel user, String token}) result;
+      try {
+        result = await _repo.googleLogin(idToken);
+      } on ApiException catch (e) {
+        if (e.code != 'GOOGLE_TERMS_REQUIRED') rethrow;
+        if (!await acceptTerms() || _disposed) return false;
+        result = await _repo.googleLogin(
+          idToken,
+          termsAccepted: true,
+          termsVersion: termsVersion,
+        );
+      }
+      if (_disposed) return false;
+      await StorageHelper.saveSession(result.token, result.user);
+      if (_disposed) return false;
+      _user = result.user;
+      return true;
+    } on ApiException catch (e) {
+      _errorMessage = e.message;
+      return false;
+    } on TimeoutException {
+      _errorMessage = 'Kết nối quá lâu. Vui lòng thử đăng nhập lại.';
+      return false;
+    } catch (_) {
+      _errorMessage = 'Chưa đăng nhập được bằng Google. Vui lòng thử lại.';
+      return false;
+    } finally {
+      _isLoading = false;
+      if (!_disposed) notifyListeners();
+    }
+  }
+
   Future<void> logout() async {
     if (_isLoading) return;
     _isLoading = true;

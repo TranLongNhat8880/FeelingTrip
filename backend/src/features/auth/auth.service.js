@@ -5,6 +5,7 @@ const { hashPassword, comparePassword } = require('../../shared/utils/hash.util'
 const { generateToken } = require('../../shared/utils/token.util');
 const emailService = require('../../shared/services/email.service');
 const apiError = require('../../shared/utils/apiError.util');
+const { verifyGoogleToken } = require('./google-token.service');
 
 const publicUser = (u) => ({
   id: u.id, email: u.email, fullName: u.full_name, nickname: u.nickname,
@@ -87,4 +88,10 @@ const resetPassword = async ({ email, otp, newPassword }) => {
   if (result.error) throw apiError(400, result.error);
   return { message: 'Đã đặt lại mật khẩu. Vui lòng đăng nhập lại.' };
 };
-module.exports = { register, verifyOtp, resendOtp, login, forgotPassword, resetPassword };
+const googleLogin = async ({ idToken, termsAccepted, termsVersion }) => {
+  const identity = await verifyGoogleToken(idToken);
+  const user = await authRepository.findOrCreateGoogleUser(identity, { termsAccepted, termsVersion });
+  return { ...session(user), message: 'Đăng nhập Google thành công' };
+};
+
+module.exports = { register, verifyOtp, resendOtp, login, forgotPassword, resetPassword, googleLogin };

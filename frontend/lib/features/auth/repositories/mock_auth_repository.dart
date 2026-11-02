@@ -133,7 +133,11 @@ class MockAuthRepository implements AuthRepository {
   }
 
   @override
-  Future<({UserModel user, String token})> googleLogin(String idToken) async {
+  Future<({UserModel user, String token})> googleLogin(
+    String idToken, {
+    bool termsAccepted = false,
+    String? termsVersion,
+  }) async {
     await Future.delayed(const Duration(seconds: 1));
 
     return (

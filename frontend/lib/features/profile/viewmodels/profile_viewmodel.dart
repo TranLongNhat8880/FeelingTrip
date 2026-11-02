@@ -152,6 +152,11 @@ class ProfileViewModel extends ChangeNotifier {
     _errorMessage = null;
     _notify();
 
+    final automatic = sessionId != null || livenessVideoBytes != null;
+    bool accepted(ProfileModel? profile) =>
+        profile?.isEkycVerified == true ||
+        (!automatic && profile?.isEkycPending == true);
+
     try {
       await _repository
           .submitEkyc(
@@ -175,9 +180,10 @@ class ProfileViewModel extends ChangeNotifier {
       );
 
       if (_disposed) return false;
-      if (_profile?.isEkycVerified != true) {
-        _errorMessage =
-            'Máy chủ chưa xác nhận danh tính thành công. Vui lòng tải lại hồ sơ và kiểm tra phiên bản backend hỗ trợ xác minh tự động.';
+      if (!accepted(_profile)) {
+        _errorMessage = automatic
+            ? 'Máy chủ chưa xác nhận danh tính thành công. Vui lòng tải lại hồ sơ và kiểm tra phiên bản backend hỗ trợ xác minh tự động.'
+            : 'Máy chủ chưa xác nhận đã nhận hồ sơ. Vui lòng tải lại trạng thái trước khi gửi lại.';
         return false;
       }
       return true;
@@ -188,7 +194,7 @@ class ProfileViewModel extends ChangeNotifier {
           final current = await _repository.getProfile().timeout(
             const Duration(seconds: 15),
           );
-          if (current.isEkycVerified) {
+          if (accepted(current)) {
             _profile = current;
             return true;
           }
@@ -196,7 +202,9 @@ class ProfileViewModel extends ChangeNotifier {
       }
       _errorMessage = _messageFor(
         error,
-        'Không thể xác minh. Vui lòng quét lại khuôn mặt và thử lại.',
+        automatic
+            ? 'Không thể xác minh. Vui lòng quét lại khuôn mặt và thử lại.'
+            : 'Chưa gửi được hồ sơ. Vui lòng thử lại sau.',
       );
       return false;
     } finally {

@@ -116,6 +116,18 @@ const resetPassword = async (req, res, next) => {
   }
 };
 
+const googleLogin = async (req, res, next) => {
+  try {
+    const result = await authService.googleLogin(req.body);
+    return sendSuccess(res, { token: result.token, user: result.user }, result.message);
+  } catch (error) {
+    if (error.status) {
+      return res.status(error.status).json({ success: false, message: error.message, code: error.code });
+    }
+    next(error);
+  }
+};
+
 module.exports = {
   register,
   verifyOtp,
@@ -123,4 +135,5 @@ module.exports = {
   login,
   forgotPassword,
   resetPassword,
+  googleLogin,
 };

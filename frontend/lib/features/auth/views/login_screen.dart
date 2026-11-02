@@ -1,4 +1,3 @@
-import '../../../core/constants/app_assets.dart';
 import '../../../shared/layout/travel_decoration.dart';
 import '../../../shared/feedback/app_feedback.dart';
 import '../../../shared/widgets/app_status_badge.dart';
@@ -8,6 +7,7 @@ import '../../../shared/inputs/app_checkbox.dart';
 import '../../../shared/buttons/custom_button.dart';
 import '../models/password_policy.dart';
 import 'widgets/password_feedback.dart';
+import 'widgets/google_login_button.dart';
 import 'verify_email_screen.dart';
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
@@ -26,6 +26,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _password = TextEditingController();
   final _form = GlobalKey<FormState>();
   bool _rememberMe = false;
+  bool _googleBusy = false;
 
   @override
   void dispose() {
@@ -35,6 +36,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _login() async {
+    if (_googleBusy || AuthScope.of(context).isLoading) return;
     if (!_form.currentState!.validate()) return;
     FocusScope.of(context).unfocus();
     final auth = AuthScope.of(context);
@@ -78,7 +80,7 @@ class _LoginScreenState extends State<LoginScreen> {
             style: TextStyle(color: Color(0xFF5D6889), fontSize: 14),
           ),
           GestureDetector(
-            onTap: auth.isLoading
+            onTap: (auth.isLoading || _googleBusy)
                 ? null
                 : () {
                     auth.clearError();
@@ -104,7 +106,7 @@ class _LoginScreenState extends State<LoginScreen> {
               controller: _email,
               keyboardType: TextInputType.emailAddress,
               textInputAction: TextInputAction.next,
-              enabled: !auth.isLoading,
+              enabled: !(auth.isLoading || _googleBusy),
               label: 'Email',
               prefixIcon: Icons.mail_outline_rounded,
               hint: 'Nhập email của bạn',
@@ -124,9 +126,9 @@ class _LoginScreenState extends State<LoginScreen> {
               controller: _password,
               isPassword: true,
               textInputAction: TextInputAction.done,
-              enabled: !auth.isLoading,
+              enabled: !(auth.isLoading || _googleBusy),
               onFieldSubmitted: (_) {
-                if (!auth.isLoading) _login();
+                if (!(auth.isLoading || _googleBusy)) _login();
               },
               label: 'Mật khẩu',
               prefixIcon: Icons.lock_outline_rounded,
@@ -142,7 +144,7 @@ class _LoginScreenState extends State<LoginScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 InkWell(
-                  onTap: auth.isLoading
+                  onTap: (auth.isLoading || _googleBusy)
                       ? null
                       : () => setState(() => _rememberMe = !_rememberMe),
                   borderRadius: BorderRadius.circular(6),
@@ -151,7 +153,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     children: [
                       AppCheckbox(
                         value: _rememberMe,
-                        onChanged: auth.isLoading
+                        onChanged: (auth.isLoading || _googleBusy)
                             ? null
                             : (val) => setState(() => _rememberMe = val),
                       ),
@@ -168,7 +170,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 TextButton(
-                  onPressed: auth.isLoading ? null : _showForgotPasswordSheet,
+                  onPressed: (auth.isLoading || _googleBusy)
+                      ? null
+                      : _showForgotPasswordSheet,
                   style: TextButton.styleFrom(
                     padding: EdgeInsets.zero,
                     minimumSize: Size.zero,
@@ -200,7 +204,7 @@ class _LoginScreenState extends State<LoginScreen> {
             CustomButton(
               text: 'Đăng nhập',
               onPressed: _login,
-              isLoading: auth.isLoading,
+              isLoading: (auth.isLoading || _googleBusy),
             ),
             const SizedBox(height: 22),
 
@@ -228,59 +232,14 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             const SizedBox(height: 18),
 
-            // Google Login Button
-            Semantics(
-              button: true,
-              label: 'Đăng nhập bằng Google',
-              child: _socialCard(
-                onTap: auth.isLoading
-                    ? null
-                    : () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Đăng nhập Google chưa được kết nối. Vui lòng dùng email và mật khẩu.',
-                            ),
-                          ),
-                        );
-                      },
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Image.asset(AppAssets.googleLogo, width: 22, height: 22),
-                    const SizedBox(width: 12),
-                    const Text(
-                      'Tiếp tục với Google',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF09143B),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            GoogleLoginButton(
+              onBusyChanged: (busy) {
+                if (mounted) setState(() => _googleBusy = busy);
+              },
             ),
             const SizedBox(height: 24),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _socialCard({required Widget child, VoidCallback? onTap}) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        width: double.infinity,
-        height: 52,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFDEE4EF)),
-        ),
-        child: Center(child: child),
       ),
     );
   }

@@ -167,7 +167,7 @@ const koharuGuides = [
     KoharuStep(
       'profile.ekyc',
       'Xác minh CCCD (eKYC)',
-      'Cậu chỉ cần quét mã QR trên CCCD để nhận Tích Xanh uy tín nè. Koharu đợi ở đây để cậu an tâm thao tác thông tin cá nhân nha!',
+      'Cậu nhập hoặc quét số CCCD, thêm ảnh hai mặt thẻ và chân dung rồi gửi hồ sơ nha. Quản trị viên sẽ kiểm tra và thông báo kết quả; chờ duyệt thì mình chưa có tích xanh đâu nhé!',
     ),
   ]),
 ];
