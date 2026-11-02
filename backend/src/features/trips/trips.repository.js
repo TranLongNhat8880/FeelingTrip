@@ -421,7 +421,28 @@ const notifyActiveMembers = async (client, tripId, actorId, title, message, data
     [tripId, actorId, title, message, JSON.stringify(data)]);
 };
 
+/**
+ * @description Tìm chuyến đi đang hoạt động của user bị trùng khoảng thời gian với [startDate, endDate].
+ */
+const findConflictingTrip = async (client, userId, startDate, endDate, excludeTripId = null) => {
+  const queryRunner = client || db;
+  const { rows: [conflict] } = await queryRunner.query(`
+    SELECT t.id, t.name, t.start_date, t.end_date
+    FROM trips t
+    JOIN trip_members tm ON tm.trip_id = t.id
+    WHERE tm.user_id = $1
+      AND tm.membership_status = 'ACTIVE'
+      AND t.status IN ('UPCOMING', 'ONGOING')
+      AND t.start_date <= $3
+      AND t.end_date >= $2
+      AND ($4::uuid IS NULL OR t.id <> $4)
+    LIMIT 1`,
+    [userId, startDate, endDate, excludeTripId]);
+  return conflict || null;
+};
+
 module.exports = {
+  findConflictingTrip,
   generateInviteCode, lockTrip, getMembership, createTrip, findMyTrips,
   findTripForMember, findSafeMembers, countMembersByStatus, findMemberProjection, updateTrip,
   hasItineraryOutsideRange, refreshItineraryDates, setTripStatus, cancelTrip,
