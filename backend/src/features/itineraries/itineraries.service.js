@@ -3,6 +3,7 @@ const db = require('../../config/database');
 const env = require('../../config/env');
 const apiError = require('../../shared/utils/apiError.util');
 const repo = require('./itineraries.repository');
+const tripsRepo = require('../trips/trips.repository');
 
 const asIso = value => value instanceof Date ? value.toISOString() : value;
 
@@ -596,10 +597,24 @@ const clonePlan = (sourceTripId, userId, data) => db.transaction(async client =>
   if (!sourceDays.length) throw apiError(422, 'Lịch trình nguồn không có ngày để sao chép');
 
   const durationDays = Number(source.duration_days);
+  const targetEndDate = datePlus(data.startDate, durationDays - 1);
+  const conflict = await tripsRepo.findConflictingTrip(client, userId, data.startDate, targetEndDate);
+  if (conflict) {
+    const formatShortDate = val => {
+      const match = String(val).match(/^\d{4}-\d{2}-\d{2}/);
+      const s = match ? match[0] : String(val);
+      const parts = s.split('-');
+      return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : s;
+    };
+    const s = formatShortDate(conflict.start_date);
+    const e = formatShortDate(conflict.end_date);
+    throw apiError(409, `Bạn đã có chuyến đi "${conflict.name}" từ ${s} đến ${e} trùng với khoảng thời gian này`);
+  }
+
   const target = await repo.createClonedTrip(client, userId, source, {
     name: (data.name || source.name).slice(0, 255),
     startDate: data.startDate,
-    endDate: datePlus(data.startDate, durationDays - 1),
+    endDate: targetEndDate,
   });
   for (const sourceDay of sourceDays) {
     const targetDay = await repo.insertClonedDay(client, target.id, sourceDay,

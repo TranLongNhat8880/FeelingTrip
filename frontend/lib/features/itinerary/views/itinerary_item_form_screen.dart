@@ -1067,56 +1067,9 @@ class _ItineraryItemFormScreenState extends State<ItineraryItemFormScreen> {
       );
     }
 
-    if (_selectedGeoapifyPlace != null) {
-      final place = _selectedGeoapifyPlace!;
-      return Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: AppColors.primarySurface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.primaryBorder),
-        ),
-        child: Row(
-          children: [
-            const Icon(
-              Icons.check_circle_rounded,
-              size: 18,
-              color: AppColors.success,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                'Đã chọn gợi ý Geoapify: ${place.name}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-            ),
-            TextButton(
-              onPressed: () {
-                setState(() {
-                  _selectedGeoapifyPlace = null;
-                  _locationSource = 'MANUAL';
-                  _latitude = null;
-                  _longitude = null;
-                  _externalProvider = null;
-                  _externalPlaceId = null;
-                  _distanceFromPrevious = null;
-                  _suggestedArrivalMessage = null;
-                });
-              },
-              child: const Text('Nhập tay'),
-            ),
-          ],
-        ),
-      );
+    if (_selectedGeoapifyPlace != null || _geoapifyResults.isEmpty) {
+      return const SizedBox.shrink();
     }
-
-    if (_geoapifyResults.isEmpty) return const SizedBox.shrink();
 
     return Container(
       constraints: const BoxConstraints(maxHeight: 260),
