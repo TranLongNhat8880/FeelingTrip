@@ -1,14 +1,69 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../../core/constants/api_endpoints.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../shared/ui_kit.dart';
 import '../../companion/views/companion_detail_screen.dart';
 import '../../companion/views/companion_requests_screen.dart';
+import '../../trip/repositories/api_trip_repository.dart';
+import '../../trip/repositories/mock_trip_repository.dart';
+import '../../trip/repositories/trip_repository.dart';
 import '../viewmodels/notification_viewmodel.dart';
 
 class NotificationScreen extends StatelessWidget {
-  const NotificationScreen({super.key, required this.viewModel});
+  const NotificationScreen({
+    super.key,
+    required this.viewModel,
+    this.tripRepository,
+  });
   final NotificationViewModel viewModel;
+  final TripRepository? tripRepository;
+
+  TripRepository get _tripRepo =>
+      tripRepository ??
+      (ApiEndpoints.useMockData
+          ? MockTripRepository()
+          : ApiTripRepository());
+
+  Future<void> _respondInvitation(
+    BuildContext context,
+    NotificationItem item,
+    bool accept,
+  ) async {
+    final invitationId = item.invitationId;
+    if (invitationId == null) return;
+    try {
+      if (accept) {
+        await _tripRepo.acceptInvitation(invitationId);
+        if (context.mounted) {
+          AppFeedback.show(
+            context,
+            'Đã tham gia chuyến đi!',
+            tone: AppStatusTone.success,
+          );
+        }
+      } else {
+        await _tripRepo.rejectInvitation(invitationId);
+        if (context.mounted) {
+          AppFeedback.show(
+            context,
+            'Đã từ chối lời mời',
+            tone: AppStatusTone.info,
+          );
+        }
+      }
+      await viewModel.markRead(item);
+      await viewModel.load();
+    } catch (e) {
+      if (context.mounted) {
+        AppFeedback.show(
+          context,
+          e.toString().replaceFirst(RegExp(r'^Exception:\s*'), ''),
+          tone: AppStatusTone.error,
+        );
+      }
+    }
+  }
 
   IconData _icon(String type) => switch (type.toUpperCase()) {
     'INVITE' => Icons.mail_outline_rounded,
@@ -42,7 +97,133 @@ class NotificationScreen extends StatelessWidget {
       return;
     }
     if (!context.mounted) return;
-    if (item.type == 'REQUEST' && item.title == 'Yêu cầu tham gia mới') {
+    if (item.invitationId != null) {
+      await showModalBottomSheet<void>(
+        context: context,
+        backgroundColor: Colors.white,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (ctx) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppColors.border,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.card_travel_rounded,
+                        color: AppColors.primary,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            item.title,
+                            style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            DateFormat('HH:mm - dd/MM/yyyy').format(item.createdAt),
+                            style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                                  color: AppColors.textHint,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  item.message,
+                  style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
+                        color: AppColors.textPrimary,
+                        height: 1.4,
+                      ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _respondInvitation(context, item, false);
+                        },
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.error,
+                          side: const BorderSide(color: AppColors.error),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          'Từ chối',
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _respondInvitation(context, item, true);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          'Chấp nhận',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      return;
+    } else if (item.type == 'REQUEST' && item.title == 'Yêu cầu tham gia mới') {
       await Navigator.push<void>(
         context,
         MaterialPageRoute(
@@ -416,6 +597,54 @@ class NotificationScreen extends StatelessWidget {
                                                                 .textHint,
                                                           ),
                                                     ),
+                                                    if (item.invitationId != null) ...[
+                                                      const SizedBox(height: 10),
+                                                      Row(
+                                                        children: [
+                                                          Expanded(
+                                                            child: SizedBox(
+                                                              height: 34,
+                                                              child: OutlinedButton(
+                                                                onPressed: () => _respondInvitation(context, item, false),
+                                                                style: OutlinedButton.styleFrom(
+                                                                  foregroundColor: AppColors.error,
+                                                                  side: const BorderSide(color: AppColors.error, width: 1),
+                                                                  padding: EdgeInsets.zero,
+                                                                  shape: RoundedRectangleBorder(
+                                                                    borderRadius: BorderRadius.circular(8),
+                                                                  ),
+                                                                ),
+                                                                child: const Text(
+                                                                  'Từ chối',
+                                                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          ),
+                                                          const SizedBox(width: 8),
+                                                          Expanded(
+                                                            child: SizedBox(
+                                                              height: 34,
+                                                              child: ElevatedButton(
+                                                                onPressed: () => _respondInvitation(context, item, true),
+                                                                style: ElevatedButton.styleFrom(
+                                                                  backgroundColor: AppColors.primary,
+                                                                  elevation: 0,
+                                                                  padding: EdgeInsets.zero,
+                                                                  shape: RoundedRectangleBorder(
+                                                                    borderRadius: BorderRadius.circular(8),
+                                                                  ),
+                                                                ),
+                                                                child: const Text(
+                                                                  'Chấp nhận',
+                                                                  style: TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w700),
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ],
                                                   ],
                                                 ),
                                               ),

@@ -403,11 +403,11 @@ const setInvitationStatus = async (client, invitationId, status) => {
 /**
  * @description Tạo thông báo mới cho một user.
  */
-const notify = async (client, userId, title, message, data) => {
+const notify = async (client, userId, title, message, data, type = 'TRIP_UPDATE') => {
   await client.query(`
     INSERT INTO notifications (user_id,title,message,type,data)
-    VALUES ($1,$2,$3,'TRIP_UPDATE',$4::jsonb)`,
-    [userId, title, message, JSON.stringify(data)]);
+    VALUES ($1,$2,$3,$4,$5::jsonb)`,
+    [userId, title, message, type, JSON.stringify(data)]);
 };
 
 /**

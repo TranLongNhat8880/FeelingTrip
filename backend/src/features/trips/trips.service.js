@@ -555,8 +555,14 @@ const sendInvitation = (tripId, userId, data) => db.transaction(async client => 
     if (error.code === '23505') throw apiError(409, 'Lời mời đang chờ đã tồn tại');
     throw error;
   }
-  await repo.notify(client, data.inviteeUserId, 'Lời mời tham gia chuyến đi', trip.name,
-    { tripId, invitationId: created.id });
+  await repo.notify(
+    client,
+    data.inviteeUserId,
+    'Lời mời tham gia chuyến đi',
+    `Bạn nhận được lời mời tham gia chuyến đi "${trip.name}"`,
+    { tripId, invitationId: created.id, tripName: trip.name },
+    'INVITE'
+  );
   return formatInvitation(await repo.findInvitation(client, created.id));
 });
 
