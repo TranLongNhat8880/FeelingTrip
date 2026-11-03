@@ -57,7 +57,11 @@ function adminDocumentUrl(value) {
     const cloud = cloudinary.config().cloud_name;
     const prefix = `/${cloud}/image/authenticated/`;
     if (url.hostname !== 'res.cloudinary.com' || !url.pathname.startsWith(prefix)) return value;
-    const path = url.pathname.slice(prefix.length).replace(/^v\d+\//, '');
+    // Authenticated uploads can return a signed delivery URL. Its signature
+    // precedes the version and is not part of the asset's public_id.
+    const path = url.pathname.slice(prefix.length)
+      .replace(/^s--[A-Za-z0-9_-]+--\//, '')
+      .replace(/^v\d+\//, '');
     const match = path.match(/^(.+)\.(jpg|jpeg|png|webp)$/i);
     if (!match || !match[1].startsWith('feelingtrip/identity/')) return null;
     return cloudinary.utils.private_download_url(decodeURIComponent(match[1]), match[2], {

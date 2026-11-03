@@ -54,7 +54,10 @@ function uploads(t, failAt = -1) {
     return new Writable({ write(chunk, encoding, done) { done(); }, final(done) {
       if (stored.length === failAt) { callback(new Error('Upload failure')); done(); return; }
       const public_id = `feelingtrip/identity/${randomUUID()}`;
-      const asset = { public_id, secure_url: `https://res.cloudinary.com/manual-test/image/authenticated/v1/${public_id}.jpg` };
+      const asset = { public_id, secure_url: cloudinary.url(public_id, {
+        type: 'authenticated', resource_type: 'image', format: 'jpg',
+        version: 1, secure: true, sign_url: true,
+      }) };
       stored.push(asset); callback(null, asset); done();
     } });
   });
@@ -103,6 +106,8 @@ test('only admin sees expiring document links and reject/resubmit/approve comple
     const url = new URL(record[field]);
     assert.equal(url.hostname, 'api.cloudinary.com');
     assert.equal(url.searchParams.get('type'), 'authenticated');
+    assert.match(url.searchParams.get('public_id'), /^feelingtrip\/identity\//);
+    assert.ok(!url.searchParams.get('public_id').includes('s--'));
     assert.ok(Number(url.searchParams.get('expires_at')) <= Date.now() / 1000 + 601);
   }
   assert.equal((await review(admin, account.id, false, 'Ảnh mặt sau bị mờ')).status, 200);
@@ -115,6 +120,31 @@ test('only admin sees expiring document links and reject/resubmit/approve comple
   assert.equal(profile.data.verificationStatus, 'VERIFIED');
   assert.equal(profile.data.isVerified, true);
   assert.equal((await submit(account)).status, 409);
+});
+
+test('admin document links resolve signed and unsigned authenticated assets without treating signature as public id', () => {
+  const publicId = 'feelingtrip/identity/synthetic-test-document';
+  for (const sign_url of [false, true]) {
+    for (const version of [undefined, 1]) {
+      const storedUrl = cloudinary.url(publicId, {
+        type: 'authenticated', resource_type: 'image', format: 'jpg',
+        secure: true, sign_url, ...(version ? { version } : {}),
+      });
+      if (sign_url) assert.match(storedUrl, /\/s--[A-Za-z0-9_-]+--\//);
+      const download = new URL(manual.adminDocumentUrl(storedUrl));
+      assert.equal(download.protocol, 'https:');
+      assert.equal(download.hostname, 'api.cloudinary.com');
+      assert.equal(download.searchParams.get('public_id'), publicId);
+      assert.equal(download.searchParams.get('format'), 'jpg');
+      assert.equal(download.searchParams.get('type'), 'authenticated');
+      assert.ok(download.searchParams.get('signature'));
+      assert.ok(!download.toString().includes('test-secret'));
+      const expires = Number(download.searchParams.get('expires_at'));
+      assert.ok(expires >= Date.now() / 1000 + 590 && expires <= Date.now() / 1000 + 601);
+    }
+  }
+  assert.equal(manual.adminDocumentUrl(null), null);
+  assert.equal(manual.adminDocumentUrl('https://res.cloudinary.com/manual-test/image/authenticated/s--abcd1234--/v1/other-folder/image.jpg'), null);
 });
 
 test('manual endpoint rejects anonymous, missing images, invalid number and disguised images', async t => {
